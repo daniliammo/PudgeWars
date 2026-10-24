@@ -13,10 +13,16 @@ namespace PudgeWars.Gameplay
         public static IReadOnlyList<Hookable> All => all;
 
         public Team team;
+        [Tooltip("Name shown over the head and in announcements; the object name if empty.")]
+        public string nickname;
+        [Tooltip("Dota 2 Pudge at level 1: about 670.")]
+        public float maxHealth = 670f;
         [Tooltip("Collision radius for hook hits, metres (capsule radius 61 cm in the original).")]
         public float radius = 0.6f;
         public float gravity = 20f;
 
+        public string Nickname => string.IsNullOrEmpty(nickname) ? name : nickname;
+        public float Health { get; private set; }
         public bool IsAlive { get; private set; } = true;
         public bool IsHooked => hookedBy != null;
         public bool IsFalling { get; private set; }
@@ -46,6 +52,7 @@ namespace PudgeWars.Gameplay
             renderers = System.Array.FindAll(GetComponentsInChildren<Renderer>(true),
                 r => (ownHook == null || !ownHook.Owns(r.transform)) && (aim == null || !r.transform.IsChildOf(aim.transform)));
             lastPosition = transform.position;
+            Health = maxHealth;
         }
 
         void OnEnable() => all.Add(this);
@@ -114,6 +121,7 @@ namespace PudgeWars.Gameplay
         {
             IsFalling = false;
             IsAlive = false;
+            Health = 0f;
             velocity = Vector3.zero;
             SetVisible(false);
             Died?.Invoke(this);
@@ -126,6 +134,7 @@ namespace PudgeWars.Gameplay
             lastPosition = position;
             LastHookedBy = null;
             IsAlive = true;
+            Health = maxHealth;
             SetVisible(true);
             anim?.PlayAction(PudgeAnimation.Spawn, 1.2f, 0f);
         }

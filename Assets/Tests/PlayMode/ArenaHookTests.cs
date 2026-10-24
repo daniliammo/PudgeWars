@@ -374,8 +374,9 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, arena.Deaths);
             Assert.AreEqual(0, bot.GetComponent<HeroInventory>().Gold, "the bot got gold for a fall it did not cause");
 
-            // a bot walking in is no point for the player
+            // a bot walking in is no point for the player (bots normally stop at the edge: let this one through)
             var other = Hookable.All.Last(h => h.team == Team.Bots);
+            other.GetComponent<PudgeMotor>().keepOffPit = false;
             other.GetComponent<PudgeMotor>().SetMoveInput(Vector3.back);
             yield return new WaitUntil(() => !other.IsAlive);
             Assert.AreEqual(0, arena.Score);
@@ -384,6 +385,72 @@ namespace PudgeWars.Tests
         }
 
         /// <summary>Screenshot including the overlay UI (Camera.Render does not draw ScreenSpaceOverlay canvases).</summary>
+        [UnityTest]
+        public IEnumerator BotsWalkUpToThePitEdgeButDoNotFallIn()
+        {
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var motor = bot.GetComponent<PudgeMotor>();
+            Assert.IsTrue(motor.keepOffPit, "bots must keep off the pit");
+            motor.SetMoveInput(Vector3.back + Vector3.right * 0.3f);
+            yield return new WaitForSeconds(4f);
+            Assert.IsTrue(bot.IsAlive && !bot.IsFalling, "the bot fell in");
+            Assert.AreEqual(arena.pitHalfDepth + motor.pitGap, bot.transform.position.z, 0.01f, "the bot did not reach the edge");
+            motor.SetMoveInput(Vector3.zero);
+
+            // left to themselves, bots wander right up to the brink now and then, and none falls in
+            foreach (var brain in Object.FindObjectsByType<BotBrain>(FindObjectsSortMode.None))
+            {
+                brain.edgeChance = 1f;
+                brain.throwInterval = new Vector2(1000f, 1000f);
+                brain.enabled = true;
+            }
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            float closest = float.MaxValue;
+            for (float t = 0f; t < 10f; t += Time.deltaTime)
+            {
+                foreach (var b in bots) closest = Mathf.Min(closest, b.transform.position.z);
+                yield return null;
+            }
+            Assert.That(bots.All(b => b.IsAlive && !b.IsFalling), "a wandering bot fell into the pit");
+            Assert.Less(closest, arena.pitHalfDepth + 0.3f, "bots never came to the edge");
+            Assert.AreEqual(0, arena.Score);
+        }
+
+        [UnityTest]
+        public IEnumerator HeroesHaveNicknamesAndDotaHealthBars()
+        {
+            var bars = Object.FindFirstObjectByType<HealthBars>();
+            Assert.IsNotNull(bars, "no health bars in the HUD");
+            yield return null;
+            var heroes = Hookable.All.ToList();
+            Assert.AreEqual(heroes.Count, bars.Count);
+            Assert.That(heroes.Select(h => h.nickname), Is.All.Not.Empty, "every hero needs a nickname");
+            Assert.That(heroes.Select(h => h.Nickname), Is.Unique);
+            foreach (var hero in heroes)
+            {
+                var (root, fill, name) = bars.Of(hero);
+                Assert.IsTrue(root.gameObject.activeSelf, hero.Nickname + " has no bar shown");
+                Assert.LessOrEqual(root.anchoredPosition.y, ((RectTransform)bars.transform).rect.yMax - bars.topMargin + 1e-3f, hero.Nickname + "'s bar is off the top of the screen");
+                Assert.AreEqual(hero.Nickname, name.text);
+                Assert.AreEqual(1f, fill.anchorMax.x, 1e-4f, "a live hero is at full health");
+                Assert.AreEqual(hero.team == Team.Player ? bars.playerColor : bars.enemyColor, fill.GetComponent<Image>().color);
+                Assert.AreEqual(Mathf.CeilToInt(hero.maxHealth / bars.segmentHealth) - 1, root.GetComponentsInChildren<Transform>().Count(t => t.name == "Notch"));
+            }
+            CaptureScreen("health_bars");
+
+            // a dead hero's bar goes away and comes back full with the respawn
+            var bot = heroes.First(h => h.team == Team.Bots);
+            bot.StartFalling(Vector3.zero);
+            yield return new WaitUntil(() => !bot.IsAlive);
+            yield return null;
+            Assert.AreEqual(0f, bot.Health);
+            Assert.IsFalse(bars.Of(bot).root.gameObject.activeSelf, "a dead hero's bar is still shown");
+            yield return new WaitUntil(() => bot.IsAlive);
+            yield return null;
+            Assert.IsTrue(bars.Of(bot).root.gameObject.activeSelf);
+            Assert.AreEqual(1f, bars.Of(bot).fill.anchorMax.x, 1e-4f);
+        }
+
         [UnityTest]
         public IEnumerator AbilityBarShowsHookCooldownAndAimLines()
         {
@@ -686,11 +753,11 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, ended.Count);
             Assert.AreEqual((player, SeriesEnd.Killed, bots[0]), ended[0]);
             Assert.AreEqual("СЕРИЯ ПРЕРВАНА", announcer.LastText);
-            Assert.AreEqual($"Тебя сбил {bots[0].name}", announcer.LastSubtitle);
+            Assert.AreEqual($"Тебя сбил {bots[0].Nickname}", announcer.LastSubtitle);
             CaptureScreen("series_ended_killed");
             yield return new WaitForSeconds(announcer.duration + 0.1f);
             Assert.AreEqual("DOUBLE KILL", announcer.LastText);
-            Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].name));
+            Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].Nickname));
             CaptureScreen("enemy_double_kill");
         }
 
@@ -742,7 +809,7 @@ namespace PudgeWars.Tests
             yield return new WaitUntil(() => ended.Count == 2);
             Assert.AreEqual((bots[2], SeriesEnd.Time, (Hookable)null), ended[1]);
             yield return new WaitUntil(() => announcer.Queued == 0 && announcer.LastText == "СЕРИЯ ПРЕРВАНА");
-            Assert.AreEqual($"{bots[2].name}: время вышло", announcer.LastSubtitle);
+            Assert.AreEqual($"{bots[2].Nickname}: время вышло", announcer.LastSubtitle);
         }
 
         static void CaptureScreen(string name)

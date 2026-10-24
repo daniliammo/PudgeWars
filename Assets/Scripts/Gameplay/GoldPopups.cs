@@ -17,7 +17,7 @@ namespace PudgeWars.Gameplay
         public string format = "+{0} монет";
         public Color textColor = new(1f, 0.82f, 0.25f);
         public int fontSize = 40;
-        [Tooltip("Height above the hero's feet the popup is anchored to, metres.")] public float anchorHeight = 2.6f;
+        [Tooltip("Height above the hero's feet the popup is anchored to, metres.")] public float anchorHeight = 3.9f;
         public float lifetime = 2f;
         [Tooltip("Text rise over the lifetime, canvas units.")] public float rise = 110f;
         [Tooltip("Share of the lifetime after which the text starts to dissolve.")] [Range(0f, 1f)] public float textFadeFrom = 0.5f;
@@ -26,7 +26,7 @@ namespace PudgeWars.Gameplay
         public int coinCount = 5;
         public float coinSize = 40f;
         public float coinLifetime = 1.2f;
-        [Tooltip("Coins start this far below the text: from the hero's body, canvas units.")] public float coinStartDrop = 45f;
+        [Tooltip("Coins start this far below the text: from the hero's body, canvas units.")] public float coinStartDrop = 150f;
         public Vector2 coinSpeedX = new(-150f, 150f);
         public Vector2 coinSpeedY = new(260f, 440f);
         public float coinGravity = 900f;

@@ -86,7 +86,7 @@ namespace PudgeWars.Gameplay
             Enqueue(new Message
             {
                 text = rampages > 1 ? string.Format(rampageRepeatFormat, texts[(int)kind], rampages) : texts[(int)kind],
-                subtitle = own ? "" : hero.name,
+                subtitle = own ? "" : hero.Nickname,
                 color = own ? playerColor : enemyColor,
                 clip = (int)kind < clips.Length ? clips[(int)kind] : null,
             });
@@ -101,7 +101,7 @@ namespace PudgeWars.Gameplay
             Enqueue(new Message
             {
                 text = seriesEndedText,
-                subtitle = string.Format(format, own ? killer?.name : hero.name),
+                subtitle = string.Format(format, own ? killer?.Nickname : hero.Nickname),
                 color = seriesEndedColor,
             });
         }

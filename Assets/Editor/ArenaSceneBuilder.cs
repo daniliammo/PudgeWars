@@ -28,6 +28,8 @@ namespace PudgeWars.EditorTools
         const string CyrillicFont = "Assets/Art/UI/Fonts/Кириллица_FrizQuadrata.ttf";
         const string CoinIcon = "Assets/Art/UI/Gold.png";
         const int BotCount = 4;
+        const string PlayerNickname = "Игрок";
+        static readonly string[] BotNicknames = { "Мясник", "Крюкодел", "Тухляк", "Свежее Мясо" };
 
         [MenuItem("Pudge Wars/Build Test Arena")]
         public static void Build()
@@ -49,11 +51,11 @@ namespace PudgeWars.EditorTools
             var follow = cam.AddComponent<TopDownCamera>();
 
             var (playerPrefab, botPrefab) = BuildCharacterPrefabs();
-            var player = Place(playerPrefab, "Player", new Vector3(0f, 0f, -8f), Vector3.forward);
+            var player = Place(playerPrefab, "Player", PlayerNickname, new Vector3(0f, 0f, -8f), Vector3.forward);
             for (int i = 0; i < BotCount; i++)
             {
                 float x = Mathf.Lerp(-arena.halfWidth + 3.5f, arena.halfWidth - 3.5f, i / (BotCount - 1f));
-                Place(botPrefab, $"Bot_{i + 1}", new Vector3(x, 0f, arena.pitHalfDepth + 3f + (i % 2) * 3f), Vector3.back);
+                Place(botPrefab, $"Bot_{i + 1}", BotNicknames[i % BotNicknames.Length], new Vector3(x, 0f, arena.pitHalfDepth + 3f + (i % 2) * 3f), Vector3.back);
             }
 
             follow.target = player.transform;
@@ -121,16 +123,18 @@ namespace PudgeWars.EditorTools
             var bot = CreateCharacter("Pudge_Bot", Team.Bots);
             SetupHook(bot, spatialAudio: true);
             bot.AddComponent<BotBrain>();
+            bot.GetComponent<PudgeMotor>().keepOffPit = true;
             bot.AddComponent<BotShopper>().catalog = new[] { ShopUiBuilder.AetherLens() };
             var botPrefab = PrefabUtility.SaveAsPrefabAsset(bot, BotPrefabPath);
             Object.DestroyImmediate(bot);
             return (playerPrefab, botPrefab);
         }
 
-        static GameObject Place(GameObject prefab, string name, Vector3 position, Vector3 forward)
+        static GameObject Place(GameObject prefab, string name, string nickname, Vector3 position, Vector3 forward)
         {
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             go.name = name;
+            go.GetComponent<Hookable>().nickname = nickname;
             go.transform.SetPositionAndRotation(position, Quaternion.LookRotation(forward));
             return go;
         }
@@ -282,8 +286,22 @@ namespace PudgeWars.EditorTools
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
             AbilityBarBuilder.Build(canvasGo.transform, font);
             GoldPopupLayer(canvasGo.transform, font);
+            HealthBarLayer(canvasGo.transform, font);
             KillAnnouncerLayer(canvasGo.transform, font);
             return Crosshair(canvasGo.transform);
+        }
+
+        /// <summary>Full-screen layer for the Dota-style health bars and nicknames over the heroes, under everything.</summary>
+        static void HealthBarLayer(Transform canvas, Font font)
+        {
+            var go = new GameObject("HealthBars", typeof(RectTransform));
+            go.transform.SetParent(canvas, false);
+            go.transform.SetSiblingIndex(0);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            go.AddComponent<HealthBars>().font = font;
         }
 
         /// <summary>Full-screen layer for the "+N монет" popups, under the shop and the bars.</summary>
@@ -305,7 +323,7 @@ namespace PudgeWars.EditorTools
         static void KillAnnouncerLayer(Transform canvas, Font font)
         {
             var rt = ShopUiBuilder.Rect(canvas, "KillAnnouncer", new Vector2(0.5f, 1f), new Vector2(0f, -230f), Vector2.zero);
-            rt.SetSiblingIndex(1); // over the gold popups, under the shop and the bars
+            rt.SetSiblingIndex(2); // over the health bars and gold popups, under the shop and the ability bar
             var announcer = rt.gameObject.AddComponent<KillAnnouncer>();
             announcer.font = font;
             announcer.clips = LoadKillSounds();

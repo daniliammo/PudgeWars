@@ -301,6 +301,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.Hookable
   team: 1
+  nickname: 
+  maxHealth: 670
   radius: 0.6
   gravity: 20
 --- !u!114 &1385268436013105734
@@ -317,6 +319,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.PudgeMotor
   moveSpeed: 2.8
   turnRate: 0.7
+  keepOffPit: 1
+  pitGap: 0.1
 --- !u!114 &2493412752412822984
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -476,6 +480,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.BotBrain
   pauseRange: {x: 0.5, y: 2}
+  edgeChance: 0.35
   throwInterval: {x: 1.5, y: 4}
   leadChance: 0.5
   aimError: 7
