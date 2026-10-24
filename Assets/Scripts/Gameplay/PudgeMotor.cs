@@ -18,6 +18,10 @@ namespace PudgeWars.Gameplay
         public float moveSpeed = 2.8f;
         [Tooltip("Dota 2 turn rate in radians per 0.03 s (Pudge: 0.7, i.e. a 180° turn in about 0.13 s).")]
         public float turnRate = 0.7f;
+        [Tooltip("Stop at the pit edge instead of stepping over it (bots).")]
+        public bool keepOffPit;
+        [Tooltip("With keepOffPit: how far from the edge the centre stops, metres (the body hangs over it).")]
+        public float pitGap = 0.1f;
 
         Vector3 input;
         Vector3? look;
@@ -91,7 +95,7 @@ namespace PudgeWars.Gameplay
         {
             var pos = transform.position + direction * (moveSpeed * Time.deltaTime);
             var arena = Arena.Instance;
-            if (arena != null && self != null) pos = arena.ClampToSide(pos, self.team, self.radius);
+            if (arena != null && self != null) pos = arena.ClampToSide(pos, self.team, self.radius, keepOffPit ? pitGap : null);
             var velocity = (pos - transform.position) / Mathf.Max(Time.deltaTime, 1e-5f);
             transform.position = pos;
             if (arena != null && self != null && arena.IsOverPit(pos)) self.StepIntoPit(velocity);

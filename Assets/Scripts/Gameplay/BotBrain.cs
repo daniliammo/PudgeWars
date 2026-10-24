@@ -3,13 +3,16 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Test bot: wanders between random points on its side with short pauses and throws its hook at the
+    /// Test bot: wanders between random points on its side with short pauses, often right up to the pit edge
+    /// (its motor keeps it from falling in), and throws its hook at the
     /// nearest enemy in range. Each throw randomly either leads the target or aims at where it stands now,
     /// so the player cannot dodge by always reacting the same way.
     /// </summary>
     public class BotBrain : MonoBehaviour
     {
         public Vector2 pauseRange = new(0.5f, 2f);
+        [Tooltip("Chance that the next stop is at the very pit edge.")]
+        [Range(0f, 1f)] public float edgeChance = 0.35f;
         [Tooltip("Random delay between hook throws, seconds.")]
         public Vector2 throwInterval = new(1.5f, 4f);
         [Tooltip("Chance that a throw leads the target; otherwise the bot aims at its current position.")]
@@ -109,7 +112,7 @@ namespace PudgeWars.Gameplay
             {
                 pause -= Time.deltaTime;
                 motor.SetMoveInput(Vector3.zero);
-                if (pause <= 0f) destination = arena.RandomPointOnSide(self.team, 1.5f);
+                if (pause <= 0f) destination = NextStop(arena);
                 return;
             }
             var to = destination - transform.position;
@@ -121,6 +124,14 @@ namespace PudgeWars.Gameplay
                 return;
             }
             motor.SetMoveInput(to.normalized);
+        }
+
+        Vector3 NextStop(Arena arena)
+        {
+            var p = arena.RandomPointOnSide(self.team, 1.5f, 0.3f);
+            // a stop at the edge lies a little over it: the motor halts the bot right at the brink
+            if (Random.value < edgeChance) p.z = Mathf.Sign(p.z) * (arena.pitHalfDepth - 0.1f);
+            return p;
         }
     }
 }

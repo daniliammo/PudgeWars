@@ -73,18 +73,24 @@ namespace PudgeWars.Gameplay
         public bool IsOverPit(Vector3 p) => Mathf.Abs(p.z) < pitHalfDepth && Mathf.Abs(p.x) < halfWidth;
 
         /// <summary>Keeps a point off the side and back walls; the pit edge is open, a careless step goes over it.</summary>
-        public Vector3 ClampToSide(Vector3 p, Team team, float radius)
+        /// <param name="pitGap">With a value, the pit edge holds too: the centre stays this far from it.</param>
+        public Vector3 ClampToSide(Vector3 p, Team team, float radius, float? pitGap = null)
         {
             p.x = Mathf.Clamp(p.x, -halfWidth + radius, halfWidth - radius);
-            float far = pitHalfDepth + sideDepth - radius;
-            p.z = team == Team.Player ? Mathf.Max(p.z, -far) : Mathf.Min(p.z, far);
+            // work on the bot side (z > 0) and mirror for the player
+            float sign = team == Team.Player ? -1f : 1f;
+            float depth = Mathf.Min(p.z * sign, pitHalfDepth + sideDepth - radius);
+            if (pitGap is { } gap) depth = Mathf.Max(depth, pitHalfDepth + gap);
+            p.z = depth * sign;
             return p;
         }
 
-        public Vector3 RandomPointOnSide(Team team, float margin)
+        /// <param name="pitMargin">Distance kept from the pit edge; <paramref name="margin"/> if negative.</param>
+        public Vector3 RandomPointOnSide(Team team, float margin, float pitMargin = -1f)
         {
+            if (pitMargin < 0f) pitMargin = margin;
             float x = UnityEngine.Random.Range(-halfWidth + margin, halfWidth - margin);
-            float z = UnityEngine.Random.Range(pitHalfDepth + margin, pitHalfDepth + sideDepth - margin);
+            float z = UnityEngine.Random.Range(pitHalfDepth + pitMargin, pitHalfDepth + sideDepth - margin);
             return new Vector3(x, 0f, team == Team.Player ? -z : z);
         }
 
