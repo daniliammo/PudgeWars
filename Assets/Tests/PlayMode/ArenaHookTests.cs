@@ -303,7 +303,18 @@ namespace PudgeWars.Tests
             Assert.IsFalse(row.buyButton.interactable, "buy must be disabled without gold");
             Assert.IsFalse(inventory.TryBuy(lens));
 
-            inventory.AddGold(lens.cost);
+            // under the mouse the row tells how much gold is missing, and follows the gold
+            Assert.IsFalse(row.ShortageShown, "shortage shown without hovering");
+            row.OnPointerEnter(new PointerEventData(EventSystem.current));
+            Assert.IsTrue(row.ShortageShown);
+            Assert.AreEqual("Не хватает: 2275 золота", row.shortageLabel.text);
+            inventory.AddGold(1000);
+            Assert.AreEqual("Не хватает: 1275 золота", row.shortageLabel.text);
+            yield return new WaitWhile(() => shop.IsAnimating);
+            CaptureScreen("shop_shortage");
+            inventory.AddGold(lens.cost - 1000);
+            Assert.IsFalse(row.ShortageShown, "shortage shown with enough gold");
+
             Assert.IsTrue(row.buyButton.interactable);
             Assert.AreEqual(lens.cost.ToString(), shop.goldLabel.text);
             row.buyButton.onClick.Invoke();
@@ -312,6 +323,8 @@ namespace PudgeWars.Tests
             Assert.AreEqual(hook.range + 2.75f, hook.EffectiveRange, 1e-4f);
             Assert.AreEqual(lens.icon, shop.slots[0].sprite);
             Assert.AreEqual("Куплено", row.buyLabel.text);
+            Assert.IsFalse(row.ShortageShown, "an owned item lacks no gold");
+            row.OnPointerExit(new PointerEventData(EventSystem.current));
             yield return null;
             CaptureScreen("shop_open");
             inventory.AddGold(10000);
