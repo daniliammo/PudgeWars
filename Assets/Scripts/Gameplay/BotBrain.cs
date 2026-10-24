@@ -8,8 +8,9 @@ namespace PudgeWars.Gameplay
     /// (its motor keeps it from falling in), and throws its hook at the
     /// nearest enemy in range. Each throw randomly either leads the target or aims at where it stands now,
     /// so the player cannot dodge by always reacting the same way. The hook catches allies too, so the bot does
-    /// not throw while an ally stands in its path; and when an enemy hooks an ally, the bot sometimes tries to
-    /// pull the ally out, if its hook can reach the ally before the pit.
+    /// not throw while an ally stands in its path; and when an enemy hooks an ally, the bot sometimes throws its
+    /// hook ahead of the dragged ally to hold it (a tug of war), if the head can reach the ally before the pit: it
+    /// counts the turn, the wind-up, the head's flight speed and how wide the head catches.
     /// </summary>
     public class BotBrain : MonoBehaviour
     {
@@ -121,7 +122,9 @@ namespace PudgeWars.Gameplay
             var pull = ally.HookedBy.Owner.transform.position - ally.transform.position;
             pull.y = 0f;
             var velocity = pull.normalized * ally.HookedBy.pullSpeed;
-            if (!Intercept(ally, velocity, out var aim) || aim.magnitude > hook.EffectiveRange * rangeFraction) return false;
+            if (!Intercept(ally, velocity, out var aim)) return false;
+            // the head catches the ally this far before its centre, at most at full range
+            if (aim.magnitude > (hook.EffectiveRange + hook.hitRadius + ally.radius) * rangeFraction) return false;
             // too late: the ally is over the pit (or already past it) by the time the hook gets there
             var meet = transform.position + aim;
             if (arena.IsOverPit(meet) || Mathf.Sign(meet.z) != Mathf.Sign(ally.transform.position.z)) return false;
@@ -136,7 +139,7 @@ namespace PudgeWars.Gameplay
         Hookable FindHookedAlly()
         {
             foreach (var h in Hookable.All)
-                if (h != self && h.team == self.team && h.IsAlive && !h.IsFalling && h.HookedBy != null
+                if (h != self && h.team == self.team && h.IsAlive && !h.IsFalling && h.HookedBy != null && h.HeldBy == null
                     && h.HookedBy.Owner != null && h.HookedBy.Owner.team != self.team)
                     return h;
             return null;
@@ -144,7 +147,9 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Aim offset where the hook head meets a target moving at a constant <paramref name="v"/> (a hooked ally
-        /// is dragged in a straight line); false if the head cannot catch up.
+        /// is dragged in a straight line); false if the head cannot catch up. Counts the turn and the wind-up before
+        /// the throw, the head's start at the hand, its flight speed and that it catches a hero hitRadius + radius
+        /// away from its centre.
         /// </summary>
         public bool Intercept(Hookable target, Vector3 v, out Vector3 aim)
         {
@@ -152,10 +157,17 @@ namespace PudgeWars.Gameplay
             to.y = 0f;
             float delay = (motor != null ? motor.TimeToFace(to) : 0f) + hook.castDelay;
             var start = to + v * delay;
-            // |start + v·t| = flySpeed·t
-            float a = v.sqrMagnitude - hook.flySpeed * hook.flySpeed;
-            float b = 2f * Vector3.Dot(start, v);
-            float c = start.sqrMagnitude;
+            float reach = hook.hitRadius + target.radius + hook.LaunchOffset;
+            float s = hook.flySpeed;
+            if (start.sqrMagnitude <= reach * reach)
+            {
+                aim = start;
+                return true; // the head catches it right at the launch
+            }
+            // |start + v·t| = flySpeed·t + reach
+            float a = v.sqrMagnitude - s * s;
+            float b = 2f * (Vector3.Dot(start, v) - s * reach);
+            float c = start.sqrMagnitude - reach * reach;
             float t;
             if (Mathf.Abs(a) < 1e-4f) t = b < 0f ? -c / b : -1f;
             else
