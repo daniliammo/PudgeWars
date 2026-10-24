@@ -108,8 +108,9 @@ namespace PudgeWars.EditorTools
             Directory.CreateDirectory(Path.GetDirectoryName(PlayerPrefabPath)!);
 
             var player = CreateCharacter("Pudge_Player", Team.Player);
-            player.AddComponent<PlayerInputController>(); // camera: Camera.main at runtime
+            var input = player.AddComponent<PlayerInputController>(); // camera: Camera.main at runtime
             SetupHook(player, spatialAudio: false);
+            input.aimIndicator = AimIndicator(player.transform);
             var playerPrefab = PrefabUtility.SaveAsPrefabAsset(player, PlayerPrefabPath);
             Object.DestroyImmediate(player);
 
@@ -186,6 +187,35 @@ namespace PudgeWars.EditorTools
             audio.maxDistance = 40f;
             hook.audioSource = audio;
             hook.sounds = LoadHookSounds();
+        }
+
+        /// <summary>Green edges of the hook's path, shown while the hook is selected (Q).</summary>
+        static HookAimIndicator AimIndicator(Transform owner)
+        {
+            var go = new GameObject("HookAim");
+            go.transform.SetParent(owner, false);
+            var indicator = go.AddComponent<HookAimIndicator>();
+            var mat = UnlitMat("AimLine", new Color(0.2f, 1f, 0.3f));
+            LineRenderer Edge(string name)
+            {
+                var edge = new GameObject(name);
+                // lines face up: TransformZ alignment with Z pointing down lays them flat on the ground
+                edge.transform.SetParent(go.transform, false);
+                edge.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                var line = edge.AddComponent<LineRenderer>();
+                line.sharedMaterial = mat;
+                line.useWorldSpace = true;
+                line.positionCount = 2;
+                line.widthMultiplier = 0.06f;
+                line.alignment = LineAlignment.TransformZ;
+                line.shadowCastingMode = ShadowCastingMode.Off;
+                line.receiveShadows = false;
+                line.enabled = false;
+                return line;
+            }
+            indicator.left = Edge("Left");
+            indicator.right = Edge("Right");
+            return indicator;
         }
 
         /// <summary>Clips decoded from the original Sounds/ folder, named after their UE paths.</summary>

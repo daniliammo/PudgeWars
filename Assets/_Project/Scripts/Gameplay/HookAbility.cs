@@ -90,14 +90,29 @@ namespace PudgeWars.Gameplay
 
         Vector3 Origin => chainOrigin != null ? chainOrigin.position : transform.TransformPoint(fallbackOriginOffset);
 
+        /// <summary>Width of the strip the hook head sweeps (an enemy is caught when its radius touches it).</summary>
+        public float HitWidth => hitRadius * 2f;
+
+        /// <summary>Same direction TryCast would take for a world point.</summary>
+        public Vector3 AimDirection(Vector3 worldPoint)
+        {
+            var dir = worldPoint - transform.position;
+            dir.y = 0f;
+            return dir.sqrMagnitude < 1e-4f ? transform.forward : dir.normalized;
+        }
+
+        /// <summary>Where the hook will start once the owner has turned to the direction (hand offset rotated to it).</summary>
+        public Vector3 PredictLaunchPoint(Vector3 direction)
+        {
+            var local = transform.InverseTransformPoint(Origin);
+            return transform.position + Quaternion.LookRotation(direction) * local;
+        }
+
         /// <summary>Throws the hook toward a world point (only the horizontal direction matters).</summary>
         public bool TryCast(Vector3 worldPoint)
         {
             if (!IsReady || (self != null && !self.IsControllable)) return false;
-            var dir = worldPoint - transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 1e-4f) dir = transform.forward;
-            direction = dir.normalized;
+            direction = AimDirection(worldPoint);
             state = State.Turning;
             caughtThisCast = false;
             return true;
