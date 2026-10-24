@@ -250,6 +250,8 @@ namespace PudgeWars.Tests
             Assert.Greater(enemyHook.CooldownRemaining, 0f, "a hook that lost its target must not be refreshed");
             Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the rescue was not counted");
             Assert.AreEqual(0, arena.RescuesOf(Team.Bots));
+            Assert.AreEqual(arena.killGold / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
+            Assert.AreEqual(0, ally.GetComponent<HeroInventory>().Gold, "the rescued hero gets nothing");
         }
 
         [UnityTest]

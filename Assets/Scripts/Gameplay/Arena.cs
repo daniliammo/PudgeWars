@@ -30,7 +30,7 @@ namespace PudgeWars.Gameplay
         [Tooltip("A falling character dies below this height.")]
         public float killHeight = -4f;
         public float respawnDelay = 2.5f;
-        [Tooltip("Gold for the hero whose hook dragged the victim into the pit.")]
+        [Tooltip("Gold for the hero whose hook dragged the victim into the pit; a rescue pays half of it.")]
         public int killGold = 250;
         [Tooltip("Gold every hero gets each passiveGoldInterval, without a popup.")]
         public int passiveGold = 2;
@@ -130,10 +130,14 @@ namespace PudgeWars.Gameplay
             StartCoroutine(Respawn(victim));
         }
 
-        /// <summary>An ally's hook took <paramref name="rescued"/> out of an enemy's hook.</summary>
+        /// <summary>
+        /// An ally's hook took <paramref name="rescued"/> out of an enemy's hook: the rescuer gets half the kill
+        /// reward.
+        /// </summary>
         public void ReportRescue(Hookable rescued, Hookable rescuer)
         {
             rescues[(int)rescuer.team]++;
+            if (rescuer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(killGold / 2);
             Rescued?.Invoke(rescued, rescuer);
             ScoreChanged?.Invoke(Score, Deaths);
         }
