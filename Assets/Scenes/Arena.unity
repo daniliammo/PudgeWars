@@ -5369,7 +5369,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.ScoreHud
   label: {fileID: 756485377}
-  format: "\u0423/\u0421 {0}/{1}"
+  format: "\u0423/\u0421/\u0421 {0}/{1}/{2}"
 --- !u!114 &2018531647
 MonoBehaviour:
   m_ObjectHideFlags: 0

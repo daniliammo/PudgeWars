@@ -75,9 +75,13 @@ namespace PudgeWars.Gameplay
         public void AttachTo(HookAbility hook)
         {
             // an ally's hook pulls the character out of an enemy's
-            if (hookedBy != null && hookedBy != hook) hookedBy.LoseTarget(this);
+            var previous = hookedBy;
+            if (previous != null && previous != hook) previous.LoseTarget(this);
             hookedBy = hook;
             LastHookedBy = hook.GetComponent<Hookable>();
+            if (previous != null && previous != hook && previous.Owner != null && previous.Owner.team != team
+                && LastHookedBy != null && LastHookedBy.team == team)
+                Arena.Instance?.ReportRescue(this, LastHookedBy);
             // a caught character's own hook breaks off, or keeps its target on a taut chain
             if (ownHook != null) ownHook.OwnerLostControl();
             anim?.Play(PudgeAnimation.Hooked, 0.05f);

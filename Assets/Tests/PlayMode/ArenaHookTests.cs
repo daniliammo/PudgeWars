@@ -248,6 +248,42 @@ namespace PudgeWars.Tests
             Assert.Less(new Vector3(d.x, 0f, d.z).magnitude, 2f, "the ally was not pulled to the rescuer");
             Assert.AreEqual(0, arena.Deaths);
             Assert.Greater(enemyHook.CooldownRemaining, 0f, "a hook that lost its target must not be refreshed");
+            Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the rescue was not counted");
+            Assert.AreEqual(0, arena.RescuesOf(Team.Bots));
+        }
+
+        [UnityTest]
+        public IEnumerator RescuedPlayerSeesWhoSavedHimAndTheTeamCountsIt()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            enemy.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4f), Quaternion.LookRotation(Vector3.back));
+            player.transform.position = new Vector3(0f, 0f, -8f);
+            ally.transform.SetPositionAndRotation(new Vector3(3f, 0f, -8f), Quaternion.LookRotation(Vector3.left));
+            var enemyHook = enemy.GetComponent<HookAbility>();
+            var allyHook = ally.GetComponent<HookAbility>();
+            enemyHook.pullSpeed = 2f; // slow pull: the rescue throw has time
+            yield return null;
+
+            Assert.IsTrue(enemyHook.TryCast(player.transform.position));
+            float t = 0f;
+            while (!player.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(enemyHook, player.HookedBy, "the enemy did not catch the player");
+
+            Assert.IsTrue(allyHook.TryCast(player.transform.position));
+            t = 0f;
+            while (player.HookedBy != allyHook && t < 2f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(allyHook, player.HookedBy, "the ally did not pull the player out");
+            yield return null;
+
+            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            Assert.AreEqual("СПАСЁН", announcer.LastText);
+            Assert.AreEqual($"Тебя спас {ally.Nickname}", announcer.LastSubtitle);
+            Assert.AreEqual(1, arena.RescuesOf(Team.Player));
+            Assert.AreEqual("У/С/С 0/0/1", Object.FindFirstObjectByType<ScoreHud>().label.text, "rescues are the third number");
         }
 
         [UnityTest]
@@ -998,7 +1034,7 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(text.TryGetComponent<Outline>(out var outline), text.name + " has no outline");
                 Assert.AreEqual(0f, outline.effectColor.r + outline.effectColor.g + outline.effectColor.b, 1e-3f, text.name + "'s outline is not black");
             }
-            Assert.AreEqual("У/С 0/0", Object.FindFirstObjectByType<ScoreHud>().label.text, "short own score in the corner");
+            Assert.AreEqual("У/С/С 0/0/0", Object.FindFirstObjectByType<ScoreHud>().label.text, "short own score in the corner");
 
             // a label switching language at runtime switches its font
             shop.goldLabel.text = "Нет";

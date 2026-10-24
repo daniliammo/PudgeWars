@@ -49,16 +49,20 @@ namespace PudgeWars.Gameplay
         public int KillsOf(Team team) => kills[(int)team];
         /// <summary>Deaths of a team's heroes, falls included.</summary>
         public int DeathsOf(Team team) => deaths[(int)team];
+        /// <summary>Allies a team's hooks pulled out of enemy hooks.</summary>
+        public int RescuesOf(Team team) => rescues[(int)team];
         /// <summary>(Score, Deaths) after any change of the counts.</summary>
         public event Action<int, int> ScoreChanged;
         /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
         public event Action<Hookable, KillAnnouncement> KillAnnounced;
         /// <summary>The hero's series is over: by time (killer is null) or because the killer got him.</summary>
         public event Action<Hookable, SeriesEnd, Hookable> SeriesEnded;
+        /// <summary>The first hero was pulled out of an enemy's hook by the second one's hook.</summary>
+        public event Action<Hookable, Hookable> Rescued;
 
         public KillStreaks Streaks { get; private set; }
 
-        readonly int[] kills = new int[2], deaths = new int[2];
+        readonly int[] kills = new int[2], deaths = new int[2], rescues = new int[2];
         readonly Dictionary<Hookable, int> remoteRampages = new();
         float nextPassiveGold;
 
@@ -126,12 +130,21 @@ namespace PudgeWars.Gameplay
             StartCoroutine(Respawn(victim));
         }
 
+        /// <summary>An ally's hook took <paramref name="rescued"/> out of an enemy's hook.</summary>
+        public void ReportRescue(Hookable rescued, Hookable rescuer)
+        {
+            rescues[(int)rescuer.team]++;
+            Rescued?.Invoke(rescued, rescuer);
+            ScoreChanged?.Invoke(Score, Deaths);
+        }
+
         /// <summary>A network game starts here: the offline score, series and pending respawns are dropped.</summary>
         public void ResetMatch()
         {
             StopAllCoroutines();
             Array.Clear(kills, 0, kills.Length);
             Array.Clear(deaths, 0, deaths.Length);
+            Array.Clear(rescues, 0, rescues.Length);
             remoteRampages.Clear();
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
             ScoreChanged?.Invoke(Score, Deaths);
@@ -142,8 +155,10 @@ namespace PudgeWars.Gameplay
             remoteRampages.TryGetValue(hero, out var n) ? n : Streaks.RampageCount(hero);
 
         /// <summary>Network client: the score the server keeps.</summary>
-        public void ApplyRemoteScore(int playerKills, int botsKills, int playerDeaths, int botsDeaths)
+        public void ApplyRemoteScore(int playerKills, int botsKills, int playerDeaths, int botsDeaths, int playerRescues = 0, int botsRescues = 0)
         {
+            rescues[(int)Team.Player] = playerRescues;
+            rescues[(int)Team.Bots] = botsRescues;
             kills[(int)Team.Player] = playerKills;
             kills[(int)Team.Bots] = botsKills;
             deaths[(int)Team.Player] = playerDeaths;
@@ -157,6 +172,9 @@ namespace PudgeWars.Gameplay
             if (killer != null) remoteRampages[killer] = rampages;
             KillAnnounced?.Invoke(killer, kind);
         }
+
+        /// <summary>Network client: a rescue the server saw (the count comes with the score).</summary>
+        public void ApplyRemoteRescue(Hookable rescued, Hookable rescuer) => Rescued?.Invoke(rescued, rescuer);
 
         /// <summary>Network client: a series the server saw end.</summary>
         public void ApplyRemoteSeriesEnd(Hookable hero, SeriesEnd reason, Hookable killer) =>

@@ -8,7 +8,8 @@ namespace PudgeWars.Gameplay
     /// Announcer of kill series at the top of the screen, as in Dota: "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL",
     /// "RAMPAGE", "БОГОПОДОБИЕ" pop in, hold and dissolve one after another (announcements coming together
     /// wait in a queue); Rampages in a row are counted: "RAMPAGE ×2", "RAMPAGE ×3"… The player's series are gold, the enemies' red with the hero's name below. When a series
-    /// ends, "СЕРИЯ ПРЕРВАНА" says why: time ran out or who killed the hero.
+    /// ends, "СЕРИЯ ПРЕРВАНА" says why: time ran out or who killed the hero. A player pulled out of an enemy's hook
+    /// by an ally sees "СПАСЁН" and who did it.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class KillAnnouncer : MonoBehaviour
@@ -30,6 +31,10 @@ namespace PudgeWars.Gameplay
         public string ownTimeOut = "Время вышло", ownKilled = "Тебя сбил {0}", ownDied = "Ты сорвался в яму";
         [Tooltip("Reasons for an enemy's series; {0} = the enemy.")]
         public string enemyTimeOut = "{0}: время вышло", enemyKilled = "Ты сбил {0}", enemyDied = "{0} сорвался в яму";
+        public string rescuedText = "СПАСЁН";
+        [Tooltip("Under \"СПАСЁН\"; {0} = the ally who pulled the player out.")]
+        public string rescuedBy = "Тебя спас {0}";
+        public Color rescuedColor = new(0.4f, 0.95f, 0.45f);
         public float duration = 2.2f;
         [Tooltip("Share of the duration after which the text starts to dissolve.")] [Range(0f, 1f)] public float fadeFrom = 0.65f;
 
@@ -70,6 +75,7 @@ namespace PudgeWars.Gameplay
             if (arena == null) return;
             arena.KillAnnounced += Enqueue;
             arena.SeriesEnded += EnqueueSeriesEnd;
+            arena.Rescued += EnqueueRescue;
         }
 
         void OnDestroy()
@@ -77,6 +83,7 @@ namespace PudgeWars.Gameplay
             if (arena == null) return;
             arena.KillAnnounced -= Enqueue;
             arena.SeriesEnded -= EnqueueSeriesEnd;
+            arena.Rescued -= EnqueueRescue;
         }
 
         public void Enqueue(Hookable hero, KillAnnouncement kind)
@@ -103,6 +110,18 @@ namespace PudgeWars.Gameplay
                 text = seriesEndedText,
                 subtitle = string.Format(format, own ? killer?.Nickname : hero.Nickname),
                 color = seriesEndedColor,
+            });
+        }
+
+        /// <summary>Shown only to the rescued player.</summary>
+        public void EnqueueRescue(Hookable rescued, Hookable rescuer)
+        {
+            if (rescued == null || rescued != LocalPlayer.Hero) return;
+            Enqueue(new Message
+            {
+                text = rescuedText,
+                subtitle = string.Format(rescuedBy, rescuer != null ? rescuer.Nickname : "союзник"),
+                color = rescuedColor,
             });
         }
 

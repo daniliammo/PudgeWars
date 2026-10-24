@@ -4,15 +4,15 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Score on the HUD: the local player's team kills and deaths in the corner, and at the top centre the teams'
+    /// Score on the HUD: the local player's team kills, deaths and rescues in the corner, and at the top centre the teams'
     /// kills as on Dota's top bar — Radiant green on the left, Dire red on the right, the own team's name in bold.
     /// The top bar is built at runtime under the same canvas.
     /// </summary>
     public class ScoreHud : MonoBehaviour
     {
         public Text label;
-        [Tooltip("{0} = kills of the local player's team, {1} = its deaths (У/С = убийства / смерти).")]
-        public string format = "У/С {0}/{1}";
+        [Tooltip("{0} = kills of the local player's team, {1} = its deaths, {2} = its rescues (У/С/С = убийства / смерти / спасения).")]
+        public string format = "У/С/С {0}/{1}/{2}";
         public string radiantName = "RADIANT", direName = "DIRE";
         public Color radiantColor = new(0.35f, 0.85f, 0.3f);
         public Color direColor = new(0.9f, 0.25f, 0.18f);
@@ -45,7 +45,9 @@ namespace PudgeWars.Gameplay
         void Show()
         {
             var team = LocalPlayer.Team;
-            if (label != null) label.text = string.Format(format, arena != null ? arena.KillsOf(team) : 0, arena != null ? arena.DeathsOf(team) : 0);
+            if (label != null)
+                label.text = string.Format(format, arena != null ? arena.KillsOf(team) : 0, arena != null ? arena.DeathsOf(team) : 0,
+                    arena != null ? arena.RescuesOf(team) : 0);
             if (RadiantKills == null) return;
             RadiantKills.text = (arena != null ? arena.KillsOf(Team.Player) : 0).ToString();
             DireKills.text = (arena != null ? arena.KillsOf(Team.Bots) : 0).ToString();
