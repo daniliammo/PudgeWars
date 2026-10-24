@@ -884,6 +884,11 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(1f, fill.anchorMax.x, 1e-4f, "a live hero is at full health");
                 Assert.AreEqual(hero.team == Team.Player ? bars.playerColor : bars.enemyColor, fill.GetComponent<Image>().color);
                 Assert.AreEqual(Mathf.CeilToInt(hero.maxHealth / bars.segmentHealth) - 1, root.GetComponentsInChildren<Transform>().Count(t => t.name == "Notch"));
+                var health = bars.HealthLabel(hero);
+                Assert.AreEqual($"{Mathf.CeilToInt(hero.Health)}/{Mathf.CeilToInt(hero.maxHealth)}", health.text, "the bar shows current / max health");
+                Assert.AreEqual(Color.white, health.color);
+                Assert.AreEqual(Color.black, health.GetComponent<Outline>().effectColor, "the health digits need a black outline to read on any fill");
+                Assert.Greater(health.transform.GetSiblingIndex(), root.Find("Inner").GetSiblingIndex(), "the digits must be drawn over the fill");
             }
             CaptureScreen("health_bars");
 
@@ -893,11 +898,13 @@ namespace PudgeWars.Tests
             yield return new WaitUntil(() => !bot.IsAlive);
             yield return null;
             Assert.AreEqual(0f, bot.Health);
+            Assert.AreEqual($"0/{Mathf.CeilToInt(bot.maxHealth)}", bars.HealthLabel(bot).text);
             Assert.IsFalse(bars.Of(bot).root.gameObject.activeSelf, "a dead hero's bar is still shown");
             yield return new WaitUntil(() => bot.IsAlive);
             yield return null;
             Assert.IsTrue(bars.Of(bot).root.gameObject.activeSelf);
             Assert.AreEqual(1f, bars.Of(bot).fill.anchorMax.x, 1e-4f);
+            Assert.AreEqual($"{Mathf.CeilToInt(bot.maxHealth)}/{Mathf.CeilToInt(bot.maxHealth)}", bars.HealthLabel(bot).text);
         }
 
         [UnityTest]
