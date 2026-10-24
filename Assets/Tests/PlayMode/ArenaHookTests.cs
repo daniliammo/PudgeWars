@@ -90,6 +90,32 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HookHeadSpinsInFlightAndCatchesWideLikeInDota()
+        {
+            // 1.1 m off the flight line: out of reach of the old 0.35 m head, within Dota's 1.24 m
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(12f, 0f, 14f);
+            var p = player.transform.position;
+            bot.transform.position = new Vector3(p.x + 1.1f, 0f, arena.pitHalfDepth + 1.5f);
+            Assert.IsTrue(hook.TryCast(new Vector3(p.x, 0f, bot.transform.position.z)));
+
+            bool caught = false;
+            hook.TargetCaught += _ => caught = true;
+            yield return new WaitUntil(() => hook.hookHead.gameObject.activeSelf);
+            float firstRoll = hook.hookHead.eulerAngles.z;
+            bool spun = false;
+            float t = 0f;
+            while (!caught && t < 3f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+                if (!caught) spun |= Mathf.Abs(Mathf.DeltaAngle(firstRoll, hook.hookHead.eulerAngles.z)) > 30f;
+            }
+            Assert.IsTrue(spun, "the hook head did not spin in flight");
+            Assert.IsTrue(caught, "the wide hook missed a bot 1.1 m off its line");
+        }
+
+        [UnityTest]
         public IEnumerator BotHooksPlayerWhoFallsIntoPitAndRespawns()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();

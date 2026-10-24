@@ -34,6 +34,10 @@ namespace PudgeWars.Gameplay
         public bool resetCooldownOnHit = true;
         [Tooltip("Hook head radius used for hits, metres. Dota 2 Meat Hook: hook_width 100 plus Pudge's hull 24 is about 1.24 m from the hero's centre; with our hero radius 0.6 that is 0.65.")]
         public float hitRadius = 0.65f;
+        [Tooltip("Size of the hook head model relative to the imported one (in Dota the head is large).")]
+        public float headScale = 1.8f;
+        [Tooltip("The head spins around its flight direction while flying out, degrees per second.")]
+        public float spinSpeed = 900f;
         [Tooltip("The head flies straight out of the hero's centre line at this height, metres (about the hand).")]
         public float flightHeight = 1.1f;
         [Tooltip("Share of the pull speed a released target keeps while falling.")] public float dropCarry = 0.35f;
@@ -67,7 +71,7 @@ namespace PudgeWars.Gameplay
         public float CooldownRemaining => state == State.Ready ? Mathf.Max(0f, readyAt - Time.time) : cooldown;
 
         State state;
-        float timer, traveled, readyAt;
+        float timer, traveled, readyAt, spin;
         bool caughtThisCast;
         float ropeLength;
         Vector3 direction;
@@ -82,6 +86,7 @@ namespace PudgeWars.Gameplay
             anim = GetComponent<PudgeAnimation>();
             motor = GetComponent<PudgeMotor>();
             inventory = GetComponent<HeroInventory>();
+            if (hookHead != null) hookHead.localScale *= headScale;
             TipLength = MeasureTip();
             // the prefab keeps the head and the chain as children; in flight they must not follow the owner
             if (hookHead != null) hookHead.SetParent(null, true);
@@ -179,6 +184,7 @@ namespace PudgeWars.Gameplay
             // on where the animation has put the hand: exactly what the aim lines show
             var hand = Origin - transform.position;
             traveled = Mathf.Clamp(Vector3.Dot(new Vector3(hand.x, 0f, hand.z), direction), 0f, EffectiveRange);
+            spin = 0f;
             hookHead.SetPositionAndRotation(AimStart + direction * traveled, Quaternion.LookRotation(direction));
             state = State.Flying;
             SetHookVisible(true);
@@ -191,6 +197,8 @@ namespace PudgeWars.Gameplay
             var from = hookHead.position;
             hookHead.position += direction * step;
             traveled += step;
+            spin = Mathf.Repeat(spin + spinSpeed * Time.deltaTime, 360f);
+            hookHead.rotation = Quaternion.LookRotation(direction) * Quaternion.Euler(0f, 0f, spin);
             // swept test over this frame's path: a long frame must not let the hook pass through a target
             var hit = FindTarget(from, hookHead.position, out var contact);
             if (hit != null)
