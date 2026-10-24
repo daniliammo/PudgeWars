@@ -171,6 +171,47 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator CaughtPlayerDragsHisOwnTargetIntoThePit()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var victim = bots[0];   // caught by the player
+            var hunter = bots[1];   // catches the player meanwhile
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
+            player.transform.position = new Vector3(0f, 0f, -arena.pitHalfDepth - 1f);
+            victim.transform.position = new Vector3(0f, 0f, 8.5f);
+            hunter.transform.position = new Vector3(3f, 0f, arena.pitHalfDepth + 1f);
+            hook.pullSpeed = 2f; // slow pull so the hunter's hook arrives while the victim is still on its side
+
+            bool caught = false;
+            hook.TargetCaught += _ => caught = true;
+            Assert.IsTrue(hook.TryCast(victim.transform.position));
+            float t = 0f;
+            while (!caught && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(caught, "player's hook missed the victim");
+
+            var brain = hunter.GetComponent<BotBrain>();
+            brain.aimError = 0f;
+            brain.leadChance = 0f;
+            brain.throwInterval = Vector2.zero;
+            brain.enabled = true;
+
+            t = 0f;
+            int shot = 0;
+            while ((arena.Deaths == 0 || arena.Score == 0) && t < 8f)
+            {
+                t += Time.deltaTime;
+                if (shot < 10 && t > 0.2f + shot * 0.2f) Capture($"tether_{shot++:00}");
+                yield return null;
+            }
+            brain.enabled = false;
+            Assert.AreEqual(1, arena.Deaths, "the hunter did not kill the player");
+            Assert.AreEqual(1, arena.Score, "the player's target was not dragged into the pit");
+            Assert.IsFalse(victim.IsAlive);
+            Assert.AreEqual(arena.killGold, player.GetComponent<HeroInventory>().Gold, "the tethered kill belongs to the player");
+            Assert.IsFalse(hook.chain.enabled);
+        }
+
+        [UnityTest]
         public IEnumerator CaughtCharacterLosesItsOwnHook()
         {
             var bot = Hookable.All.First(h => h.team == Team.Bots);
@@ -240,7 +281,7 @@ namespace PudgeWars.Tests
             row.buyButton.onClick.Invoke();
             Assert.AreEqual(0, inventory.Gold);
             Assert.IsTrue(inventory.Owns(lens));
-            Assert.AreEqual(hook.range + 2.25f, hook.EffectiveRange, 1e-4f);
+            Assert.AreEqual(hook.range + 2.75f, hook.EffectiveRange, 1e-4f);
             Assert.AreEqual(lens.icon, shop.slots[0].sprite);
             Assert.AreEqual("Куплено", row.buyLabel.text);
             yield return null;
@@ -249,7 +290,7 @@ namespace PudgeWars.Tests
             Assert.IsFalse(inventory.TryBuy(lens), "Aether Lens does not stack");
             shop.Close();
 
-            // the hook really flies 15.25 m now
+            // the hook really flies 15.75 m now
             foreach (var b in Hookable.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(12f, 0f, 14f);
             Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));
             yield return new WaitUntil(() => hook.hookHead.gameObject.activeSelf);

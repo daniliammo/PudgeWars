@@ -20,7 +20,7 @@ namespace PudgeWars.Gameplay
     /// </summary>
     public class HookAbility : MonoBehaviour
     {
-        enum State { Ready, Turning, Windup, Flying, Returning }
+        enum State { Ready, Turning, Windup, Flying, Returning, Tethered }
 
         [Header("Defaults of the original Player_PW Blueprint (cm -> m)")]
         [Tooltip("DistanceHook = 1300")] public float range = 13f;
@@ -33,6 +33,11 @@ namespace PudgeWars.Gameplay
         public bool resetCooldownOnHit = true;
         [Tooltip("Hook head radius used for hits, metres.")] public float hitRadius = 0.35f;
         [Tooltip("Share of the pull speed a released target keeps while falling.")] public float dropCarry = 0.35f;
+        [Header("Tether: the owner is caught while pulling a target")]
+        [Tooltip("How fast a falling/dead owner reels the chain in, dragging the target after it, m/s.")]
+        public float tetherReelSpeed = 8f;
+        [Tooltip("Safety limit: the target is let go after this many seconds on a tether.")]
+        public float tetherTimeout = 4f;
 
         [Header("References (the head and the chain are unparented at runtime)")]
         public Transform hookHead;
@@ -54,6 +59,7 @@ namespace PudgeWars.Gameplay
         State state;
         float timer, traveled, readyAt;
         bool caughtThisCast;
+        float ropeLength;
         Vector3 direction;
         Hookable target, self;
         PudgeAnimation anim;
@@ -123,8 +129,11 @@ namespace PudgeWars.Gameplay
                 case State.Returning:
                     Return();
                     break;
+                case State.Tethered:
+                    Tether();
+                    break;
             }
-            if (state is State.Flying or State.Returning) UpdateChain();
+            if (state is State.Flying or State.Returning or State.Tethered) UpdateChain();
         }
 
         void Launch()
@@ -203,6 +212,62 @@ namespace PudgeWars.Gameplay
             state = State.Ready;
             readyAt = Time.time + (caughtThisCast && resetCooldownOnHit ? 0f : cooldown);
             anim?.PlayAction(PudgeAnimation.HookEnd, 0.5f, 0.1f);
+        }
+
+        /// <summary>
+        /// The owner was caught or started falling. A hook that is already pulling a target stays on it as a
+        /// taut chain (the target is dragged after the owner, into the pit if the owner falls); otherwise the
+        /// hook breaks off.
+        /// </summary>
+        public void OwnerLostControl()
+        {
+            if (state == State.Tethered) return;
+            if (state == State.Returning && target != null)
+            {
+                var d = target.transform.position - transform.position;
+                d.y = 0f;
+                ropeLength = d.magnitude;
+                timer = tetherTimeout;
+                state = State.Tethered;
+                return;
+            }
+            Cancel();
+        }
+
+        void Tether()
+        {
+            timer -= Time.deltaTime;
+            if (target == null || !target.IsHooked || timer <= 0f)
+            {
+                Cancel();
+                return;
+            }
+            // a falling or dead owner hangs on the chain and reels it in
+            if (self != null && (self.IsFalling || !self.IsAlive))
+                ropeLength = Mathf.Max(0f, ropeLength - tetherReelSpeed * Time.deltaTime);
+
+            var anchor = transform.position;
+            var toAnchor = anchor - target.transform.position;
+            toAnchor.y = 0f;
+            float dist = toAnchor.magnitude;
+            var dir = dist > 1e-4f ? toAnchor / dist : Vector3.zero;
+            if (dist > ropeLength)
+                target.DragTo(target.transform.position + dir * (dist - ropeLength), dir);
+            var head = target.transform.position;
+            hookHead.position = new Vector3(head.x, hookHead.position.y, head.z);
+            if (dir.sqrMagnitude > 0f) hookHead.rotation = Quaternion.LookRotation(-dir);
+
+            var arena = Arena.Instance;
+            if (arena != null && arena.IsOverPit(target.transform.position))
+            {
+                var dropped = target;
+                target = null;
+                dropped.StartFalling(dir * tetherReelSpeed * dropCarry);
+                TargetDropped?.Invoke(dropped);
+                SetHookVisible(false);
+                state = State.Ready;
+                readyAt = Time.time + cooldown;
+            }
         }
 
         /// <summary>

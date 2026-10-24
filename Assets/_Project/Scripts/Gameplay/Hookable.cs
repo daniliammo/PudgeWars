@@ -53,8 +53,8 @@ namespace PudgeWars.Gameplay
         {
             hookedBy = hook;
             LastHookedBy = hook.GetComponent<Hookable>();
-            // a caught character loses its own hook (and whatever it was pulling)
-            if (ownHook != null) ownHook.Cancel();
+            // a caught character's own hook breaks off, or keeps its target on a taut chain
+            if (ownHook != null) ownHook.OwnerLostControl();
             anim?.Play(PudgeAnimation.Hooked, 0.05f);
         }
 
@@ -79,7 +79,7 @@ namespace PudgeWars.Gameplay
             hookedBy = null;
             IsFalling = true;
             velocity = horizontalVelocity;
-            if (ownHook != null) ownHook.Cancel();
+            if (ownHook != null) ownHook.OwnerLostControl();
             anim?.Play(PudgeAnimation.Death, 0.1f);
         }
 

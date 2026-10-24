@@ -351,6 +351,8 @@ MonoBehaviour:
   resetCooldownOnHit: 1
   hitRadius: 0.35
   dropCarry: 0.35
+  tetherReelSpeed: 8
+  tetherTimeout: 4
   hookHead: {fileID: 622831098110076516}
   chain: {fileID: 1845111777243046267}
   chainOrigin: {fileID: 6835857273942954902}

@@ -19,7 +19,7 @@ namespace PudgeWars.EditorTools
         static readonly Color GoldColor = new(1f, 0.82f, 0.25f);
         static readonly Color ButtonColor = new(0.20f, 0.45f, 0.22f, 1f);
 
-        /// <summary>Aether Lens: 2275 gold, +225 ability range (Dota units; 1 unit = 1 cm).</summary>
+        /// <summary>Aether Lens: 2275 gold, +275 cast range as in the current Dota 2 shop (1 Dota unit = 1 cm).</summary>
         public static ItemDef AetherLens()
         {
             var ti = (TextureImporter)AssetImporter.GetAtPath(AetherLensIcon);
@@ -39,10 +39,10 @@ namespace PudgeWars.EditorTools
                 AssetDatabase.CreateAsset(item, path);
             }
             item.displayName = "Aether Lens";
-            item.description = "+225 к дальности способностей";
+            item.description = "+275 к дальности способностей";
             item.icon = AssetDatabase.LoadAssetAtPath<Sprite>(AetherLensIcon);
             item.cost = 2275;
-            item.castRangeBonus = 2.25f;
+            item.castRangeBonus = 2.75f;
             item.unique = true;
             EditorUtility.SetDirty(item);
             AssetDatabase.SaveAssets();
