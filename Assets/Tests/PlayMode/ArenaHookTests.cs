@@ -541,11 +541,32 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, streaks.MultiKillCount(hero));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 60f));
 
-            // series are per hero, and a death does not break a multi-kill
+            // series are per hero, and a death breaks the multi-kill
             var other = new object();
             CollectionAssert.IsEmpty(streaks.RegisterKill(other, 60f));
-            streaks.RegisterDeath(hero);
-            CollectionAssert.AreEqual(new[] { KillAnnouncement.TripleKill }, streaks.RegisterKill(hero, 61f));
+            Assert.IsFalse(streaks.RegisterDeath(other), "a single kill is no series");
+            Assert.IsTrue(streaks.RegisterDeath(hero), "Double Kill was broken by the death");
+            CollectionAssert.IsEmpty(streaks.RegisterKill(hero, 61f));
+        }
+
+        [Test]
+        public void SeriesRunsOutOfTimeOnceButGodlikeOnlyEndsWithDeath()
+        {
+            var streaks = new KillStreaks { multiKillWindow = 18f, godlikeStreak = 9 };
+            var hero = new object();
+            streaks.RegisterKill(hero, 0f);
+            streaks.RegisterKill(hero, 5f);
+            CollectionAssert.IsEmpty(streaks.ExpireSeries(23f), "still within the window");
+            CollectionAssert.AreEqual(new[] { hero }, streaks.ExpireSeries(23.1f));
+            CollectionAssert.IsEmpty(streaks.ExpireSeries(30f), "reported once");
+            Assert.IsFalse(streaks.RegisterDeath(hero), "the series was already over");
+
+            streaks.RegisterKill(hero, 100f);
+            CollectionAssert.IsEmpty(streaks.ExpireSeries(200f), "a lone kill is no series");
+
+            for (int i = 0; i < 9; i++) streaks.RegisterKill(hero, 300f + i * 60f);
+            CollectionAssert.IsEmpty(streaks.ExpireSeries(2000f), "Godlike does not run out of time");
+            Assert.IsTrue(streaks.RegisterDeath(hero), "Godlike was broken by the death");
         }
 
         [Test]
@@ -598,15 +619,55 @@ namespace PudgeWars.Tests
             Assert.IsFalse(announcer.IsShowing);
 
             // a kill of the enemy's own team is not counted; an enemy's multi-kill is shown with its name
+            // the player dying ends the Triple Kill series, naming who did it
+            var ended = new List<(Hookable hero, SeriesEnd reason, Hookable killer)>();
+            arena.SeriesEnded += (hero, reason, killer) => ended.Add((hero, reason, killer));
             arena.ReportDeath(bots[3], bots[0]);
             arena.ReportDeath(player, bots[0]);
             arena.ReportDeath(player, bots[0]);
             yield return null;
+            Assert.AreEqual(1, ended.Count);
+            Assert.AreEqual((player, SeriesEnd.Killed, bots[0]), ended[0]);
+            Assert.AreEqual("СЕРИЯ ПРЕРВАНА", announcer.LastText);
+            Assert.AreEqual($"Тебя сбил {bots[0].name}", announcer.LastSubtitle);
+            CaptureScreen("series_ended_killed");
+            yield return new WaitForSeconds(announcer.duration + 0.1f);
             Assert.AreEqual("DOUBLE KILL", announcer.LastText);
             Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].name));
             CaptureScreen("enemy_double_kill");
             for (var kind = KillAnnouncement.FirstBlood; kind <= KillAnnouncement.Rampage; kind++)
                 Assert.IsNotNull(announcer.clips[(int)kind], kind + " has no voice");
+        }
+
+        [UnityTest]
+        public IEnumerator SeriesEndedByTimeIsAnnouncedWithTheReason()
+        {
+            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            arena.Streaks.multiKillWindow = 0.5f;
+            var ended = new List<(Hookable hero, SeriesEnd reason, Hookable killer)>();
+            arena.SeriesEnded += (hero, reason, killer) => ended.Add((hero, reason, killer));
+
+            arena.ReportDeath(bots[0], player);
+            arena.ReportDeath(bots[1], player);
+            yield return new WaitForSeconds(0.3f);
+            CollectionAssert.IsEmpty(ended);
+            yield return new WaitForSeconds(0.4f);
+            Assert.AreEqual(1, ended.Count, "the Double Kill series did not run out");
+            Assert.AreEqual((player, SeriesEnd.Time, (Hookable)null), ended[0]);
+
+            // FIRST BLOOD and DOUBLE KILL go first
+            yield return new WaitUntil(() => announcer.LastText == "СЕРИЯ ПРЕРВАНА");
+            Assert.AreEqual("Время вышло", announcer.LastSubtitle);
+            CaptureScreen("series_ended_time");
+
+            // an enemy's series ended by time names the enemy
+            arena.ReportDeath(player, bots[2]);
+            arena.ReportDeath(player, bots[2]);
+            yield return new WaitUntil(() => ended.Count == 2);
+            Assert.AreEqual((bots[2], SeriesEnd.Time, (Hookable)null), ended[1]);
+            yield return new WaitUntil(() => announcer.Queued == 0 && announcer.LastText == "СЕРИЯ ПРЕРВАНА");
+            Assert.AreEqual($"{bots[2].name}: время вышло", announcer.LastSubtitle);
         }
 
         static void CaptureScreen(string name)

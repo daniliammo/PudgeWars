@@ -7,7 +7,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Announcer of kill series at the top of the screen, as in Dota: "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL",
     /// "RAMPAGE", "БОГОПОДОБИЕ" pop in, hold and dissolve one after another (announcements coming together
-    /// wait in a queue). The player's series are gold, the enemies' red with the hero's name below.
+    /// wait in a queue). The player's series are gold, the enemies' red with the hero's name below. When a series
+    /// ends, "СЕРИЯ ПРЕРВАНА" says why: time ran out or who killed the hero.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class KillAnnouncer : MonoBehaviour
@@ -21,10 +22,23 @@ namespace PudgeWars.Gameplay
         public AudioClip[] clips = new AudioClip[6];
         public Color playerColor = new(1f, 0.78f, 0.2f);
         public Color enemyColor = new(1f, 0.3f, 0.22f);
+        public string seriesEndedText = "СЕРИЯ ПРЕРВАНА";
+        public Color seriesEndedColor = new(0.82f, 0.86f, 0.92f);
+        [Tooltip("Reasons under \"СЕРИЯ ПРЕРВАНА\" for the player's series; {0} = the killer.")]
+        public string ownTimeOut = "Время вышло", ownKilled = "Тебя сбил {0}", ownDied = "Ты погиб";
+        [Tooltip("Reasons for an enemy's series; {0} = the enemy.")]
+        public string enemyTimeOut = "{0}: время вышло", enemyKilled = "Ты сбил {0}", enemyDied = "{0} погиб";
         public float duration = 2.2f;
         [Tooltip("Share of the duration after which the text starts to dissolve.")] [Range(0f, 1f)] public float fadeFrom = 0.65f;
 
-        readonly Queue<(Hookable hero, KillAnnouncement kind)> queue = new();
+        struct Message
+        {
+            public string text, subtitle;
+            public Color color;
+            public AudioClip clip;
+        }
+
+        readonly Queue<Message> queue = new();
         Arena arena;
         RectTransform root;
         Text label, heroName;
@@ -34,6 +48,7 @@ namespace PudgeWars.Gameplay
         public bool IsShowing => root != null && root.gameObject.activeSelf;
         public int Queued => queue.Count;
         public string LastText { get; private set; }
+        public string LastSubtitle { get; private set; }
 
         void Awake()
         {
@@ -50,33 +65,60 @@ namespace PudgeWars.Gameplay
         void Start()
         {
             arena = Arena.Instance;
-            if (arena != null) arena.KillAnnounced += Enqueue;
+            if (arena == null) return;
+            arena.KillAnnounced += Enqueue;
+            arena.SeriesEnded += EnqueueSeriesEnd;
         }
 
         void OnDestroy()
         {
-            if (arena != null) arena.KillAnnounced -= Enqueue;
+            if (arena == null) return;
+            arena.KillAnnounced -= Enqueue;
+            arena.SeriesEnded -= EnqueueSeriesEnd;
         }
 
         public void Enqueue(Hookable hero, KillAnnouncement kind)
         {
-            queue.Enqueue((hero, kind));
+            bool own = hero == null || hero.team == Team.Player;
+            Enqueue(new Message
+            {
+                text = texts[(int)kind],
+                subtitle = own ? "" : hero.name,
+                color = own ? playerColor : enemyColor,
+                clip = (int)kind < clips.Length ? clips[(int)kind] : null,
+            });
+        }
+
+        public void EnqueueSeriesEnd(Hookable hero, SeriesEnd reason, Hookable killer)
+        {
+            bool own = hero.team == Team.Player;
+            string format = reason == SeriesEnd.Time ? (own ? ownTimeOut : enemyTimeOut)
+                : killer == null ? (own ? ownDied : enemyDied)
+                : own ? ownKilled : enemyKilled;
+            Enqueue(new Message
+            {
+                text = seriesEndedText,
+                subtitle = string.Format(format, own ? killer?.name : hero.name),
+                color = seriesEndedColor,
+            });
+        }
+
+        void Enqueue(Message message)
+        {
+            queue.Enqueue(message);
             if (!IsShowing) ShowNext();
         }
 
         void ShowNext()
         {
-            var (hero, kind) = queue.Dequeue();
-            bool own = hero == null || hero.team == Team.Player;
-            label.text = LastText = texts[(int)kind];
-            label.color = own ? playerColor : enemyColor;
-            heroName.text = own ? "" : hero.name;
-            heroName.color = label.color;
+            var m = queue.Dequeue();
+            label.text = LastText = m.text;
+            heroName.text = LastSubtitle = m.subtitle;
+            label.color = heroName.color = m.color;
             age = 0f;
             root.gameObject.SetActive(true);
             Animate();
-            var clip = (int)kind < clips.Length ? clips[(int)kind] : null;
-            if (clip != null) voice.PlayOneShot(clip);
+            if (m.clip != null) voice.PlayOneShot(m.clip);
         }
 
         void Update()
