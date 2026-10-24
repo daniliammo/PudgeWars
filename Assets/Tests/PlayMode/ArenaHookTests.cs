@@ -292,6 +292,42 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HeroesDoNotWalkThroughEachOtherButSlideAlong()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bot = bots[0];
+            for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -12.5f), Quaternion.identity);
+            bot.transform.position = new Vector3(0f, 0f, -10.5f);
+            var motor = player.GetComponent<PudgeMotor>();
+            float minGap = player.radius + bot.radius - 0.01f;
+            float Gap()
+            {
+                var d = player.transform.position - bot.transform.position;
+                return new Vector3(d.x, 0f, d.z).magnitude;
+            }
+
+            // head-on: the player stops at the bot
+            motor.SetMoveInput(Vector3.forward);
+            for (float t = 0f; t < 1.5f; t += Time.deltaTime)
+            {
+                yield return null;
+                Assert.GreaterOrEqual(Gap(), minGap, "the player walked into the bot");
+            }
+            Assert.Less(player.transform.position.z, bot.transform.position.z, "the player walked through the bot");
+
+            // slightly off-centre: the player slides around the bot and goes on (stopping short of the pit)
+            player.transform.position = new Vector3(0.3f, 0f, -12.5f);
+            for (float t = 0f; t < 2.5f; t += Time.deltaTime)
+            {
+                yield return null;
+                Assert.GreaterOrEqual(Gap(), minGap, "the player walked into the bot");
+            }
+            motor.SetMoveInput(Vector3.zero);
+            Assert.Greater(player.transform.position.z, bot.transform.position.z, "the player did not slide past the bot");
+        }
+
+        [UnityTest]
         public IEnumerator BotDoesNotThrowThroughAnAlly()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();

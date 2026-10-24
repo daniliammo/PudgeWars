@@ -30,12 +30,15 @@ namespace PudgeWars.Gameplay
         [Range(0f, 1f)] public float rescueChance = 0.5f;
         [Tooltip("Reaction time before a rescue throw, seconds.")]
         public Vector2 rescueReaction = new(0.15f, 0.35f);
+        [Tooltip("A bot that gets no closer to its stop for this long (another hero is in the way) picks a new one, seconds.")]
+        public float stuckTime = 0.75f;
 
         PudgeMotor motor;
         Hookable self;
         HookAbility hook;
         Vector3 destination;
         float pause, nextThrowAt;
+        float closestToStop, stuckFor;
         readonly List<Hookable> targets = new();
         // the enemy hook seen pulling an ally: a rescue is decided once per catch
         HookAbility rescueFrom;
@@ -241,7 +244,7 @@ namespace PudgeWars.Gameplay
             {
                 pause -= Time.deltaTime;
                 motor.SetMoveInput(Vector3.zero);
-                if (pause <= 0f) destination = NextStop(arena);
+                if (pause <= 0f) SetStop(NextStop(arena));
                 return;
             }
             var to = destination - transform.position;
@@ -252,7 +255,25 @@ namespace PudgeWars.Gameplay
                 motor.SetMoveInput(Vector3.zero);
                 return;
             }
+            // heroes do not walk through each other: a bot pressed against one goes elsewhere
+            if (to.magnitude < closestToStop - 0.05f)
+            {
+                closestToStop = to.magnitude;
+                stuckFor = 0f;
+            }
+            else if ((stuckFor += Time.deltaTime) > stuckTime)
+            {
+                SetStop(NextStop(arena));
+                return;
+            }
             motor.SetMoveInput(to.normalized);
+        }
+
+        void SetStop(Vector3 stop)
+        {
+            destination = stop;
+            closestToStop = float.MaxValue;
+            stuckFor = 0f;
         }
 
         Vector3 NextStop(Arena arena)
