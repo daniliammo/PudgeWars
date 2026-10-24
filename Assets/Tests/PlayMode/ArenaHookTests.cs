@@ -25,6 +25,7 @@ namespace PudgeWars.Tests
             yield return null;
             yield return null;
             arena = Object.FindFirstObjectByType<Arena>();
+            arena.passiveGold = 0; // tests count gold exactly; the trickle has its own test
             var input = Object.FindFirstObjectByType<PlayerInputController>();
             input.enabled = false; // tests drive the player directly
             hook = input.GetComponent<HookAbility>();
@@ -502,6 +503,20 @@ namespace PudgeWars.Tests
             }
             yield return new WaitForSeconds(popups.lifetime - 1.5f + 0.1f);
             Assert.AreEqual(0, popups.ActiveCount, "popup did not go away");
+        }
+
+        [UnityTest]
+        public IEnumerator EveryHeroGetsTwoGoldEverySecondWithoutPopup()
+        {
+            var popups = Object.FindFirstObjectByType<GoldPopups>();
+            var wallets = Hookable.All.Select(h => h.GetComponent<HeroInventory>()).ToList();
+            arena.passiveGold = 2;
+            yield return new WaitForSeconds(0.1f);
+            var before = wallets.Select(w => w.Gold).ToList();
+            yield return new WaitForSeconds(3f);
+            for (int i = 0; i < wallets.Count; i++)
+                Assert.AreEqual(6, wallets[i].Gold - before[i], 2, wallets[i].name + " got the wrong trickle");
+            Assert.AreEqual(0, popups.ActiveCount, "the trickle must not show \"+N монет\" or coins");
         }
 
         [UnityTest]

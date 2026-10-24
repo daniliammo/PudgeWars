@@ -25,6 +25,10 @@ namespace PudgeWars.Gameplay
         public float respawnDelay = 2.5f;
         [Tooltip("Gold for the hero whose hook dragged the victim into the pit.")]
         public int killGold = 250;
+        [Tooltip("Gold every hero gets each passiveGoldInterval, without a popup.")]
+        public int passiveGold = 2;
+        [Tooltip("Seconds between passive gold ticks.")]
+        public float passiveGoldInterval = 1f;
         [Tooltip("Multi-kills: the next kill must come within this time of the previous one, seconds (18 in Dota 2).")]
         public float multiKillWindow = 18f;
         [Tooltip("Kills without dying for Godlike (9 in Dota 2).")]
@@ -42,10 +46,13 @@ namespace PudgeWars.Gameplay
 
         public KillStreaks Streaks { get; private set; }
 
+        float nextPassiveGold;
+
         void Awake()
         {
             Instance = this;
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
+            nextPassiveGold = Time.time + passiveGoldInterval;
         }
 
         void OnDestroy()
@@ -57,6 +64,10 @@ namespace PudgeWars.Gameplay
         {
             foreach (var hero in Streaks.ExpireSeries(Time.time))
                 SeriesEnded?.Invoke((Hookable)hero, SeriesEnd.Time, null);
+
+            for (; Time.time >= nextPassiveGold; nextPassiveGold += passiveGoldInterval)
+                foreach (var hero in Hookable.All)
+                    if (passiveGold > 0 && hero.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(passiveGold, popup: false);
         }
 
         public bool IsOverPit(Vector3 p) => Mathf.Abs(p.z) < pitHalfDepth && Mathf.Abs(p.x) < halfWidth;

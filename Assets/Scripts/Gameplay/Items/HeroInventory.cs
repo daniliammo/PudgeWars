@@ -15,7 +15,7 @@ namespace PudgeWars.Gameplay
         public int Gold => gold;
         public IReadOnlyList<ItemDef> Items => items;
         public event Action Changed;
-        /// <summary>Gold received (a kill reward): the amount, for the "+N" popup.</summary>
+        /// <summary>Gold received with a popup (a kill reward): the amount, for the "+N" popup.</summary>
         public event Action<int> GoldAdded;
 
         public float CastRangeBonus
@@ -28,11 +28,12 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        public void AddGold(int amount)
+        /// <param name="popup">false for quiet income (the gold trickle) that shows no "+N" and no coins.</param>
+        public void AddGold(int amount, bool popup = true)
         {
             gold += amount;
             Changed?.Invoke();
-            if (amount > 0) GoldAdded?.Invoke(amount);
+            if (popup && amount > 0) GoldAdded?.Invoke(amount);
         }
 
         public bool Owns(ItemDef item) => items.Contains(item);
