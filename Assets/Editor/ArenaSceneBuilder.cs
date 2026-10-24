@@ -225,9 +225,6 @@ namespace PudgeWars.EditorTools
         /// <summary>Clips decoded from the original Sounds/ folder, named after their UE paths.</summary>
         public static HookSounds LoadHookSounds()
         {
-            AudioClip Clip(string name) =>
-                AssetDatabase.FindAssets(name + " t:AudioClip", new[] { AudioDir }).Select(AssetDatabase.GUIDToAssetPath)
-                    .Where(p => Path.GetFileNameWithoutExtension(p) == name).Select(AssetDatabase.LoadAssetAtPath<AudioClip>).FirstOrDefault();
             AudioClip[] Clips(params string[] names) => names.Select(Clip).Where(c => c != null).ToArray();
             if (!AssetDatabase.IsValidFolder(AudioDir)) return new HookSounds();
             return new HookSounds
@@ -239,6 +236,15 @@ namespace PudgeWars.EditorTools
                 missVoice = Clips("Return_Pud_anger", "Return_Pud_1"),
             };
         }
+
+        /// <summary>Announcer lines from the original's Sounds/Kill, indexed by KillAnnouncement (it has no Godlike).</summary>
+        static AudioClip[] LoadKillSounds() =>
+            new[] { "Kill_2DoubleKill", "Kill_3Triplekill", "Kill_4Ultrakill", "Kill_5rampage", null }
+                .Select(n => n != null && AssetDatabase.IsValidFolder(AudioDir) ? Clip(n) : null).ToArray();
+
+        static AudioClip Clip(string name) =>
+            AssetDatabase.FindAssets(name + " t:AudioClip", new[] { AudioDir }).Select(AssetDatabase.GUIDToAssetPath)
+                .Where(p => Path.GetFileNameWithoutExtension(p) == name).Select(AssetDatabase.LoadAssetAtPath<AudioClip>).FirstOrDefault();
 
         /// <summary>Re-assigns hook sounds on the character prefabs (after the clips are imported).</summary>
         [MenuItem("Pudge Wars/Assign Hook Sounds")]
@@ -275,6 +281,7 @@ namespace PudgeWars.EditorTools
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
             AbilityBarBuilder.Build(canvasGo.transform, font);
             GoldPopupLayer(canvasGo.transform, font);
+            KillAnnouncerLayer(canvasGo.transform, font);
             return Crosshair(canvasGo.transform);
         }
 
@@ -291,6 +298,16 @@ namespace PudgeWars.EditorTools
             var popups = go.AddComponent<GoldPopups>();
             popups.font = font;
             popups.coinSprite = AbilityBarBuilder.Sprite(CoinIcon);
+        }
+
+        /// <summary>Double / Triple / Ultra Kill, Rampage, Godlike in the upper middle of the screen.</summary>
+        static void KillAnnouncerLayer(Transform canvas, Font font)
+        {
+            var rt = ShopUiBuilder.Rect(canvas, "KillAnnouncer", new Vector2(0.5f, 1f), new Vector2(0f, -230f), Vector2.zero);
+            rt.SetSiblingIndex(1); // over the gold popups, under the shop and the bars
+            var announcer = rt.gameObject.AddComponent<KillAnnouncer>();
+            announcer.font = font;
+            announcer.clips = LoadKillSounds();
         }
 
         static GameObject Crosshair(Transform canvas)

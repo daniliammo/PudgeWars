@@ -525,6 +525,82 @@ namespace PudgeWars.Tests
             CaptureScreen("fonts");
         }
 
+        [Test]
+        public void MultiKillsChainWithinWindowAndStartOverAfterIt()
+        {
+            var streaks = new KillStreaks { multiKillWindow = 18f };
+            var hero = new object();
+            CollectionAssert.IsEmpty(streaks.RegisterKill(hero, 0f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 10f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.TripleKill }, streaks.RegisterKill(hero, 27f), "the window counts from the previous kill");
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.UltraKill }, streaks.RegisterKill(hero, 30f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.Rampage }, streaks.RegisterKill(hero, 31f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.Rampage }, streaks.RegisterKill(hero, 32f), "kills after Rampage stay Rampage");
+
+            CollectionAssert.IsEmpty(streaks.RegisterKill(hero, 32f + 18.5f), "a long pause must reset the multi-kill");
+            Assert.AreEqual(1, streaks.MultiKillCount(hero));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 60f));
+
+            // series are per hero, and a death does not break a multi-kill
+            var other = new object();
+            CollectionAssert.IsEmpty(streaks.RegisterKill(other, 60f));
+            streaks.RegisterDeath(hero);
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.TripleKill }, streaks.RegisterKill(hero, 61f));
+        }
+
+        [Test]
+        public void GodlikeAfterNineKillsWithoutDyingWhateverThePauses()
+        {
+            var streaks = new KillStreaks { multiKillWindow = 18f, godlikeStreak = 9 };
+            var hero = new object();
+            for (int i = 0; i < 8; i++) CollectionAssert.IsEmpty(streaks.RegisterKill(hero, i * 60f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.Godlike }, streaks.RegisterKill(hero, 8 * 60f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.Godlike }, streaks.RegisterKill(hero, 9 * 60f), "every kill beyond is Godlike too");
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 9 * 60f + 1f), "a multi-kill wins over a repeated Godlike");
+
+            streaks.RegisterDeath(hero);
+            Assert.AreEqual(0, streaks.Streak(hero));
+            for (int i = 0; i < 8; i++) streaks.RegisterKill(hero, 1000f + i * 60f);
+            // reaching Godlike with a multi-kill announces both
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill, KillAnnouncement.Godlike }, streaks.RegisterKill(hero, 1000f + 7 * 60f + 1f));
+        }
+
+        [UnityTest]
+        public IEnumerator AnnouncerShowsMultiKillsInTurnForPlayerAndEnemies()
+        {
+            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            Assert.IsNotNull(announcer, "no kill announcer in the HUD");
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var announced = new List<KillAnnouncement>();
+            arena.KillAnnounced += (_, kind) => announced.Add(kind);
+
+            arena.ReportDeath(bots[0], player);
+            yield return null;
+            Assert.IsFalse(announcer.IsShowing, "a single kill is not a multi-kill");
+            arena.ReportDeath(bots[1], player);
+            arena.ReportDeath(bots[2], player);
+            yield return null;
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill, KillAnnouncement.TripleKill }, announced);
+            Assert.IsTrue(announcer.IsShowing);
+            Assert.AreEqual("DOUBLE KILL", announcer.LastText);
+            Assert.AreEqual(1, announcer.Queued, "Triple Kill must wait for Double Kill to finish");
+            CaptureScreen("double_kill");
+
+            yield return new WaitForSeconds(announcer.duration + 0.1f);
+            Assert.AreEqual("TRIPLE KILL", announcer.LastText);
+            yield return new WaitForSeconds(announcer.duration + 0.1f);
+            Assert.IsFalse(announcer.IsShowing);
+
+            // a kill of the enemy's own team is not counted; an enemy's multi-kill is shown with its name
+            arena.ReportDeath(bots[3], bots[0]);
+            arena.ReportDeath(player, bots[0]);
+            arena.ReportDeath(player, bots[0]);
+            yield return null;
+            Assert.AreEqual("DOUBLE KILL", announcer.LastText);
+            Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].name));
+            CaptureScreen("enemy_double_kill");
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");
