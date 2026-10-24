@@ -36,6 +36,8 @@ namespace PudgeWars.Gameplay
         public Vector3 PlanarVelocity { get; private set; }
         /// <summary>Owner of the last hook that caught this character: credited with the kill.</summary>
         public Hookable LastHookedBy { get; private set; }
+        /// <summary>The hook pulling this character now (server / offline; null on a network client).</summary>
+        public HookAbility HookedBy => hookedBy;
 
         public event Action<Hookable> Died;
         /// <summary>Back in the game at a new place (the network sync teleports instead of interpolating).</summary>
@@ -72,6 +74,8 @@ namespace PudgeWars.Gameplay
 
         public void AttachTo(HookAbility hook)
         {
+            // an ally's hook pulls the character out of an enemy's
+            if (hookedBy != null && hookedBy != hook) hookedBy.LoseTarget(this);
             hookedBy = hook;
             LastHookedBy = hook.GetComponent<Hookable>();
             // a caught character's own hook breaks off, or keeps its target on a taut chain

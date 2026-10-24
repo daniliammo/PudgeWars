@@ -17,7 +17,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Pudge's hook: turn to the target (Dota 2 facing rule), wind-up, flight to max range, catch the first
     /// hero on the way and pull it back. A target dragged over the pit is released and falls in. As Meat Hook in Dota,
-    /// it catches allies too: an ally is pulled to Pudge unharmed and let go there.
+    /// it catches allies too: an ally is pulled to Pudge unharmed and let go there, even out of an enemy's hook
+    /// (the enemy's hook then comes back empty).
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
     /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
@@ -65,6 +66,8 @@ namespace PudgeWars.Gameplay
         /// <summary>Network client: the player casts toward this point; the server throws the hook.</summary>
         public event Action<Vector3> CastRequested;
 
+        /// <summary>The hero that throws this hook.</summary>
+        public Hookable Owner => self;
         /// <summary>Range including item bonuses (Aether Lens).</summary>
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
@@ -291,6 +294,14 @@ namespace PudgeWars.Gameplay
             anim?.PlayAction(PudgeAnimation.HookEnd, 0.5f, 0.1f);
         }
 
+        /// <summary>An ally's hook pulled the target out of this one: the hook comes back empty, with the normal cooldown.</summary>
+        public void LoseTarget(Hookable lost)
+        {
+            if (target != lost) return;
+            target = null;
+            caughtThisCast = false;
+        }
+
         /// <summary>
         /// The owner was caught or started falling. A hook that is already pulling a target stays on it as a
         /// taut chain (the target is dragged after the owner, into the pit if the owner falls); otherwise the
@@ -364,6 +375,17 @@ namespace PudgeWars.Gameplay
             readyAt = Time.time + cooldown;
         }
 
+        /// <summary>
+        /// A free enemy, or with hitsAllies a free ally or one an enemy's hook is pulling (a rescue). A hero already
+        /// on a hook of this team or falling cannot be caught.
+        /// </summary>
+        public bool CanCatch(Hookable h)
+        {
+            if (h == self || !h.IsAlive || h.IsFalling) return false;
+            if (IsEnemy(h)) return !h.IsHooked;
+            return hitsAllies && (!h.IsHooked || (h.HookedBy != null && h.HookedBy.Owner != null && IsEnemy(h.HookedBy.Owner)));
+        }
+
         /// <summary>First hero (enemy, or ally with hitsAllies) whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
         Hookable FindTarget(Vector3 from, Vector3 to, out Vector3 contact)
         {
@@ -375,7 +397,7 @@ namespace PudgeWars.Gameplay
             float len2 = seg.sqrMagnitude;
             foreach (var h in Hookable.All)
             {
-                if (h == self || !h.CanBeHooked || (!hitsAllies && !IsEnemy(h))) continue;
+                if (!CanCatch(h)) continue;
                 var rel = h.transform.position - from;
                 rel.y = 0f;
                 float t = len2 > 1e-8f ? Mathf.Clamp01(Vector3.Dot(rel, seg) / len2) : 0f;

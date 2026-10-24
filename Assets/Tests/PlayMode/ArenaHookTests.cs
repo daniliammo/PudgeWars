@@ -210,6 +210,47 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator AllyHookPullsAHeroOutOfAnEnemysHook()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            enemy.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4f), Quaternion.LookRotation(Vector3.back));
+            ally.transform.position = new Vector3(0f, 0f, -8f);
+            player.transform.SetPositionAndRotation(new Vector3(3f, 0f, -8f), Quaternion.LookRotation(Vector3.left));
+            var enemyHook = enemy.GetComponent<HookAbility>();
+            enemyHook.pullSpeed = 2f; // slow pull: the rescue throw has time
+            yield return null;
+
+            Assert.IsTrue(enemyHook.TryCast(ally.transform.position));
+            float t = 0f;
+            while (!ally.IsHooked && t < 3f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.AreEqual(enemyHook, ally.HookedBy, "the enemy did not catch the ally");
+
+            Hookable caught = null;
+            hook.TargetCaught += h => caught = h;
+            Assert.IsTrue(hook.TryCast(ally.transform.position));
+            t = 0f;
+            while ((hook.IsBusy || enemyHook.IsBusy) && t < 6f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.AreEqual(ally, caught, "the hook did not take the ally out of the enemy's hook");
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the rescued ally was not let go unharmed");
+            var d = ally.transform.position - player.transform.position;
+            Assert.Less(new Vector3(d.x, 0f, d.z).magnitude, 2f, "the ally was not pulled to the rescuer");
+            Assert.AreEqual(0, arena.Deaths);
+            Assert.Greater(enemyHook.CooldownRemaining, 0f, "a hook that lost its target must not be refreshed");
+        }
+
+        [UnityTest]
         public IEnumerator MarkersAndHealthBarsAreColouredByTheLocalPlayersTeam()
         {
             yield return null;
