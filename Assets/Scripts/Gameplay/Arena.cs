@@ -25,14 +25,26 @@ namespace PudgeWars.Gameplay
         public float respawnDelay = 2.5f;
         [Tooltip("Gold for the hero whose hook dragged the victim into the pit.")]
         public int killGold = 250;
+        [Tooltip("Multi-kills: the next kill must come within this time of the previous one, seconds (18 in Dota 2).")]
+        public float multiKillWindow = 18f;
+        [Tooltip("Kills without dying for Godlike (9 in Dota 2).")]
+        public int godlikeStreak = 9;
 
         /// <summary>Bots killed by the player.</summary>
         public int Score { get; private set; }
         /// <summary>Times the player was killed.</summary>
         public int Deaths { get; private set; }
         public event Action<int, int> ScoreChanged;
+        /// <summary>Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
+        public event Action<Hookable, KillAnnouncement> KillAnnounced;
 
-        void Awake() => Instance = this;
+        public KillStreaks Streaks { get; private set; }
+
+        void Awake()
+        {
+            Instance = this;
+            Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
+        }
 
         void OnDestroy()
         {
@@ -58,8 +70,13 @@ namespace PudgeWars.Gameplay
 
         public void ReportDeath(Hookable victim, Hookable killer)
         {
-            if (killer != null && killer.team != victim.team && killer.TryGetComponent<HeroInventory>(out var wallet))
-                wallet.AddGold(killGold);
+            Streaks.RegisterDeath(victim);
+            if (killer != null && killer.team != victim.team)
+            {
+                if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(killGold);
+                foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
+                    KillAnnounced?.Invoke(killer, announcement);
+            }
             if (victim.team == Team.Bots) Score++;
             else Deaths++;
             ScoreChanged?.Invoke(Score, Deaths);
