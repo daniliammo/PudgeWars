@@ -85,6 +85,13 @@ namespace PudgeWars.Gameplay
             anim?.Play(PudgeAnimation.Death, 0.1f);
         }
 
+        /// <summary>The character walked over the pit edge by itself: it falls, and nobody gets the kill.</summary>
+        public void StepIntoPit(Vector3 horizontalVelocity)
+        {
+            LastHookedBy = null;
+            StartFalling(horizontalVelocity);
+        }
+
         void Update()
         {
             if (!IsFalling) return;

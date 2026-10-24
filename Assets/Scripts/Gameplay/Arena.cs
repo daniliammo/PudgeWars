@@ -72,11 +72,12 @@ namespace PudgeWars.Gameplay
 
         public bool IsOverPit(Vector3 p) => Mathf.Abs(p.z) < pitHalfDepth && Mathf.Abs(p.x) < halfWidth;
 
+        /// <summary>Keeps a point off the side and back walls; the pit edge is open, a careless step goes over it.</summary>
         public Vector3 ClampToSide(Vector3 p, Team team, float radius)
         {
             p.x = Mathf.Clamp(p.x, -halfWidth + radius, halfWidth - radius);
-            float near = pitHalfDepth + radius, far = pitHalfDepth + sideDepth - radius;
-            p.z = team == Team.Player ? Mathf.Clamp(p.z, -far, -near) : Mathf.Clamp(p.z, near, far);
+            float far = pitHalfDepth + sideDepth - radius;
+            p.z = team == Team.Player ? Mathf.Max(p.z, -far) : Mathf.Min(p.z, far);
             return p;
         }
 
@@ -98,8 +99,8 @@ namespace PudgeWars.Gameplay
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
                     KillAnnounced?.Invoke(killer, announcement);
             }
-            if (victim.team == Team.Bots) Score++;
-            else Deaths++;
+            if (victim.team == Team.Player) Deaths++;
+            else if (killer != null) Score++; // a bot that fell in by itself is no kill of the player's
             ScoreChanged?.Invoke(Score, Deaths);
             StartCoroutine(Respawn(victim));
         }

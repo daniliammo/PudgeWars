@@ -27,9 +27,9 @@ namespace PudgeWars.Gameplay
         public string seriesEndedText = "СЕРИЯ ПРЕРВАНА";
         public Color seriesEndedColor = new(0.82f, 0.86f, 0.92f);
         [Tooltip("Reasons under \"СЕРИЯ ПРЕРВАНА\" for the player's series; {0} = the killer.")]
-        public string ownTimeOut = "Время вышло", ownKilled = "Тебя сбил {0}", ownDied = "Ты погиб";
+        public string ownTimeOut = "Время вышло", ownKilled = "Тебя сбил {0}", ownDied = "Ты сорвался в яму";
         [Tooltip("Reasons for an enemy's series; {0} = the enemy.")]
-        public string enemyTimeOut = "{0}: время вышло", enemyKilled = "Ты сбил {0}", enemyDied = "{0} погиб";
+        public string enemyTimeOut = "{0}: время вышло", enemyKilled = "Ты сбил {0}", enemyDied = "{0} сорвался в яму";
         public float duration = 2.2f;
         [Tooltip("Share of the duration after which the text starts to dissolve.")] [Range(0f, 1f)] public float fadeFrom = 0.65f;
 

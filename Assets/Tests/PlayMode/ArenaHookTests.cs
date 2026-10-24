@@ -334,14 +334,52 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator PlayerStaysOnOwnSide()
+        public IEnumerator PlayerStaysWithinTheWalls()
         {
             var motor = player.GetComponent<PudgeMotor>();
-            motor.SetMoveInput(Vector3.forward);
-            yield return new WaitForSeconds(3f);
-            Assert.Greater(player.transform.position.z, -arena.pitHalfDepth - 1f, "player should have reached the pit edge");
+            motor.SetMoveInput(Vector3.back + Vector3.left);
+            yield return new WaitForSeconds(6f);
             motor.SetMoveInput(Vector3.zero);
-            Assert.Less(player.transform.position.z, -arena.pitHalfDepth);
+            var p = player.transform.position;
+            Assert.GreaterOrEqual(p.z, -(arena.pitHalfDepth + arena.sideDepth - player.radius) - 1e-3f, "walked through the back wall");
+            Assert.GreaterOrEqual(p.x, -arena.halfWidth + player.radius - 1e-3f, "walked through the side wall");
+            Assert.IsTrue(player.IsAlive);
+        }
+
+        [UnityTest]
+        public IEnumerator CarelessStepOverThePitEdgeDropsTheHeroWithoutAKill()
+        {
+            // the player once hooked by a bot: walking into the pit later still credits nobody
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            player.AttachTo(bot.GetComponent<HookAbility>());
+            player.Release();
+            Assert.AreEqual(bot, player.LastHookedBy);
+
+            var died = false;
+            player.Died += _ => died = true;
+            var motor = player.GetComponent<PudgeMotor>();
+            motor.SetMoveInput(Vector3.forward);
+            float t = 0f;
+            while (!player.IsFalling && t < 6f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.IsTrue(player.IsFalling, "the pit edge did not let the player through");
+            Assert.Less(Mathf.Abs(player.transform.position.z), arena.pitHalfDepth);
+            Assert.IsFalse(player.IsControllable);
+            Assert.IsNull(player.LastHookedBy);
+            yield return new WaitUntil(() => died);
+            Assert.AreEqual(1, arena.Deaths);
+            Assert.AreEqual(0, bot.GetComponent<HeroInventory>().Gold, "the bot got gold for a fall it did not cause");
+
+            // a bot walking in is no point for the player
+            var other = Hookable.All.Last(h => h.team == Team.Bots);
+            other.GetComponent<PudgeMotor>().SetMoveInput(Vector3.back);
+            yield return new WaitUntil(() => !other.IsAlive);
+            Assert.AreEqual(0, arena.Score);
+            motor.SetMoveInput(Vector3.zero);
+            other.GetComponent<PudgeMotor>().SetMoveInput(Vector3.zero);
         }
 
         /// <summary>Screenshot including the overlay UI (Camera.Render does not draw ScreenSpaceOverlay canvases).</summary>

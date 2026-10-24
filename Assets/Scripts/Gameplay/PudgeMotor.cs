@@ -3,7 +3,8 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Kinematic ground movement limited to the character's side of the arena, with Dota 2 turning rules:
+    /// Kinematic ground movement on the character's side of the arena (walls hold it, the pit edge does not: a step
+    /// over the edge drops the hero into the pit), with Dota 2 turning rules:
     /// the hero turns at its turn rate and only starts moving (or casting at a point) once the target
     /// direction is within 11.5° in front of it. With a look direction set (first-person controls) the hero
     /// turns to it instead and moves in any direction without turning, like in a shooter.
@@ -91,9 +92,10 @@ namespace PudgeWars.Gameplay
             var pos = transform.position + direction * (moveSpeed * Time.deltaTime);
             var arena = Arena.Instance;
             if (arena != null && self != null) pos = arena.ClampToSide(pos, self.team, self.radius);
-            float speed = (pos - transform.position).magnitude / Mathf.Max(Time.deltaTime, 1e-5f);
+            var velocity = (pos - transform.position) / Mathf.Max(Time.deltaTime, 1e-5f);
             transform.position = pos;
-            return speed;
+            if (arena != null && self != null && arena.IsOverPit(pos)) self.StepIntoPit(velocity);
+            return velocity.magnitude;
         }
     }
 }
