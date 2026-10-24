@@ -37,6 +37,8 @@ namespace PudgeWars.Gameplay
         public event Action<int, int> ScoreChanged;
         /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
         public event Action<Hookable, KillAnnouncement> KillAnnounced;
+        /// <summary>The hero's series is over: by time (killer is null) or because the killer got him.</summary>
+        public event Action<Hookable, SeriesEnd, Hookable> SeriesEnded;
 
         public KillStreaks Streaks { get; private set; }
 
@@ -49,6 +51,12 @@ namespace PudgeWars.Gameplay
         void OnDestroy()
         {
             if (Instance == this) Instance = null;
+        }
+
+        void Update()
+        {
+            foreach (var hero in Streaks.ExpireSeries(Time.time))
+                SeriesEnded?.Invoke((Hookable)hero, SeriesEnd.Time, null);
         }
 
         public bool IsOverPit(Vector3 p) => Mathf.Abs(p.z) < pitHalfDepth && Mathf.Abs(p.x) < halfWidth;
@@ -70,8 +78,10 @@ namespace PudgeWars.Gameplay
 
         public void ReportDeath(Hookable victim, Hookable killer)
         {
-            Streaks.RegisterDeath(victim);
-            if (killer != null && killer.team != victim.team)
+            if (killer != null && killer.team == victim.team) killer = null;
+            if (Streaks.RegisterDeath(victim))
+                SeriesEnded?.Invoke(victim, SeriesEnd.Killed, killer);
+            if (killer != null)
             {
                 if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(killGold);
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
