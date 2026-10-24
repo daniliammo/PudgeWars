@@ -490,9 +490,17 @@ namespace PudgeWars.Tests
             player.GetComponent<HeroInventory>().AddGold(arena.killGold);
             Assert.AreEqual(1, popups.ActiveCount);
             Assert.AreEqual($"+{arena.killGold} монет", popups.LastText);
-            yield return new WaitForSeconds(0.25f);
+            yield return new WaitForSeconds(0.3f);
+            var coins = popups.GetComponentsInChildren<Image>().Where(i => i.name == "Coin").ToList();
+            Assert.AreEqual(popups.coinCount, coins.Count);
+            Assert.That(coins.Select(c => c.color.a), Is.All.InRange(0.5f, 0.95f), "coins must fade steadily from the start");
             CaptureScreen("gold_popup");
-            yield return new WaitForSeconds(popups.lifetime);
+            for (int f = 0; f < 4; f++)
+            {
+                yield return new WaitForSeconds(0.3f);
+                CaptureScreen($"gold_popup_{f}");
+            }
+            yield return new WaitForSeconds(popups.lifetime - 1.5f + 0.1f);
             Assert.AreEqual(0, popups.ActiveCount, "popup did not go away");
         }
 

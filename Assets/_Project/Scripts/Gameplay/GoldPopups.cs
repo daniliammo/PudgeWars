@@ -5,8 +5,9 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// HUD popups for gold rewards: "+N монет" over the hero who got the gold and a burst of coins that jump
-    /// up, spin, fall and fade (the original's Gold icon). Follows the hero on screen, so it works in every
+    /// HUD popups for gold rewards in the manner of Dota's bounty: "+N монет" pops up over the hero who got the
+    /// gold, floats up slowing down and dissolves, while a few coins (the original's Gold icon) jump out of the
+    /// hero, spin and fall, steadily fading. Follows the hero on screen, so it works in every
     /// camera view.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -17,16 +18,18 @@ namespace PudgeWars.Gameplay
         public Color textColor = new(1f, 0.82f, 0.25f);
         public int fontSize = 40;
         [Tooltip("Height above the hero's feet the popup is anchored to, metres.")] public float anchorHeight = 2.6f;
-        public float lifetime = 1.6f;
-        [Tooltip("Text rise over the lifetime, canvas units.")] public float rise = 90f;
+        public float lifetime = 2f;
+        [Tooltip("Text rise over the lifetime, canvas units.")] public float rise = 110f;
+        [Tooltip("Share of the lifetime after which the text starts to dissolve.")] [Range(0f, 1f)] public float textFadeFrom = 0.5f;
         [Tooltip("Coin picture (Shop_Game/Gold of the original); a coin drawn at runtime if empty.")]
         public Sprite coinSprite;
-        public int coinCount = 10;
+        public int coinCount = 5;
         public float coinSize = 40f;
-        public float coinLifetime = 1.1f;
-        public Vector2 coinSpeedX = new(-220f, 220f);
-        public Vector2 coinSpeedY = new(320f, 620f);
-        public float coinGravity = 1400f;
+        public float coinLifetime = 1.2f;
+        [Tooltip("Coins start this far below the text: from the hero's body, canvas units.")] public float coinStartDrop = 45f;
+        public Vector2 coinSpeedX = new(-150f, 150f);
+        public Vector2 coinSpeedY = new(260f, 440f);
+        public float coinGravity = 900f;
 
         class Coin
         {
@@ -97,8 +100,9 @@ namespace PudgeWars.Gameplay
                 {
                     rt = coin,
                     image = image,
+                    position = new Vector2(0f, -coinStartDrop),
                     velocity = new Vector2(Random.Range(coinSpeedX.x, coinSpeedX.y), Random.Range(coinSpeedY.x, coinSpeedY.y)),
-                    spin = Random.Range(8f, 16f),
+                    spin = Random.Range(5f, 10f),
                     phase = Random.Range(0f, Mathf.PI),
                 });
             }
@@ -136,10 +140,13 @@ namespace PudgeWars.Gameplay
 
                 float t = p.age / lifetime;
                 var labelRt = p.label.rectTransform;
-                labelRt.anchoredPosition = new Vector2(0f, rise * Mathf.Sqrt(t));
-                labelRt.localScale = Vector3.one * (p.age < 0.15f ? Mathf.Lerp(0.4f, 1.15f, p.age / 0.15f) : Mathf.Lerp(1.15f, 1f, Mathf.Min(1f, (p.age - 0.15f) / 0.15f)));
+                // pop in (overshoot, settle), then float up slowing down (ease-out cubic) and dissolve
+                labelRt.anchoredPosition = new Vector2(0f, rise * (1f - Mathf.Pow(1f - t, 3f)));
+                labelRt.localScale = Vector3.one * (p.age < 0.12f
+                    ? Mathf.Lerp(0.3f, 1.3f, p.age / 0.12f)
+                    : Mathf.Lerp(1.3f, 1f, Mathf.SmoothStep(0f, 1f, (p.age - 0.12f) / 0.18f)));
                 var c = textColor;
-                c.a = 1f - Mathf.InverseLerp(0.65f, 1f, t);
+                c.a = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(textFadeFrom, 1f, t));
                 p.label.color = c;
 
                 foreach (var coin in p.coins)
@@ -153,9 +160,10 @@ namespace PudgeWars.Gameplay
                     coin.velocity.y -= coinGravity * Time.deltaTime;
                     coin.position += coin.velocity * Time.deltaTime;
                     coin.rt.anchoredPosition = coin.position;
-                    // a spinning coin: its width follows the cosine of the turn
-                    coin.rt.localScale = new Vector3(Mathf.Max(0.15f, Mathf.Abs(Mathf.Cos(coin.phase + p.age * coin.spin))), 1f, 1f);
-                    coin.image.color = new Color(1f, 1f, 1f, 1f - Mathf.InverseLerp(0.6f, 1f, ct));
+                    // a spinning coin: its width follows the cosine of the turn; it shrinks a little and fades steadily
+                    float size = Mathf.Lerp(1f, 0.7f, ct);
+                    coin.rt.localScale = new Vector3(size * Mathf.Max(0.15f, Mathf.Abs(Mathf.Cos(coin.phase + p.age * coin.spin))), size, 1f);
+                    coin.image.color = new Color(1f, 1f, 1f, 1f - ct);
                 }
             }
         }
