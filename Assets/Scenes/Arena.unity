@@ -4802,6 +4802,7 @@ MonoBehaviour:
   offset: {x: 0, y: 11, z: -10}
   lookAhead: {x: 0, y: 0, z: 4.5}
   smoothTime: 0.15
+  enemyViewBehind: 5
   eyeHeight: 1.9
   eyeForward: 0.5
   firstPersonPitch: 12

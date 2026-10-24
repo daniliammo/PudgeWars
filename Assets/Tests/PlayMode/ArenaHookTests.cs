@@ -975,6 +975,36 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator EnemySideViewKeepsEveryEnemyInFrameAsThePlayerComesUp()
+        {
+            var cam = Camera.main;
+            var follow = cam.GetComponent<TopDownCamera>();
+            follow.SetView(TopDownCamera.View.EnemySide);
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            float back = arena.pitHalfDepth + arena.sideDepth - 0.6f, front = arena.pitHalfDepth + 0.6f;
+            var spots = new[] { new Vector3(-6f, 0f, back), new Vector3(6f, 0f, back), new Vector3(-6f, 0f, front), new Vector3(6f, 0f, front) };
+            for (int i = 0; i < bots.Count; i++) bots[i].transform.position = spots[i % spots.Length];
+
+            bool InFrame(Hookable h)
+            {
+                var v = cam.WorldToViewportPoint(h.transform.position + Vector3.up);
+                return v.z > 0f && v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f;
+            }
+
+            // from the back wall of the own side up to the pit edge: the enemies must not slip out of view
+            foreach (float z in new[] { -(back), -8f, -(front) })
+            {
+                player.transform.position = new Vector3(0f, 0f, z);
+                follow.SnapToTarget();
+                yield return null;
+                Assert.Greater(cam.transform.position.z, arena.pitHalfDepth + arena.sideDepth, $"the camera walked onto the enemy side (player at z = {z})");
+                foreach (var bot in bots) Assert.IsTrue(InFrame(bot), $"{bot.Nickname} at {bot.transform.position} is out of view with the player at z = {z}");
+                Assert.IsTrue(InFrame(player), $"the player at z = {z} is out of view");
+            }
+            follow.SetView(TopDownCamera.View.OwnSide);
+        }
+
+        [UnityTest]
         public IEnumerator CameraViewsCycleOwnSideEnemySideFirstPerson()
         {
             var follow = Camera.main.GetComponent<TopDownCamera>();

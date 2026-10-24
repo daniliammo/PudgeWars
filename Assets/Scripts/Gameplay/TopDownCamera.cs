@@ -5,7 +5,8 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Player camera with views switched by V: from above behind the player's side looking slightly ahead
-    /// toward the enemy, the same view from the enemy side (mirrored across the pit), and first person with
+    /// toward the enemy, a view from behind the enemy side's back wall across the pit at the player (it follows the
+    /// player only sideways, so every enemy stays in front of it however close the player comes), and first person with
     /// shooter controls (mouse look with a locked cursor and a crosshair; the cursor is freed while the shop is open).
     /// The cursor is captured on entering first person and released on leaving it; when something else frees it
     /// (Escape in the editor, another window), a click or the window regaining focus captures it again.
@@ -21,6 +22,8 @@ namespace PudgeWars.Gameplay
         public Vector3 offset = new(0f, 11f, -10f);
         public Vector3 lookAhead = new(0f, 0f, 4.5f);
         public float smoothTime = 0.15f;
+        [Tooltip("Enemy-side view: how far behind the enemy side's back wall the camera stands, metres.")]
+        public float enemyViewBehind = 5f;
 
         [Header("First person")]
         [Tooltip("Eye position above the hero's feet, metres.")] public float eyeHeight = 1.9f;
@@ -163,11 +166,24 @@ namespace PudgeWars.Gameplay
             var arm = turn * offset;
             if (Mode == View.EnemySide)
             {
-                // the own view mirrored across the middle of the pit: the player is where the enemies are
-                // in the own view, the enemies are in front of the camera
-                float mid = Arena.Instance != null ? Arena.Instance.transform.position.z : 0f;
-                focus.z = 2f * mid - focus.z;
+                // behind the enemy side's back wall, looking across the pit at the player: only the sideways
+                // position follows the player. Mirroring the own view instead pushed the camera onto the enemy side
+                // as the player came up to the pit, leaving the enemies at the back wall under and behind it.
                 arm = Quaternion.Euler(0f, 180f, 0f) * arm;
+                var arena = Arena.Instance;
+                float mid = arena != null ? arena.transform.position.z : 0f;
+                float depth = arena != null ? arena.pitHalfDepth + arena.sideDepth : 14f;
+                float enemySide = LocalPlayer.Team == Team.Bots ? -1f : 1f;
+                position = new Vector3(focus.x + arm.x, focus.y + arm.y, mid + enemySide * (depth + enemyViewBehind));
+                // tilted halfway between a hero at the back wall below and the player (aiming at the bodies, a metre
+                // up): both ends of the arena stay in the frame
+                const float body = 1f;
+                float height = arm.y - body;
+                float toWall = Mathf.Atan2(height, enemyViewBehind + 0.6f);
+                float toPlayer = Mathf.Atan2(height, Mathf.Max(Mathf.Abs(position.z - target.position.z), 0.1f));
+                rotation = Quaternion.LookRotation(new Vector3(0f, 0f, -enemySide))
+                           * Quaternion.Euler(0.5f * (toWall + toPlayer) * Mathf.Rad2Deg, 0f, 0f);
+                return;
             }
             position = focus + arm;
             rotation = Quaternion.LookRotation(-arm);
