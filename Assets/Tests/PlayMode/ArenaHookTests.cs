@@ -179,6 +179,71 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HookPullsAnAllyToPudgeUnharmed()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var ally = bots[0];
+            ally.team = Team.Player;
+            for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -12f), Quaternion.identity);
+            ally.transform.position = new Vector3(0f, 0f, -6f);
+
+            Hookable caught = null;
+            hook.TargetCaught += h => caught = h;
+            Assert.IsTrue(hook.TryCast(ally.transform.position));
+            float t = 0f;
+            while (hook.IsBusy && t < 5f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.AreEqual(ally, caught, "the hook passed through the ally");
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the ally was not let go unharmed");
+            Assert.IsTrue(ally.IsControllable);
+            var d = ally.transform.position - player.transform.position;
+            Assert.Less(new Vector3(d.x, 0f, d.z).magnitude, 2f, "the ally was not pulled to Pudge");
+            Assert.AreEqual(0, arena.Score);
+            Assert.AreEqual(0, arena.Deaths);
+            Assert.Greater(hook.CooldownRemaining, 0f, "catching an ally must not refresh the hook");
+            yield return new WaitForSeconds(0.5f);
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling, "the ally fell after being let go");
+        }
+
+        [UnityTest]
+        public IEnumerator MarkersAndHealthBarsAreColouredByTheLocalPlayersTeam()
+        {
+            yield return null;
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bars = Object.FindFirstObjectByType<HealthBars>();
+            var block = new MaterialPropertyBlock();
+            Color Marker(Hookable h)
+            {
+                h.transform.Find("TeamMarker").GetComponent<Renderer>().GetPropertyBlock(block);
+                return block.GetColor("_BaseColor");
+            }
+            Color Bar(Hookable h) => bars.Of(h).fill.GetComponent<Image>().color;
+
+            Assert.AreEqual(player.allyMarkerColor, Marker(player));
+            Assert.AreEqual(bot.enemyMarkerColor, Marker(bot));
+            Assert.AreEqual(bars.playerColor, Bar(player));
+            Assert.AreEqual(bars.enemyColor, Bar(bot));
+
+            // a bot on the player's team is an ally: green, whatever its prefab says
+            bot.team = Team.Player;
+            yield return null;
+            Assert.AreEqual(bot.allyMarkerColor, Marker(bot), "an allied bot's marker stayed red");
+            Assert.AreEqual(bars.playerColor, Bar(bot), "an allied bot's health bar stayed red");
+
+            // the local player plays for Dire (as the host in a network game): its own marker stays green, Radiant is red
+            player.team = Team.Bots;
+            bot.team = Team.Player;
+            yield return null;
+            Assert.AreEqual(player.allyMarkerColor, Marker(player), "the local player's own marker must be green");
+            Assert.AreEqual(bot.enemyMarkerColor, Marker(bot));
+            Assert.AreEqual(bars.enemyColor, Bar(bot));
+        }
+
+        [UnityTest]
         public IEnumerator BotAimsWithOrWithoutLead()
         {
             var bot = Hookable.All.First(h => h.team == Team.Bots);

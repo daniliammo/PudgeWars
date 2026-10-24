@@ -16,7 +16,8 @@ namespace PudgeWars.Gameplay
 
     /// <summary>
     /// Pudge's hook: turn to the target (Dota 2 facing rule), wind-up, flight to max range, catch the first
-    /// enemy on the way and pull it back. A target dragged over the pit is released and falls in.
+    /// hero on the way and pull it back. A target dragged over the pit is released and falls in. As Meat Hook in Dota,
+    /// it catches allies too: an ally is pulled to Pudge unharmed and let go there.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
     /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
@@ -32,7 +33,9 @@ namespace PudgeWars.Gameplay
         public float returnSpeed = 15f;
         [Tooltip("StartHook_DelayAnimations = 0.29 s")] public float castDelay = 0.29f;
         public float cooldown = 1f;
-        [Tooltip("A cast that catches a target leaves the hook ready right after it comes back.")]
+        [Tooltip("Dota's Meat Hook pulls allies too (without harm).")]
+        public bool hitsAllies = true;
+        [Tooltip("A cast that catches an enemy leaves the hook ready right after it comes back.")]
         public bool resetCooldownOnHit = true;
         [Tooltip("Hook head radius used for hits, metres. Dota 2 Meat Hook: hook_width 100 plus Pudge's hull 24 is about 1.24 m from the hero's centre; with our hero radius 0.6 that is 0.65.")]
         public float hitRadius = 0.65f;
@@ -230,7 +233,7 @@ namespace PudgeWars.Gameplay
             {
                 hookHead.position = contact;
                 target = hit;
-                caughtThisCast = true;
+                caughtThisCast = IsEnemy(target); // rescuing an ally does not refresh the hook
                 target.AttachTo(this);
                 TargetCaught?.Invoke(target);
                 Play(sounds.impact);
@@ -276,8 +279,10 @@ namespace PudgeWars.Gameplay
         {
             if (target != null)
             {
-                // Pulled all the way without crossing the pit (not possible on the test arena): just let go.
-                target.StartFalling(Vector3.zero);
+                // an ally is delivered to Pudge and let go; an enemy pulled all the way without crossing the pit
+                // (not possible on the test arena) dies all the same
+                if (IsEnemy(target)) target.StartFalling(Vector3.zero);
+                else target.Release();
                 target = null;
             }
             SetHookVisible(false);
@@ -359,7 +364,7 @@ namespace PudgeWars.Gameplay
             readyAt = Time.time + cooldown;
         }
 
-        /// <summary>First enemy whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
+        /// <summary>First hero (enemy, or ally with hitsAllies) whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
         Hookable FindTarget(Vector3 from, Vector3 to, out Vector3 contact)
         {
             Hookable best = null;
@@ -370,7 +375,7 @@ namespace PudgeWars.Gameplay
             float len2 = seg.sqrMagnitude;
             foreach (var h in Hookable.All)
             {
-                if (h == self || !h.CanBeHooked || (self != null && h.team == self.team)) continue;
+                if (h == self || !h.CanBeHooked || (!hitsAllies && !IsEnemy(h))) continue;
                 var rel = h.transform.position - from;
                 rel.y = 0f;
                 float t = len2 > 1e-8f ? Mathf.Clamp01(Vector3.Dot(rel, seg) / len2) : 0f;
@@ -413,6 +418,8 @@ namespace PudgeWars.Gameplay
             hookHead.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(0f, 0f, remoteFlying ? spin : 0f);
             UpdateChain();
         }
+
+        bool IsEnemy(Hookable h) => self == null || h.team != self.team;
 
         void UpdateChain()
         {
