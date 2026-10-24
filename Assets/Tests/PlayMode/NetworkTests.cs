@@ -73,7 +73,7 @@ namespace PudgeWars.Tests
                     yield return null;
                 }
                 Assert.AreEqual(1, arena.KillsOf(Team.Bots), "the hook did not kill the bot");
-                Assert.AreEqual(arena.killGold, hero.GetComponent<HeroInventory>().Gold, "no gold for the kill");
+                Assert.AreEqual(arena.KillGold(bot), hero.GetComponent<HeroInventory>().Gold, "no gold for the kill");
                 var hud = Object.FindAnyObjectByType<ScoreHud>();
                 Assert.AreEqual("0", hud.RadiantKills.text);
                 Assert.AreEqual("1", hud.DireKills.text, "the top bar does not show Dire's kill");

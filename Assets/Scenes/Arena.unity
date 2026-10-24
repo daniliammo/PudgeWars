@@ -1974,7 +1974,8 @@ MonoBehaviour:
   sideDepth: 11
   killHeight: -4
   respawnDelay: 2.5
-  killGold: 250
+  killGoldBase: 125
+  killGoldPerLevel: 8
   passiveGold: 2
   passiveGoldInterval: 1
   multiKillWindow: 18

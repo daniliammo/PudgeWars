@@ -25,6 +25,8 @@ namespace PudgeWars.Gameplay
         public Color enemyMarkerColor = new(0.95f, 0.15f, 0.1f);
 
         public string Nickname => string.IsNullOrEmpty(nickname) ? name : nickname;
+        /// <summary>Hero level; a stub until levels exist: always 1.</summary>
+        public int Level => 1;
         public float Health { get; private set; }
         public bool IsAlive { get; private set; } = true;
         public bool IsHooked => hookedBy != null || remoteHooked;

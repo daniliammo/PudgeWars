@@ -57,7 +57,8 @@ namespace PudgeWars.Tests
             Assert.IsTrue(dropped, "bot was not released over the pit");
             Assert.AreEqual(1, arena.Score);
             Assert.IsFalse(bot.IsAlive);
-            Assert.AreEqual(arena.killGold, player.GetComponent<HeroInventory>().Gold, "no gold for the kill");
+            Assert.AreEqual(arena.KillGold(bot), player.GetComponent<HeroInventory>().Gold, "no gold for the kill");
+            Assert.AreEqual(133, arena.KillGold(bot), "a level-1 kill is worth 125 + 1 × 8");
 
             yield return new WaitUntil(() => !hook.IsBusy);
             Assert.IsTrue(hook.IsReady, "cooldown was not reset by the hit");
@@ -139,7 +140,7 @@ namespace PudgeWars.Tests
             brain.enabled = false;
             Assert.AreEqual(1, arena.Deaths, "bot did not kill the player");
             Assert.AreEqual(0, arena.Score);
-            Assert.AreEqual(arena.killGold, bot.GetComponent<HeroInventory>().Gold, "bot got no gold for the kill");
+            Assert.AreEqual(arena.KillGold(player), bot.GetComponent<HeroInventory>().Gold, "bot got no gold for the kill");
             Assert.AreEqual(0, player.GetComponent<HeroInventory>().Gold);
             Assert.IsFalse(player.IsAlive);
             Assert.IsFalse(hook.TryCast(Vector3.zero), "a dead player must not throw");
@@ -267,7 +268,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0, arena.Deaths);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the rescue was not counted");
             Assert.AreEqual(0, arena.RescuesOf(Team.Bots));
-            Assert.AreEqual(arena.killGold / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
+            Assert.AreEqual(arena.KillGold(ally) / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
             Assert.AreEqual(0, ally.GetComponent<HeroInventory>().Gold, "the rescued hero gets nothing");
         }
 
@@ -559,7 +560,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, arena.Deaths, "the hunter did not kill the player");
             Assert.AreEqual(1, arena.Score, "the player's target was not dragged into the pit");
             Assert.IsFalse(victim.IsAlive);
-            Assert.AreEqual(arena.killGold, player.GetComponent<HeroInventory>().Gold, "the tethered kill belongs to the player");
+            Assert.AreEqual(arena.KillGold(victim), player.GetComponent<HeroInventory>().Gold, "the tethered kill belongs to the player");
             Assert.IsFalse(hook.chain.enabled);
         }
 
@@ -622,7 +623,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, arena.Deaths, "the player did not die");
             Assert.AreEqual(1, arena.Score, "the victim was not dragged into the pit");
             Assert.IsFalse(victim.IsAlive);
-            Assert.AreEqual(arena.killGold, player.GetComponent<HeroInventory>().Gold, "the dragged kill belongs to the player");
+            Assert.AreEqual(arena.KillGold(victim), player.GetComponent<HeroInventory>().Gold, "the dragged kill belongs to the player");
         }
 
         [UnityTest]
@@ -1083,12 +1084,12 @@ namespace PudgeWars.Tests
             var popups = Object.FindAnyObjectByType<GoldPopups>();
             Assert.IsNotNull(popups, "no gold popups layer in the HUD");
             Assert.IsNotNull(popups.coinSprite, "coin picture (Gold.png) missing");
-            player.GetComponent<HeroInventory>().AddGold(arena.killGold);
+            player.GetComponent<HeroInventory>().AddGold(arena.KillGold(player));
             Assert.AreEqual(1, popups.ActiveCount);
-            Assert.AreEqual($"+{arena.killGold} монет", popups.LastText);
+            Assert.AreEqual($"+{arena.KillGold(player)} монет", popups.LastText);
             Assert.IsNotNull(popups.coinSound, "coin sound (coinsondesk.mp3) missing");
             Assert.AreEqual(1, popups.SoundsPlayed, "the local player's reward must clink");
-            Hookable.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(arena.killGold);
+            Hookable.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(arena.KillGold(player));
             Assert.AreEqual(1, popups.SoundsPlayed, "another hero's reward must be silent for the local player");
             Assert.AreEqual(2, popups.ActiveCount, "another hero's reward still shows its popup");
             yield return new WaitForSeconds(0.3f);

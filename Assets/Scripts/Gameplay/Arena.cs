@@ -30,8 +30,10 @@ namespace PudgeWars.Gameplay
         [Tooltip("A falling character dies below this height.")]
         public float killHeight = -4f;
         public float respawnDelay = 2.5f;
-        [Tooltip("Gold for the hero whose hook dragged the victim into the pit; a rescue pays half of it.")]
-        public int killGold = 250;
+        [Tooltip("Kill reward for the hero whose hook dragged the victim into the pit: killGoldBase + killGoldPerLevel × the victim's level (133 at level 1). A rescue pays half of it.")]
+        public int killGoldBase = 125;
+        [Tooltip("Kill reward added per level of the victim.")]
+        public int killGoldPerLevel = 8;
         [Tooltip("Gold every hero gets each passiveGoldInterval, without a popup.")]
         public int passiveGold = 2;
         [Tooltip("Seconds between passive gold ticks.")]
@@ -51,6 +53,8 @@ namespace PudgeWars.Gameplay
         public int DeathsOf(Team team) => deaths[(int)team];
         /// <summary>Allies a team's hooks pulled out of enemy hooks.</summary>
         public int RescuesOf(Team team) => rescues[(int)team];
+        /// <summary>Gold for killing a hero: 125 + its level × 8, so 133 at level 1.</summary>
+        public int KillGold(Hookable victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
         /// <summary>(Score, Deaths) after any change of the counts.</summary>
         public event Action<int, int> ScoreChanged;
         /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
@@ -120,7 +124,7 @@ namespace PudgeWars.Gameplay
                 SeriesEnded?.Invoke(victim, SeriesEnd.Killed, killer);
             if (killer != null)
             {
-                if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(killGold);
+                if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(KillGold(victim));
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
                     KillAnnounced?.Invoke(killer, announcement);
             }
@@ -131,13 +135,13 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// An ally's hook took <paramref name="rescued"/> out of an enemy's hook: the rescuer gets half the kill
-        /// reward.
+        /// An ally's hook took <paramref name="rescued"/> out of an enemy's hook: the rescuer gets half the reward for
+        /// killing the rescued hero.
         /// </summary>
         public void ReportRescue(Hookable rescued, Hookable rescuer)
         {
             rescues[(int)rescuer.team]++;
-            if (rescuer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(killGold / 2);
+            if (rescuer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(KillGold(rescued) / 2);
             Rescued?.Invoke(rescued, rescuer);
             ScoreChanged?.Invoke(Score, Deaths);
         }
