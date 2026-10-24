@@ -8,6 +8,8 @@ namespace PudgeWars.Gameplay
     /// Desktop controls for the test arena: WASD / arrows to move relative to the camera view (V switches it,
     /// see TopDownCamera); Q selects the first ability (the hook) and shows where it will fly, left mouse
     /// button or Space casts it toward the cursor, right mouse button or Escape drops the selection.
+    /// In first person the controls are a shooter's: the hero faces where the camera looks, strafes with
+    /// A / D and throws the hook at the crosshair.
     /// </summary>
     public class PlayerInputController : MonoBehaviour
     {
@@ -23,6 +25,7 @@ namespace PudgeWars.Gameplay
         PudgeMotor motor;
         HookAbility hook;
         Hookable self;
+        TopDownCamera follow;
 
         void Awake()
         {
@@ -31,9 +34,14 @@ namespace PudgeWars.Gameplay
             self = GetComponent<Hookable>();
             if (aimIndicator == null) aimIndicator = GetComponentInChildren<HookAimIndicator>();
             if (viewCamera == null) viewCamera = Camera.main;
+            if (viewCamera != null) follow = viewCamera.GetComponent<TopDownCamera>();
         }
 
-        void OnDisable() => Deselect();
+        void OnDisable()
+        {
+            Deselect();
+            motor.SetLookDirection(null);
+        }
 
         /// <summary>Picks an ability for targeting; one on cooldown or a caught hero cannot be picked.</summary>
         public bool SelectAbility(int slot)
@@ -61,7 +69,9 @@ namespace PudgeWars.Gameplay
                 if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) move.x += 1f;
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) move.x -= 1f;
             }
+            bool firstPerson = follow != null && follow.IsFirstPerson;
             motor.SetMoveInput(CameraRelative(move));
+            motor.SetLookDirection(firstPerson ? follow.MoveForward : null);
 
             if (kb != null && kb.qKey.wasPressedThisFrame) SelectAbility(HookSlot);
             if (SelectedAbility == NoAbility) return;
@@ -71,7 +81,9 @@ namespace PudgeWars.Gameplay
                 Deselect();
                 return;
             }
-            if (mouse == null || !TryGetGroundPoint(mouse.position.ReadValue(), out var point))
+            Vector3 point;
+            if (firstPerson) point = transform.position + follow.MoveForward * hook.EffectiveRange; // the crosshair
+            else if (mouse == null || !TryGetGroundPoint(mouse.position.ReadValue(), out point))
             {
                 if (aimIndicator != null) aimIndicator.Hide();
                 return;
@@ -81,14 +93,14 @@ namespace PudgeWars.Gameplay
             if (aimIndicator != null) aimIndicator.Show(hook.AimStart, dir, hook.AimLength, hook.HitWidth);
 
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            bool cast = (mouse.leftButton.wasPressedThisFrame && !overUi) || (kb != null && kb.spaceKey.wasPressedThisFrame);
+            bool click = mouse != null && mouse.leftButton.wasPressedThisFrame && (!overUi || Cursor.lockState == CursorLockMode.Locked);
+            bool cast = click || (kb != null && kb.spaceKey.wasPressedThisFrame);
             if (cast && hook.TryCast(point)) Deselect();
         }
 
         Vector3 CameraRelative(Vector2 move)
         {
             if (viewCamera == null) return new Vector3(move.x, 0f, move.y);
-            var follow = viewCamera.GetComponent<TopDownCamera>();
             var fwd = follow != null ? follow.MoveForward : viewCamera.transform.forward;
             fwd.y = 0f;
             fwd.Normalize();

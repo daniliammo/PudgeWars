@@ -54,7 +54,7 @@ namespace PudgeWars.EditorTools
 
             follow.target = player.transform;
             follow.SnapToTarget();
-            BuildHud();
+            follow.crosshair = BuildHud();
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -250,7 +250,8 @@ namespace PudgeWars.EditorTools
             }
         }
 
-        static void BuildHud()
+        /// <summary>HUD canvas; returns the first-person crosshair (hidden until that view is on).</summary>
+        static GameObject BuildHud()
         {
             var canvasGo = new GameObject("HUD");
             var canvas = canvasGo.AddComponent<Canvas>();
@@ -265,6 +266,20 @@ namespace PudgeWars.EditorTools
             canvasGo.AddComponent<ScoreHud>().label = score;
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
             AbilityBarBuilder.Build(canvasGo.transform, font);
+            return Crosshair(canvasGo.transform);
+        }
+
+        static GameObject Crosshair(Transform canvas)
+        {
+            var root = ShopUiBuilder.Rect(canvas, "Crosshair", new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(36f, 36f));
+            foreach (var size in new[] { new Vector2(36f, 4f), new Vector2(4f, 36f) })
+            {
+                var bar = ShopUiBuilder.Img(ShopUiBuilder.Rect(root, "Bar", new Vector2(0.5f, 0.5f), Vector2.zero, size), Color.white);
+                bar.raycastTarget = false;
+                bar.gameObject.AddComponent<Outline>().effectColor = new Color(0f, 0f, 0f, 0.8f);
+            }
+            root.gameObject.SetActive(false);
+            return root.gameObject;
         }
 
         static Text Label(Transform parent, string name, Font font, int size, Vector2 pos, TextAnchor anchor)

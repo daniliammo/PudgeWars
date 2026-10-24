@@ -5,7 +5,8 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Player camera with views switched by V: from above behind the player's side looking slightly ahead
-    /// toward the enemy, the same view from the enemy side (mirrored across the pit), and first person.
+    /// toward the enemy, the same view from the enemy side (mirrored across the pit), and first person with
+    /// shooter controls (mouse look with a locked cursor and a crosshair; the cursor is freed while the shop is open).
     /// </summary>
     public class TopDownCamera : MonoBehaviour
     {
@@ -20,36 +21,65 @@ namespace PudgeWars.Gameplay
         [Tooltip("Eye position above the hero's feet, metres.")] public float eyeHeight = 1.9f;
         [Tooltip("Eye position in front of the hero's centre, so the head does not block the view, metres.")]
         public float eyeForward = 0.5f;
-        [Tooltip("Looking down from the horizon, degrees.")] public float firstPersonPitch = 12f;
+        [Tooltip("Initial look down from the horizon, degrees.")] public float firstPersonPitch = 12f;
+        public Vector2 pitchLimits = new(-60f, 80f);
+        [Tooltip("Degrees per pixel of mouse movement.")] public float mouseSensitivity = 0.12f;
         public float firstPersonFov = 75f;
+        [Tooltip("Shown only in first person.")] public GameObject crosshair;
 
         public View Mode { get; private set; }
+        public bool IsFirstPerson => Mode == View.FirstPerson;
 
-        /// <summary>Horizontal direction WASD's "forward" maps to: the screen's up in the top views, toward the
-        /// enemy side in first person (relative to the hero's own facing, turning would never stop).</summary>
-        public Vector3 MoveForward => Flat(Mode == View.FirstPerson ? lookAhead : transform.forward);
+        /// <summary>Horizontal direction WASD's "forward" maps to: the screen's up in the top views, the look
+        /// direction in first person.</summary>
+        public Vector3 MoveForward => Flat(IsFirstPerson ? Quaternion.Euler(0f, yaw, 0f) * Vector3.forward : transform.forward);
 
         Camera cam;
-        float baseFov;
+        ShopUI shop;
+        float baseFov, yaw, pitch;
         Vector3 velocity;
 
         void Awake()
         {
             cam = GetComponent<Camera>();
             baseFov = cam != null ? cam.fieldOfView : 60f;
+            if (crosshair != null) crosshair.SetActive(false);
         }
+
+        void Start() => shop = FindFirstObjectByType<ShopUI>();
+
+        void OnDisable() => UnlockCursor();
 
         void Update()
         {
             var kb = Keyboard.current;
             if (kb != null && kb.vKey.wasPressedThisFrame) NextView();
+            if (!IsFirstPerson) return;
+
+            bool free = shop != null && shop.IsOpen;
+            if (free) UnlockCursor();
+            else
+            {
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+                var mouse = Mouse.current;
+                if (mouse != null) AddLook(mouse.delta.ReadValue() * mouseSensitivity);
+            }
+            if (crosshair != null) crosshair.SetActive(!free);
+        }
+
+        /// <summary>Turns the first-person view: x = yaw to the right, y = pitch up, degrees.</summary>
+        public void AddLook(Vector2 degrees)
+        {
+            yaw += degrees.x;
+            pitch = Mathf.Clamp(pitch - degrees.y, pitchLimits.x, pitchLimits.y);
         }
 
         void LateUpdate()
         {
             if (target == null) return;
             Pose(out var position, out var rotation);
-            transform.position = Mode == View.FirstPerson
+            transform.position = IsFirstPerson
                 ? position
                 : Vector3.SmoothDamp(transform.position, position, ref velocity, smoothTime);
             transform.rotation = rotation;
@@ -60,7 +90,14 @@ namespace PudgeWars.Gameplay
         public void SetView(View view)
         {
             Mode = view;
-            if (cam != null) cam.fieldOfView = view == View.FirstPerson ? firstPersonFov : baseFov;
+            if (cam != null) cam.fieldOfView = IsFirstPerson ? firstPersonFov : baseFov;
+            if (IsFirstPerson && target != null)
+            {
+                yaw = Quaternion.LookRotation(Flat(target.forward)).eulerAngles.y;
+                pitch = firstPersonPitch;
+            }
+            if (!IsFirstPerson) UnlockCursor();
+            if (crosshair != null) crosshair.SetActive(IsFirstPerson);
             SnapToTarget();
         }
 
@@ -74,11 +111,11 @@ namespace PudgeWars.Gameplay
 
         void Pose(out Vector3 position, out Quaternion rotation)
         {
-            if (Mode == View.FirstPerson)
+            if (IsFirstPerson)
             {
-                var forward = Flat(target.forward);
-                position = target.position + Vector3.up * eyeHeight + forward * eyeForward;
-                rotation = Quaternion.LookRotation(forward) * Quaternion.Euler(firstPersonPitch, 0f, 0f);
+                var heading = Quaternion.Euler(0f, yaw, 0f);
+                position = target.position + Vector3.up * eyeHeight + heading * Vector3.forward * eyeForward;
+                rotation = heading * Quaternion.Euler(pitch, 0f, 0f);
                 return;
             }
             var focus = target.position + lookAhead;
@@ -93,6 +130,12 @@ namespace PudgeWars.Gameplay
             }
             position = focus + arm;
             rotation = Quaternion.LookRotation(-arm);
+        }
+
+        static void UnlockCursor()
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         static Vector3 Flat(Vector3 v)

@@ -431,11 +431,30 @@ namespace PudgeWars.Tests
             var eye = follow.transform.position - player.transform.position;
             Assert.AreEqual(follow.eyeHeight, eye.y, 1e-3f);
             Assert.Greater(Vector3.Dot(follow.transform.forward, player.transform.forward), 0.9f, "looks where the hero faces");
-            Assert.Less(Vector3.Distance(Vector3.forward, follow.MoveForward), 1e-4f, "W moves toward the enemy side, not along the facing");
+            Assert.Less(Vector3.Distance(Vector3.forward, follow.MoveForward), 1e-4f, "W moves where the view looks");
+            Assert.IsTrue(follow.crosshair.activeSelf, "no crosshair in first person");
             CaptureScreen("view_first_person");
+
+            // shooter controls: the mouse turns the view and W with it
+            follow.AddLook(new Vector2(90f, 0f));
+            Assert.Less(Vector3.Distance(Vector3.right, follow.MoveForward), 1e-4f);
+            follow.AddLook(new Vector2(-90f, 0f));
+
+            // strafing: the hero keeps facing the look direction and moves sideways
+            var motor = player.GetComponent<PudgeMotor>();
+            var start = player.transform.position;
+            motor.SetLookDirection(Vector3.forward);
+            motor.SetMoveInput(Vector3.right);
+            yield return new WaitForSeconds(0.4f);
+            motor.SetMoveInput(Vector3.zero);
+            motor.SetLookDirection(null);
+            Assert.Greater(player.transform.position.x - start.x, 0.5f, "did not strafe");
+            Assert.Less(Vector3.Angle(player.transform.forward, Vector3.forward), 1f, "strafing turned the hero");
 
             follow.NextView();
             Assert.AreEqual(TopDownCamera.View.OwnSide, follow.Mode);
+            Assert.IsFalse(follow.crosshair.activeSelf);
+            Assert.AreEqual(CursorLockMode.None, Cursor.lockState);
         }
 
         static void CaptureScreen(string name)

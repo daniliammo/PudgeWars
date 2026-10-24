@@ -5,7 +5,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Kinematic ground movement limited to the character's side of the arena, with Dota 2 turning rules:
     /// the hero turns at its turn rate and only starts moving (or casting at a point) once the target
-    /// direction is within 11.5° in front of it.
+    /// direction is within 11.5° in front of it. With a look direction set (first-person controls) the hero
+    /// turns to it instead and moves in any direction without turning, like in a shooter.
     /// </summary>
     public class PudgeMotor : MonoBehaviour
     {
@@ -18,6 +19,7 @@ namespace PudgeWars.Gameplay
         public float turnRate = 0.7f;
 
         Vector3 input;
+        Vector3? look;
         Hookable self;
         HookAbility hook;
         PudgeAnimation anim;
@@ -36,6 +38,13 @@ namespace PudgeWars.Gameplay
         {
             worldDirection.y = 0f;
             input = Vector3.ClampMagnitude(worldDirection, 1f);
+        }
+
+        /// <summary>Facing to keep while moving freely (strafing); null restores the Dota rules.</summary>
+        public void SetLookDirection(Vector3? worldDirection)
+        {
+            var flat = worldDirection is { } d ? new Vector3(d.x, 0f, d.z) : Vector3.zero;
+            look = flat.sqrMagnitude > 1e-6f ? flat : null;
         }
 
         public bool CanMove => (self == null || self.IsControllable) && (hook == null || !hook.IsBusy);
@@ -63,19 +72,28 @@ namespace PudgeWars.Gameplay
         {
             if (self != null && !self.IsControllable) return;
             float speed = 0f;
-            if (CanMove && input.sqrMagnitude > 1e-4f)
+            if (CanMove && look is { } facing)
+            {
+                TurnToward(facing, Time.deltaTime);
+                if (input.sqrMagnitude > 1e-4f) speed = Step(input);
+            }
+            else if (CanMove && input.sqrMagnitude > 1e-4f)
             {
                 float angleLeft = TurnToward(input, Time.deltaTime);
-                if (angleLeft <= FacingTolerance)
-                {
-                    var pos = transform.position + transform.forward * (moveSpeed * input.magnitude * Time.deltaTime);
-                    var arena = Arena.Instance;
-                    if (arena != null && self != null) pos = arena.ClampToSide(pos, self.team, self.radius);
-                    speed = (pos - transform.position).magnitude / Mathf.Max(Time.deltaTime, 1e-5f);
-                    transform.position = pos;
-                }
+                if (angleLeft <= FacingTolerance) speed = Step(transform.forward * input.magnitude);
             }
             if (hook == null || !hook.IsBusy) anim?.Locomotion(speed);
+        }
+
+        /// <summary>Moves by velocity / moveSpeed for this frame within the own side; returns the actual speed.</summary>
+        float Step(Vector3 direction)
+        {
+            var pos = transform.position + direction * (moveSpeed * Time.deltaTime);
+            var arena = Arena.Instance;
+            if (arena != null && self != null) pos = arena.ClampToSide(pos, self.team, self.radius);
+            float speed = (pos - transform.position).magnitude / Mathf.Max(Time.deltaTime, 1e-5f);
+            transform.position = pos;
+            return speed;
         }
     }
 }
