@@ -38,7 +38,9 @@ namespace PudgeWars.Gameplay
         {
             anim = GetComponent<PudgeAnimation>();
             ownHook = GetComponent<HookAbility>();
-            renderers = GetComponentsInChildren<Renderer>(true);
+            // the hook head and the chain may still be children here (prefab); their visibility belongs to HookAbility
+            var all = GetComponentsInChildren<Renderer>(true);
+            renderers = ownHook == null ? all : System.Array.FindAll(all, r => !ownHook.Owns(r.transform));
             lastPosition = transform.position;
         }
 

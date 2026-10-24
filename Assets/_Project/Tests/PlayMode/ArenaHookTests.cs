@@ -59,6 +59,8 @@ namespace PudgeWars.Tests
 
             yield return new WaitForSeconds(arena.respawnDelay + 0.5f);
             Assert.IsTrue(bot.IsAlive, "bot did not respawn");
+            var botHook = bot.GetComponent<HookAbility>();
+            Assert.IsFalse(botHook.chain.enabled, "bot's chain came back after respawn");
             Assert.Greater(bot.transform.position.z, arena.pitHalfDepth);
             yield return new WaitUntil(() => hook.IsReady);
             Capture("after_respawn");
@@ -111,6 +113,35 @@ namespace PudgeWars.Tests
             yield return new WaitForSeconds(arena.respawnDelay + 0.5f);
             Assert.IsTrue(player.IsAlive, "player did not respawn");
             Assert.Less(player.transform.position.z, -arena.pitHalfDepth);
+        }
+
+        [UnityTest]
+        public IEnumerator HookStaysHiddenAfterOwnerDiesMidThrowAndRespawns()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            var bot = bots[0];
+            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1f);
+
+            // the player throws away from the bot, the bot's hook gets there first
+            Assert.IsTrue(hook.TryCast(player.transform.position + new Vector3(6f, 0f, 10f)));
+            var brain = bot.GetComponent<BotBrain>();
+            brain.aimError = 0f;
+            brain.leadChance = 0f;
+            brain.throwInterval = Vector2.zero;
+            brain.enabled = true;
+
+            float t = 0f;
+            while (arena.Deaths == 0 && t < 8f) { t += Time.deltaTime; yield return null; }
+            brain.enabled = false;
+            Assert.AreEqual(1, arena.Deaths, "bot did not kill the player");
+            Assert.IsFalse(hook.chain.enabled, "player's chain is visible while dead");
+
+            yield return new WaitUntil(() => player.IsAlive);
+            yield return null;
+            Assert.IsFalse(hook.chain.enabled, "player's chain came back after respawn");
+            Assert.IsFalse(hook.hookHead.gameObject.activeSelf, "player's hook head came back after respawn");
+            Assert.IsFalse(hook.IsBusy);
         }
 
         [UnityTest]

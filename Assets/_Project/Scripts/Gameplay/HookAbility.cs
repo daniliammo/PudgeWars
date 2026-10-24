@@ -74,6 +74,10 @@ namespace PudgeWars.Gameplay
             if (chain != null) Destroy(chain.gameObject);
         }
 
+        /// <summary>True for the hook head, the chain and their children.</summary>
+        public bool Owns(Transform t) =>
+            (hookHead != null && t.IsChildOf(hookHead)) || (chain != null && t.IsChildOf(chain.transform));
+
         Vector3 Origin => chainOrigin != null ? chainOrigin.position : transform.TransformPoint(fallbackOriginOffset);
 
         /// <summary>Throws the hook toward a world point (only the horizontal direction matters).</summary>
