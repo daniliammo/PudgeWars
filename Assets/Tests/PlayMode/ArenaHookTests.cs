@@ -530,7 +530,7 @@ namespace PudgeWars.Tests
         {
             var streaks = new KillStreaks { multiKillWindow = 18f };
             var hero = new object();
-            CollectionAssert.IsEmpty(streaks.RegisterKill(hero, 0f));
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.FirstBlood }, streaks.RegisterKill(hero, 0f), "the first kill of the match");
             CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 10f));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.TripleKill }, streaks.RegisterKill(hero, 27f), "the window counts from the previous kill");
             CollectionAssert.AreEqual(new[] { KillAnnouncement.UltraKill }, streaks.RegisterKill(hero, 30f));
@@ -553,6 +553,7 @@ namespace PudgeWars.Tests
         {
             var streaks = new KillStreaks { multiKillWindow = 18f, godlikeStreak = 9 };
             var hero = new object();
+            streaks.RegisterKill(new object(), -100f); // First Blood goes to someone else
             for (int i = 0; i < 8; i++) CollectionAssert.IsEmpty(streaks.RegisterKill(hero, i * 60f));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.Godlike }, streaks.RegisterKill(hero, 8 * 60f));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.Godlike }, streaks.RegisterKill(hero, 9 * 60f), "every kill beyond is Godlike too");
@@ -576,11 +577,16 @@ namespace PudgeWars.Tests
 
             arena.ReportDeath(bots[0], player);
             yield return null;
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.FirstBlood }, announced);
+            Assert.AreEqual("FIRST BLOOD", announcer.LastText);
+            Assert.IsNotNull(announcer.clips[(int)KillAnnouncement.FirstBlood], "no First Blood voice");
+            yield return new WaitForSeconds(announcer.duration + 0.1f);
             Assert.IsFalse(announcer.IsShowing, "a single kill is not a multi-kill");
+
             arena.ReportDeath(bots[1], player);
             arena.ReportDeath(bots[2], player);
             yield return null;
-            CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill, KillAnnouncement.TripleKill }, announced);
+            CollectionAssert.AreEqual(new[] { KillAnnouncement.FirstBlood, KillAnnouncement.DoubleKill, KillAnnouncement.TripleKill }, announced);
             Assert.IsTrue(announcer.IsShowing);
             Assert.AreEqual("DOUBLE KILL", announcer.LastText);
             Assert.AreEqual(1, announcer.Queued, "Triple Kill must wait for Double Kill to finish");
@@ -599,6 +605,8 @@ namespace PudgeWars.Tests
             Assert.AreEqual("DOUBLE KILL", announcer.LastText);
             Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].name));
             CaptureScreen("enemy_double_kill");
+            for (var kind = KillAnnouncement.FirstBlood; kind <= KillAnnouncement.Rampage; kind++)
+                Assert.IsNotNull(announcer.clips[(int)kind], kind + " has no voice");
         }
 
         static void CaptureScreen(string name)

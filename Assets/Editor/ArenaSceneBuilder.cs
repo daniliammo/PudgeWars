@@ -21,6 +21,7 @@ namespace PudgeWars.EditorTools
         const string ChainTexture = "Assets/Art/FX/Chain/Textures/chain_standart.png";
         const string MaterialDir = "Assets/Art/Arena/Materials";
         const string AudioDir = "Assets/Audio/Pudge";
+        const string AnnouncerDir = "Assets/Audio/Announcer";
         const string PlayerPrefabPath = "Assets/Prefabs/Characters/Pudge_Player.prefab";
         const string BotPrefabPath = "Assets/Prefabs/Characters/Pudge_Bot.prefab";
         const string LatinFont = "Assets/Art/UI/Fonts/TrajanPro-Bold.otf";
@@ -225,7 +226,7 @@ namespace PudgeWars.EditorTools
         /// <summary>Clips decoded from the original Sounds/ folder, named after their UE paths.</summary>
         public static HookSounds LoadHookSounds()
         {
-            AudioClip[] Clips(params string[] names) => names.Select(Clip).Where(c => c != null).ToArray();
+            AudioClip[] Clips(params string[] names) => names.Select(n => Clip(n)).Where(c => c != null).ToArray();
             if (!AssetDatabase.IsValidFolder(AudioDir)) return new HookSounds();
             return new HookSounds
             {
@@ -237,13 +238,13 @@ namespace PudgeWars.EditorTools
             };
         }
 
-        /// <summary>Announcer lines from the original's Sounds/Kill, indexed by KillAnnouncement (it has no Godlike).</summary>
+        /// <summary>Dota announcer lines, indexed by KillAnnouncement (no Godlike line yet).</summary>
         static AudioClip[] LoadKillSounds() =>
-            new[] { "Kill_2DoubleKill", "Kill_3Triplekill", "Kill_4Ultrakill", "Kill_5rampage", null }
-                .Select(n => n != null && AssetDatabase.IsValidFolder(AudioDir) ? Clip(n) : null).ToArray();
+            new[] { "firstblood", "announcer_kill_double_01", "announcer_kill_triple_01", "announcer_kill_ultra_01", "announcer_kill_rampage_01", null }
+                .Select(n => n != null && AssetDatabase.IsValidFolder(AnnouncerDir) ? Clip(n, AnnouncerDir) : null).ToArray();
 
-        static AudioClip Clip(string name) =>
-            AssetDatabase.FindAssets(name + " t:AudioClip", new[] { AudioDir }).Select(AssetDatabase.GUIDToAssetPath)
+        static AudioClip Clip(string name, string dir = AudioDir) =>
+            AssetDatabase.FindAssets(name + " t:AudioClip", new[] { dir }).Select(AssetDatabase.GUIDToAssetPath)
                 .Where(p => Path.GetFileNameWithoutExtension(p) == name).Select(AssetDatabase.LoadAssetAtPath<AudioClip>).FirstOrDefault();
 
         /// <summary>Re-assigns hook sounds on the character prefabs (after the clips are imported).</summary>
