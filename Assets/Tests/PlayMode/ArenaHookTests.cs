@@ -370,6 +370,12 @@ namespace PudgeWars.Tests
             Assert.Less(Mathf.Abs(player.transform.position.z), arena.pitHalfDepth);
             Assert.IsFalse(player.IsControllable);
             Assert.IsNull(player.LastHookedBy);
+            // the run cycle must not cut the fall animation off
+            yield return null;
+            yield return null;
+            var animator = player.GetComponentInChildren<Animator>();
+            Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(PudgeAnimation.Death)
+                          || animator.GetNextAnimatorStateInfo(0).IsName(PudgeAnimation.Death), "no fall animation");
             yield return new WaitUntil(() => died);
             Assert.AreEqual(1, arena.Deaths);
             Assert.AreEqual(0, bot.GetComponent<HeroInventory>().Gold, "the bot got gold for a fall it did not cause");

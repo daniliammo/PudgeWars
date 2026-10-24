@@ -87,6 +87,7 @@ namespace PudgeWars.Gameplay
                 float angleLeft = TurnToward(input, Time.deltaTime);
                 if (angleLeft <= FacingTolerance) speed = Step(transform.forward * input.magnitude);
             }
+            if (self != null && !self.IsControllable) return; // stepped over the edge: the fall animation stays
             if (hook == null || !hook.IsBusy) anim?.Locomotion(speed);
         }
 
