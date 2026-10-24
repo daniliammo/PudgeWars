@@ -22,7 +22,7 @@ namespace PudgeWars.Tests
             SceneManager.LoadScene("Arena");
             yield return null;
             yield return null;
-            arena = Object.FindFirstObjectByType<Arena>();
+            arena = Object.FindAnyObjectByType<Arena>();
             arena.passiveGold = 0;
         }
 
@@ -55,12 +55,12 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(Hookable.All.All(h => h.GetComponent<NetworkIdentity>() != null), "an offline hero is left");
                 Assert.AreEqual(3, Hookable.All.Count(h => h.team == Team.Player), "the host's team is not filled with bots");
                 Assert.AreEqual(3, Hookable.All.Count(h => h.team == Team.Bots));
-                Assert.IsNotNull(Object.FindFirstObjectByType<NetMatch>(), "no match object");
-                Assert.AreEqual(hero.transform, Object.FindFirstObjectByType<TopDownCamera>().target, "the camera does not follow the host's hero");
+                Assert.IsNotNull(Object.FindAnyObjectByType<NetMatch>(), "no match object");
+                Assert.AreEqual(hero.transform, Object.FindAnyObjectByType<TopDownCamera>().target, "the camera does not follow the host's hero");
                 Assert.AreEqual(0, arena.Score);
 
                 // the host plays as offline: its hook drags a Radiant bot into the pit
-                foreach (var brain in Object.FindObjectsByType<BotBrain>(FindObjectsSortMode.None)) brain.enabled = false;
+                foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
                 var enemies = Hookable.All.Where(h => h.team == Team.Player).ToList();
                 var bot = enemies[0];
                 for (int i = 1; i < enemies.Count; i++) enemies[i].transform.position = new Vector3(12f, 0f, -12f + i);
@@ -74,7 +74,7 @@ namespace PudgeWars.Tests
                 }
                 Assert.AreEqual(1, arena.KillsOf(Team.Bots), "the hook did not kill the bot");
                 Assert.AreEqual(arena.killGold, hero.GetComponent<HeroInventory>().Gold, "no gold for the kill");
-                var hud = Object.FindFirstObjectByType<ScoreHud>();
+                var hud = Object.FindAnyObjectByType<ScoreHud>();
                 Assert.AreEqual("0", hud.RadiantKills.text);
                 Assert.AreEqual("1", hud.DireKills.text, "the top bar does not show Dire's kill");
             }
@@ -102,7 +102,7 @@ namespace PudgeWars.Tests
             var hero = LocalPlayer.Hero;
             hero.team = Team.Bots;
             hero.transform.SetPositionAndRotation(new Vector3(0f, 0f, arena.pitHalfDepth + 5f), Quaternion.LookRotation(Vector3.back));
-            var follow = Object.FindFirstObjectByType<TopDownCamera>();
+            var follow = Object.FindAnyObjectByType<TopDownCamera>();
             follow.SetView(TopDownCamera.View.OwnSide);
             yield return null;
             var cam = Camera.main;
@@ -120,7 +120,7 @@ namespace PudgeWars.Tests
             Assert.Greater(cam.transform.forward.z, 0f);
 
             // the top bar marks the own team
-            var hud = Object.FindFirstObjectByType<ScoreHud>();
+            var hud = Object.FindAnyObjectByType<ScoreHud>();
             Assert.IsNotNull(hud.RadiantKills, "no team score at the top");
             Assert.AreEqual("0", hud.RadiantKills.text);
             Assert.AreEqual("0", hud.DireKills.text);
@@ -145,7 +145,7 @@ namespace PudgeWars.Tests
 
                 ItemDef wanted = null;
                 inventory.BuyRequested += item => wanted = item;
-                var lens = Object.FindFirstObjectByType<ShopUI>().rows[0].item;
+                var lens = Object.FindAnyObjectByType<ShopUI>().rows[0].item;
                 inventory.ApplyRemoteState(lens.cost, Enumerable.Empty<ItemDef>());
                 Assert.IsTrue(inventory.TryBuy(lens));
                 Assert.AreEqual(lens, wanted, "the purchase was not sent to the server");

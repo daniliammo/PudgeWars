@@ -62,7 +62,7 @@ namespace PudgeWars.Gameplay
 
         void Start()
         {
-            shop = FindFirstObjectByType<ShopUI>();
+            shop = FindAnyObjectByType<ShopUI>();
             LocalPlayer.Changed += OnLocalPlayerChanged;
         }
 

@@ -215,7 +215,7 @@ namespace PudgeWars.Net
         {
             if (font == null)
             {
-                var hud = FindFirstObjectByType<HudFonts>();
+                var hud = FindAnyObjectByType<HudFonts>();
                 if (hud != null) font = hud.cyrillic;
             }
             if (label != null && Mathf.Approximately(scale, styleScale) && label.font == font) return;

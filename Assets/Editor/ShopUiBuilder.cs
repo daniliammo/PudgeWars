@@ -51,7 +51,7 @@ namespace PudgeWars.EditorTools
 
         public static ShopUI Build(Transform canvas, Font font, ItemDef[] catalog)
         {
-            if (Object.FindFirstObjectByType<EventSystem>() == null)
+            if (Object.FindAnyObjectByType<EventSystem>() == null)
                 new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
 
             var shop = canvas.gameObject.AddComponent<ShopUI>();

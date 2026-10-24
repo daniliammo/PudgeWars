@@ -25,13 +25,13 @@ namespace PudgeWars.Tests
             SceneManager.LoadScene("Arena");
             yield return null;
             yield return null;
-            arena = Object.FindFirstObjectByType<Arena>();
+            arena = Object.FindAnyObjectByType<Arena>();
             arena.passiveGold = 0; // tests count gold exactly; the trickle has its own test
-            var input = Object.FindFirstObjectByType<PlayerInputController>();
+            var input = Object.FindAnyObjectByType<PlayerInputController>();
             input.enabled = false; // tests drive the player directly
             hook = input.GetComponent<HookAbility>();
             player = hook.GetComponent<Hookable>();
-            foreach (var brain in Object.FindObjectsByType<BotBrain>(FindObjectsSortMode.None)) brain.enabled = false;
+            foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
         }
 
         [UnityTest]
@@ -312,11 +312,11 @@ namespace PudgeWars.Tests
             Assert.AreEqual(allyHook, player.HookedBy, "the ally did not pull the player home");
             yield return null;
 
-            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             Assert.AreEqual("СПАСЁН", announcer.LastText);
             Assert.AreEqual($"Тебя спас {ally.Nickname}", announcer.LastSubtitle);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player));
-            Assert.AreEqual("У/С/С 0/0/1", Object.FindFirstObjectByType<ScoreHud>().label.text, "rescues are the third number");
+            Assert.AreEqual("У/С/С 0/0/1", Object.FindAnyObjectByType<ScoreHud>().label.text, "rescues are the third number");
         }
 
         [UnityTest]
@@ -473,7 +473,7 @@ namespace PudgeWars.Tests
         {
             yield return null;
             var bot = Hookable.All.First(h => h.team == Team.Bots);
-            var bars = Object.FindFirstObjectByType<HealthBars>();
+            var bars = Object.FindAnyObjectByType<HealthBars>();
             var block = new MaterialPropertyBlock();
             Color Marker(Hookable h)
             {
@@ -660,7 +660,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator ShopSellsAetherLensThatExtendsHookRange()
         {
-            var shop = Object.FindFirstObjectByType<ShopUI>();
+            var shop = Object.FindAnyObjectByType<ShopUI>();
             var inventory = player.GetComponent<HeroInventory>();
             var row = shop.rows[0];
             var lens = row.item;
@@ -718,7 +718,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator ShopButtonsReceivePointerClicks()
         {
-            var shop = Object.FindFirstObjectByType<ShopUI>();
+            var shop = Object.FindAnyObjectByType<ShopUI>();
             Assert.IsNotNull(EventSystem.current, "no EventSystem");
             yield return null;
             AssertPointerHits(shop.toggleButton);
@@ -731,7 +731,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator ShopPanelFliesInFromTheScreenEdgeAndBackOut()
         {
-            var shop = Object.FindFirstObjectByType<ShopUI>();
+            var shop = Object.FindAnyObjectByType<ShopUI>();
             var rt = (RectTransform)shop.panel.transform;
             var canvasRect = (RectTransform)rt.parent;
             shop.slideDuration = 1f; // long enough that a slow first frame cannot skip the flight
@@ -847,7 +847,7 @@ namespace PudgeWars.Tests
             motor.SetMoveInput(Vector3.zero);
 
             // left to themselves, bots wander right up to the brink now and then, and none falls in
-            foreach (var brain in Object.FindObjectsByType<BotBrain>(FindObjectsSortMode.None))
+            foreach (var brain in Object.FindObjectsByType<BotBrain>())
             {
                 brain.edgeChance = 1f;
                 brain.throwInterval = new Vector2(1000f, 1000f);
@@ -868,7 +868,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HeroesHaveNicknamesAndDotaHealthBars()
         {
-            var bars = Object.FindFirstObjectByType<HealthBars>();
+            var bars = Object.FindAnyObjectByType<HealthBars>();
             Assert.IsNotNull(bars, "no health bars in the HUD");
             yield return null;
             var heroes = Hookable.All.ToList();
@@ -904,7 +904,7 @@ namespace PudgeWars.Tests
         public IEnumerator AbilityBarShowsHookCooldownAndAimLines()
         {
             var input = player.GetComponent<PlayerInputController>();
-            var bar = Object.FindFirstObjectByType<AbilityBar>();
+            var bar = Object.FindAnyObjectByType<AbilityBar>();
             var view = bar.slots[PlayerInputController.HookSlot];
             Assert.AreEqual("Q", view.keyLabel.text);
             Assert.IsNotNull(view.icon.sprite, "hook icon missing");
@@ -1040,7 +1040,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator GoldRewardShowsAmountAndCoinsOverTheHero()
         {
-            var popups = Object.FindFirstObjectByType<GoldPopups>();
+            var popups = Object.FindAnyObjectByType<GoldPopups>();
             Assert.IsNotNull(popups, "no gold popups layer in the HUD");
             Assert.IsNotNull(popups.coinSprite, "coin picture (Gold.png) missing");
             player.GetComponent<HeroInventory>().AddGold(arena.killGold);
@@ -1063,7 +1063,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator EveryHeroGetsTwoGoldEverySecondWithoutPopup()
         {
-            var popups = Object.FindFirstObjectByType<GoldPopups>();
+            var popups = Object.FindAnyObjectByType<GoldPopups>();
             var wallets = Hookable.All.Select(h => h.GetComponent<HeroInventory>()).ToList();
             arena.passiveGold = 2;
             yield return new WaitForSeconds(0.1f);
@@ -1077,12 +1077,12 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HudUsesCyrillicFontForCyrillicTextAndLatinFontOtherwise()
         {
-            var fonts = Object.FindFirstObjectByType<HudFonts>();
+            var fonts = Object.FindAnyObjectByType<HudFonts>();
             Assert.IsNotNull(fonts.latin, "Latin font missing");
             Assert.IsNotNull(fonts.cyrillic, "Cyrillic font missing");
             yield return null;
-            var shop = Object.FindFirstObjectByType<ShopUI>();
-            var keyLabel = Object.FindFirstObjectByType<AbilityBar>().slots[0].keyLabel;
+            var shop = Object.FindAnyObjectByType<ShopUI>();
+            var keyLabel = Object.FindAnyObjectByType<AbilityBar>().slots[0].keyLabel;
             Assert.AreEqual(fonts.latin, keyLabel.font, "\"Q\" must use the Latin font");
             Assert.AreEqual(fonts.latin, shop.goldLabel.font, "gold digits must use the Latin font");
             foreach (var text in fonts.GetComponentsInChildren<Text>(true))
@@ -1091,7 +1091,7 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(text.TryGetComponent<Outline>(out var outline), text.name + " has no outline");
                 Assert.AreEqual(0f, outline.effectColor.r + outline.effectColor.g + outline.effectColor.b, 1e-3f, text.name + "'s outline is not black");
             }
-            Assert.AreEqual("У/С/С 0/0/0", Object.FindFirstObjectByType<ScoreHud>().label.text, "short own score in the corner");
+            Assert.AreEqual("У/С/С 0/0/0", Object.FindAnyObjectByType<ScoreHud>().label.text, "short own score in the corner");
 
             // a label switching language at runtime switches its font
             shop.goldLabel.text = "Нет";
@@ -1169,7 +1169,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator AnnouncerShowsMultiKillsInTurnForPlayerAndEnemies()
         {
-            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             Assert.IsNotNull(announcer, "no kill announcer in the HUD");
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
             var announced = new List<KillAnnouncement>();
@@ -1218,7 +1218,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator AnnouncerCountsRampagesInARow()
         {
-            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             announcer.duration = 0.2f;
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
             var shown = new List<string>();
@@ -1238,7 +1238,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator SeriesEndedByTimeIsAnnouncedWithTheReason()
         {
-            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
             arena.Streaks.multiKillWindow = 0.5f;
             var ended = new List<(Hookable hero, SeriesEnd reason, Hookable killer)>();
@@ -1271,7 +1271,7 @@ namespace PudgeWars.Tests
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");
             if (string.IsNullOrEmpty(dir)) return;
             Directory.CreateDirectory(dir);
-            var canvas = Object.FindFirstObjectByType<Canvas>();
+            var canvas = Object.FindAnyObjectByType<HudFonts>().GetComponent<Canvas>();
             var cam = Camera.main;
             var mode = canvas.renderMode;
             canvas.renderMode = RenderMode.ScreenSpaceCamera;
