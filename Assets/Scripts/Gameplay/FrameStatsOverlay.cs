@@ -40,10 +40,15 @@ namespace PudgeWars.Gameplay
             go.AddComponent<FrameStatsOverlay>();
         }
 
+        /// <summary>Display refresh rate: the compositor's value when known (the editor always reports 60 Hz).</summary>
+        static float RefreshRate => DisplayScaling.NativeRefreshRate > 0f
+            ? DisplayScaling.NativeRefreshRate
+            : (float)Screen.currentResolution.refreshRateRatio.value;
+
         /// <summary>Frame cap = display refresh rate; VSync off so the cap is what limits the frame rate.</summary>
         public static int ApplyFrameCap()
         {
-            int hz = Mathf.RoundToInt((float)Screen.currentResolution.refreshRateRatio.value);
+            int hz = Mathf.RoundToInt(RefreshRate);
             if (hz <= 0) hz = 60;
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = hz;
@@ -131,7 +136,7 @@ namespace PudgeWars.Gameplay
 
             var res = Screen.currentResolution;
             sb.Append("Экран: ").Append(Screen.width).Append('x').Append(Screen.height)
-              .Append(" @ ").Append(res.refreshRateRatio.value.ToString("0.##")).Append(" Гц, ").Append(Screen.fullScreenMode).Append('\n');
+              .Append(" @ ").Append(RefreshRate.ToString("0.##")).Append(" Гц, ").Append(Screen.fullScreenMode).Append('\n');
             sb.Append("Рабочий стол: ").Append(res.width).Append('x').Append(res.height).Append(", монитор: ");
             if (DisplayScaling.NativeSize != Vector2Int.zero) sb.Append(DisplayScaling.NativeSize.x).Append('x').Append(DisplayScaling.NativeSize.y).Append('\n');
             else sb.Append("неизвестно\n");
