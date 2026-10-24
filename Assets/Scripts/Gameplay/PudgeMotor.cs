@@ -30,6 +30,9 @@ namespace PudgeWars.Gameplay
         PudgeAnimation anim;
 
         public float TurnSpeedDegrees => turnRate / 0.03f * Mathf.Rad2Deg;
+        /// <summary>Movement input as last set (a network client sends it to the server, which moves the hero).</summary>
+        public Vector3 MoveInput => input;
+        public Vector3? LookDirection => look;
 
         void Awake()
         {
@@ -75,7 +78,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
-            if (self != null && !self.IsControllable) return;
+            if (Simulation.IsProxy || (self != null && !self.IsControllable)) return;
             float speed = 0f;
             if (CanMove && look is { } facing)
             {

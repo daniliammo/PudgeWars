@@ -22,14 +22,24 @@ namespace PudgeWars.Gameplay
 
         void Start()
         {
-            if (input == null) input = FindFirstObjectByType<PlayerInputController>();
+            if (input == null) input = LocalPlayer.Input;
             if (input != null) hook = input.GetComponent<HookAbility>();
+            LocalPlayer.Changed += OnLocalPlayerChanged;
             for (int i = 0; i < slots.Length; i++)
             {
                 int slot = i;
                 if (slots[i] != null && slots[i].button != null)
                     slots[i].button.onClick.AddListener(() => input?.SelectAbility(slot));
             }
+        }
+
+        void OnDestroy() => LocalPlayer.Changed -= OnLocalPlayerChanged;
+
+        /// <summary>A network game spawned (or removed) the local hero.</summary>
+        void OnLocalPlayerChanged()
+        {
+            input = LocalPlayer.Input;
+            hook = input != null ? input.GetComponent<HookAbility>() : null;
         }
 
         void Update()

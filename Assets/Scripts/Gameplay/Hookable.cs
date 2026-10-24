@@ -24,7 +24,7 @@ namespace PudgeWars.Gameplay
         public string Nickname => string.IsNullOrEmpty(nickname) ? name : nickname;
         public float Health { get; private set; }
         public bool IsAlive { get; private set; } = true;
-        public bool IsHooked => hookedBy != null;
+        public bool IsHooked => hookedBy != null || remoteHooked;
         public bool IsFalling { get; private set; }
         public bool CanBeHooked => IsAlive && !IsHooked && !IsFalling;
         /// <summary>True when the character may move and act on its own.</summary>
@@ -35,12 +35,15 @@ namespace PudgeWars.Gameplay
         public Hookable LastHookedBy { get; private set; }
 
         public event Action<Hookable> Died;
+        /// <summary>Back in the game at a new place (the network sync teleports instead of interpolating).</summary>
+        public event Action<Hookable> Respawned;
 
         HookAbility hookedBy;
         HookAbility ownHook;
         Vector3 velocity, lastPosition;
         PudgeAnimation anim;
         Renderer[] renderers;
+        bool remoteHooked;
 
         void Awake()
         {
@@ -101,7 +104,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
-            if (!IsFalling) return;
+            if (!IsFalling || Simulation.IsProxy) return;
             velocity.y -= gravity * Time.deltaTime;
             transform.position += velocity * Time.deltaTime;
             var arena = Arena.Instance;
@@ -137,6 +140,21 @@ namespace PudgeWars.Gameplay
             Health = maxHealth;
             SetVisible(true);
             anim?.PlayAction(PudgeAnimation.Spawn, 1.2f, 0f);
+            Respawned?.Invoke(this);
+        }
+
+        /// <summary>Network client: the state the server simulates (the position comes with the transform sync).</summary>
+        public void ApplyRemoteState(bool alive, bool falling, bool hooked)
+        {
+            bool wasAlive = IsAlive;
+            IsAlive = alive;
+            IsFalling = falling;
+            remoteHooked = hooked;
+            Health = alive ? maxHealth : 0f;
+            if (alive == wasAlive) return;
+            SetVisible(alive);
+            if (alive) lastPosition = transform.position;
+            else Died?.Invoke(this);
         }
 
         void SetVisible(bool visible)

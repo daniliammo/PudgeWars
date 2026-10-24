@@ -46,6 +46,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
+            if (Simulation.IsProxy) return; // the server's copy of the bot thinks
             var arena = Arena.Instance;
             if (arena == null || !self.IsControllable)
             {

@@ -49,7 +49,7 @@ namespace PudgeWars.Gameplay
         }
 
         readonly List<Popup> popups = new();
-        readonly List<(HeroInventory wallet, System.Action<int> handler)> subscriptions = new();
+        readonly Dictionary<HeroInventory, System.Action<int>> subscriptions = new();
         RectTransform rect;
         Canvas canvas;
         static Sprite drawnCoin;
@@ -63,14 +63,18 @@ namespace PudgeWars.Gameplay
             canvas = GetComponentInParent<Canvas>();
         }
 
-        void Start()
+        void Start() => Subscribe();
+
+        /// <summary>Listens to every hero's wallet, also of heroes that joined later (network game).</summary>
+        void Subscribe()
         {
-            foreach (var wallet in FindObjectsByType<HeroInventory>(FindObjectsSortMode.None))
+            foreach (var hero in Hookable.All)
             {
-                var hero = wallet.transform;
-                System.Action<int> handler = amount => Show(hero, amount);
+                if (!hero.TryGetComponent<HeroInventory>(out var wallet) || subscriptions.ContainsKey(wallet)) continue;
+                var at = wallet.transform;
+                System.Action<int> handler = amount => Show(at, amount);
                 wallet.GoldAdded += handler;
-                subscriptions.Add((wallet, handler));
+                subscriptions.Add(wallet, handler);
             }
         }
 
@@ -126,6 +130,7 @@ namespace PudgeWars.Gameplay
 
         void LateUpdate()
         {
+            Subscribe();
             for (int i = popups.Count - 1; i >= 0; i--)
             {
                 var p = popups[i];

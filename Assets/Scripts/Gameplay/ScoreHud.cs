@@ -6,7 +6,7 @@ namespace PudgeWars.Gameplay
     public class ScoreHud : MonoBehaviour
     {
         public Text label;
-        [Tooltip("{0} = bots killed by the player, {1} = player deaths.")]
+        [Tooltip("{0} = kills of the local player's team, {1} = its deaths.")]
         public string format = "Счёт: {0}    Смерти: {1}";
 
         Arena arena;
@@ -14,18 +14,24 @@ namespace PudgeWars.Gameplay
         void Start()
         {
             arena = Arena.Instance;
-            if (arena != null) arena.ScoreChanged += Show;
-            Show(arena != null ? arena.Score : 0, arena != null ? arena.Deaths : 0);
+            if (arena != null) arena.ScoreChanged += OnScoreChanged;
+            LocalPlayer.Changed += Show;
+            Show();
         }
 
         void OnDestroy()
         {
-            if (arena != null) arena.ScoreChanged -= Show;
+            if (arena != null) arena.ScoreChanged -= OnScoreChanged;
+            LocalPlayer.Changed -= Show;
         }
 
-        void Show(int score, int deaths)
+        void OnScoreChanged(int score, int deaths) => Show();
+
+        /// <summary>The score from the local player's side (in a network game it may be the far team).</summary>
+        void Show()
         {
-            if (label != null) label.text = string.Format(format, score, deaths);
+            var team = LocalPlayer.Team;
+            if (label != null) label.text = string.Format(format, arena != null ? arena.KillsOf(team) : 0, arena != null ? arena.DeathsOf(team) : 0);
         }
     }
 }

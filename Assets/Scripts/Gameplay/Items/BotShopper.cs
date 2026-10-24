@@ -21,7 +21,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
-            if (Time.time < nextCheck) return;
+            if (Simulation.IsProxy || Time.time < nextCheck) return;
             nextCheck = Time.time + checkInterval;
             if (inventory == null || (self != null && !self.IsAlive)) return;
             foreach (var item in catalog)

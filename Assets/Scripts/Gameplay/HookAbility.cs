@@ -17,6 +17,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Pudge's hook: turn to the target (Dota 2 facing rule), wind-up, flight to max range, catch the first
     /// enemy on the way and pull it back. A target dragged over the pit is released and falls in.
+    /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
+    /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
     public class HookAbility : MonoBehaviour
     {
@@ -57,23 +59,35 @@ namespace PudgeWars.Gameplay
 
         public event Action<Hookable> TargetCaught;
         public event Action<Hookable> TargetDropped;
+        /// <summary>Network client: the player casts toward this point; the server throws the hook.</summary>
+        public event Action<Vector3> CastRequested;
 
         /// <summary>Range including item bonuses (Aether Lens).</summary>
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
-        public bool IsBusy => state != State.Ready;
-        public bool IsReady => state == State.Ready && Time.time >= readyAt;
+        public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
+        public bool IsReady => !IsBusy && Time.time >= readyAt;
         /// <summary>Distance from the head's pivot (where hits and range are measured) to the tip of its model.</summary>
         public float TipLength { get; private set; }
         /// <summary>How far from the hero's centre the tip of the hook reaches.</summary>
         public float AimLength => EffectiveRange + TipLength;
         /// <summary>Start of the hook's flight line: the hero's centre at flight height.</summary>
         public Vector3 AimStart => transform.position + Vector3.up * flightHeight;
-        public float CooldownRemaining => state == State.Ready ? Mathf.Max(0f, readyAt - Time.time) : cooldown;
+        public float CooldownRemaining => !IsBusy ? Mathf.Max(0f, readyAt - Time.time) : cooldown;
+        /// <summary>Time.time when the hook is ready again (meaningful while not busy).</summary>
+        public float ReadyAt => readyAt;
+        public bool HeadVisible => hookHead != null && hookHead.gameObject.activeSelf;
+        public bool IsFlying => state == State.Flying;
+        /// <summary>Where the head points, without the spin.</summary>
+        public Vector3 HeadDirection => state == State.Flying ? direction : hookHead != null ? hookHead.forward : transform.forward;
 
         State state;
         float timer, traveled, readyAt, spin;
         bool caughtThisCast;
         float ropeLength;
+        // network client: what the server last sent
+        bool remoteBusy, remoteFlying;
+        Vector3 remoteHead, remoteDirection;
+        float pendingCastUntil;
         Vector3 direction;
         Hookable target, self;
         PudgeAnimation anim;
@@ -139,6 +153,12 @@ namespace PudgeWars.Gameplay
         public bool TryCast(Vector3 worldPoint)
         {
             if (!IsReady || (self != null && !self.IsControllable)) return false;
+            if (Simulation.IsProxy)
+            {
+                CastRequested?.Invoke(worldPoint);
+                pendingCastUntil = Time.time + 0.5f; // busy until the server's answer arrives
+                return true;
+            }
             direction = AimDirection(worldPoint);
             state = State.Turning;
             caughtThisCast = false;
@@ -154,6 +174,11 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
+            if (Simulation.IsProxy)
+            {
+                ShowRemote();
+                return;
+            }
             switch (state)
             {
                 case State.Turning:
@@ -358,6 +383,35 @@ namespace PudgeWars.Gameplay
             }
             if (best != null) contact = from + (to - from) * bestT;
             return best;
+        }
+
+        /// <summary>Network client: the hook's state on the server.</summary>
+        /// <param name="cooldownLeft">Seconds until ready, counted from now (ignored while busy).</param>
+        public void ApplyRemoteState(bool busy, float cooldownLeft, bool visible, bool flying, Vector3 head, Vector3 headDirection)
+        {
+            if (busy != remoteBusy) pendingCastUntil = 0f;
+            remoteBusy = busy;
+            readyAt = Time.time + Mathf.Max(0f, cooldownLeft);
+            remoteFlying = flying;
+            remoteHead = head;
+            remoteDirection = headDirection;
+            if (visible == HeadVisible) return;
+            SetHookVisible(visible);
+            if (!visible) return;
+            spin = 0f;
+            hookHead.position = head; // appears where the server has it, then follows smoothly
+        }
+
+        /// <summary>Network client: moves the head toward the server's position (it comes ~30 times a second).</summary>
+        void ShowRemote()
+        {
+            if (!HeadVisible) return;
+            float speed = Mathf.Max(flySpeed, pullSpeed, returnSpeed, tetherReelSpeed) * 1.5f;
+            hookHead.position = Vector3.MoveTowards(hookHead.position, remoteHead, speed * Time.deltaTime);
+            var dir = remoteDirection.sqrMagnitude > 1e-6f ? remoteDirection : transform.forward;
+            if (remoteFlying) spin = Mathf.Repeat(spin + spinSpeed * Time.deltaTime, 360f);
+            hookHead.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(0f, 0f, remoteFlying ? spin : 0f);
+            UpdateChain();
         }
 
         void UpdateChain()

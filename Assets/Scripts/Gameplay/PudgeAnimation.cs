@@ -1,9 +1,11 @@
+using System;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Drives the imported Animator Controller, whose states are named after the original clips.
+    /// <see cref="Played"/> reports every clip started, so the network sync can repeat it on clients.
     /// </summary>
     public class PudgeAnimation : MonoBehaviour
     {
@@ -19,6 +21,10 @@ namespace PudgeWars.Gameplay
         [Tooltip("Above this speed the run cycle is used instead of the walk cycle, m/s.")]
         public float runThreshold = 2.4f;
 
+        /// <summary>A clip started: state, fade seconds, and for a one-shot action its lock time (0 otherwise).</summary>
+        public event Action<string, float, float> Played;
+        public string Current => current;
+
         Animator animator;
         string current;
         float lockedUntil;
@@ -31,6 +37,7 @@ namespace PudgeWars.Gameplay
             animator.CrossFadeInFixedTime(state, fade);
             current = state;
             lockedUntil = 0f;
+            Played?.Invoke(state, fade, 0f);
         }
 
         /// <summary>Plays a one-shot clip that locomotion will not override while standing still.</summary>
@@ -40,6 +47,7 @@ namespace PudgeWars.Gameplay
             animator.CrossFadeInFixedTime(state, fade, 0, 0f);
             current = state;
             lockedUntil = Time.time + lockSeconds;
+            Played?.Invoke(state, fade, lockSeconds);
         }
 
         public void Locomotion(float speed)

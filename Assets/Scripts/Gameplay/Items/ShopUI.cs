@@ -31,12 +31,10 @@ namespace PudgeWars.Gameplay
 
         void Start()
         {
-            if (buyer == null)
-            {
-                var input = FindFirstObjectByType<PlayerInputController>();
-                if (input != null) buyer = input.GetComponent<HeroInventory>();
-            }
-            if (buyer != null) buyer.Changed += Refresh;
+            // the local player's wallet; in a network game the hero appears (and changes) later
+            if (buyer == null) Bind(LocalHeroInventory());
+            else buyer.Changed += Refresh;
+            LocalPlayer.Changed += OnLocalPlayerChanged;
             if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             foreach (var row in rows)
@@ -58,14 +56,27 @@ namespace PudgeWars.Gameplay
 
         void OnDestroy()
         {
+            LocalPlayer.Changed -= OnLocalPlayerChanged;
             if (buyer != null) buyer.Changed -= Refresh;
+        }
+
+        static HeroInventory LocalHeroInventory() => LocalPlayer.Hero != null ? LocalPlayer.Hero.GetComponent<HeroInventory>() : null;
+
+        void OnLocalPlayerChanged() => Bind(LocalHeroInventory());
+
+        void Bind(HeroInventory wallet)
+        {
+            if (buyer != null) buyer.Changed -= Refresh;
+            buyer = wallet;
+            if (buyer != null) buyer.Changed += Refresh;
+            Refresh();
         }
 
         void Update()
         {
             Slide();
             var kb = Keyboard.current;
-            if (kb == null) return;
+            if (kb == null || OverlayInput.Captured) return;
             if (kb.bKey.wasPressedThisFrame) Toggle();
             else if (kb.escapeKey.wasPressedThisFrame) Close();
         }

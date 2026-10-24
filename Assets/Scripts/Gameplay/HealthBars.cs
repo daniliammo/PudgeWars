@@ -6,7 +6,7 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Health bars over the heroes in the manner of Dota 2: a black frame with the health fill (green for the
-    /// player, red for enemies), a light gloss on its upper half, thin notches every <see cref="segmentHealth"/>
+    /// local player's team, red for enemies), a light gloss on its upper half, thin notches every <see cref="segmentHealth"/>
     /// and the hero's nickname above. Follows each hero on screen (never leaving it at the top, where the far
     /// heroes stand) and hides while it is dead or behind the camera.
     /// </summary>
@@ -43,6 +43,17 @@ namespace PudgeWars.Gameplay
         {
             rect = (RectTransform)transform;
             canvas = GetComponentInParent<Canvas>();
+            LocalPlayer.Changed += Rebuild;
+        }
+
+        void OnDestroy() => LocalPlayer.Changed -= Rebuild;
+
+        /// <summary>The local team may have changed (network game): colours are made anew.</summary>
+        void Rebuild()
+        {
+            foreach (var bar in bars.Values)
+                if (bar.root != null) Destroy(bar.root.gameObject);
+            bars.Clear();
         }
 
         /// <summary>The bar's root, health fill and nickname label for a hero (null if it has none yet).</summary>
@@ -96,7 +107,7 @@ namespace PudgeWars.Gameplay
             fill.anchorMin = Vector2.zero;
             fill.anchorMax = Vector2.one;
             fill.pivot = new Vector2(0f, 0.5f);
-            Img(fill, hero.team == Team.Player ? playerColor : enemyColor);
+            Img(fill, hero.team == LocalPlayer.Team ? playerColor : enemyColor);
 
             // gloss on the upper half of the fill, as on Dota's bars
             var gloss = Rect(fill, "Gloss", Vector2.zero);

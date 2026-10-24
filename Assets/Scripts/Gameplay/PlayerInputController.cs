@@ -35,7 +35,10 @@ namespace PudgeWars.Gameplay
             if (aimIndicator == null) aimIndicator = GetComponentInChildren<HookAimIndicator>();
             if (viewCamera == null) viewCamera = Camera.main;
             if (viewCamera != null) follow = viewCamera.GetComponent<TopDownCamera>();
+            LocalPlayer.Register(this);
         }
+
+        void OnDestroy() => LocalPlayer.Unregister(this);
 
         void OnDisable()
         {
@@ -59,6 +62,12 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
+            if (OverlayInput.Captured)
+            {
+                motor.SetMoveInput(Vector3.zero);
+                if (SelectedAbility != NoAbility) Deselect();
+                return;
+            }
             var kb = Keyboard.current;
             var mouse = Mouse.current;
             var move = Vector2.zero;

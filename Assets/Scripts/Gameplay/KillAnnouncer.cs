@@ -81,8 +81,8 @@ namespace PudgeWars.Gameplay
 
         public void Enqueue(Hookable hero, KillAnnouncement kind)
         {
-            bool own = hero == null || hero.team == Team.Player;
-            int rampages = kind == KillAnnouncement.Rampage && hero != null && arena != null ? arena.Streaks.RampageCount(hero) : 0;
+            bool own = hero == null || hero.team == LocalPlayer.Team;
+            int rampages = kind == KillAnnouncement.Rampage && hero != null && arena != null ? arena.RampageCount(hero) : 0;
             Enqueue(new Message
             {
                 text = rampages > 1 ? string.Format(rampageRepeatFormat, texts[(int)kind], rampages) : texts[(int)kind],
@@ -94,7 +94,7 @@ namespace PudgeWars.Gameplay
 
         public void EnqueueSeriesEnd(Hookable hero, SeriesEnd reason, Hookable killer)
         {
-            bool own = hero.team == Team.Player;
+            bool own = hero.team == LocalPlayer.Team;
             string format = reason == SeriesEnd.Time ? (own ? ownTimeOut : enemyTimeOut)
                 : killer == null ? (own ? ownDied : enemyDied)
                 : own ? ownKilled : enemyKilled;

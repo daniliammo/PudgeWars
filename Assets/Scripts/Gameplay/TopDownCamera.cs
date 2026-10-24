@@ -9,6 +9,8 @@ namespace PudgeWars.Gameplay
     /// shooter controls (mouse look with a locked cursor and a crosshair; the cursor is freed while the shop is open).
     /// The cursor is captured on entering first person and released on leaving it; when something else frees it
     /// (Escape in the editor, another window), a click or the window regaining focus captures it again.
+    /// Follows the local player's hero (<see cref="LocalPlayer"/>); for a hero of the far team the views are mirrored,
+    /// so the own side is always at the bottom of the screen.
     /// </summary>
     [DefaultExecutionOrder(-10)] // before PlayerInputController: a click that recaptures the cursor is not a cast
     public class TopDownCamera : MonoBehaviour
@@ -33,7 +35,9 @@ namespace PudgeWars.Gameplay
         public View Mode { get; private set; }
         public bool IsFirstPerson => Mode == View.FirstPerson;
         /// <summary>Mouse look is on: first person with the shop closed (the cursor should be locked).</summary>
-        public bool WantsCursorCaptured => IsFirstPerson && !(shop != null && shop.IsOpen);
+        public bool WantsCursorCaptured => IsFirstPerson && !CursorNeeded;
+        /// <summary>The shop or an overlay window is open: the cursor must be free.</summary>
+        bool CursorNeeded => (shop != null && shop.IsOpen) || OverlayInput.Captured;
         /// <summary>The cursor is locked for mouse look.</summary>
         public bool CursorCaptured => Cursor.lockState == CursorLockMode.Locked;
         /// <summary>This frame's left click only recaptured the cursor and must not act in the game.</summary>
@@ -56,19 +60,33 @@ namespace PudgeWars.Gameplay
             if (crosshair != null) crosshair.SetActive(false);
         }
 
-        void Start() => shop = FindFirstObjectByType<ShopUI>();
+        void Start()
+        {
+            shop = FindFirstObjectByType<ShopUI>();
+            LocalPlayer.Changed += OnLocalPlayerChanged;
+        }
+
+        void OnDestroy() => LocalPlayer.Changed -= OnLocalPlayerChanged;
 
         void OnDisable() => UnlockCursor();
+
+        /// <summary>A network game spawned (or removed) the local hero: look at it from its own side.</summary>
+        void OnLocalPlayerChanged()
+        {
+            if (LocalPlayer.Hero == null) return;
+            target = LocalPlayer.Hero.transform;
+            SetView(View.OwnSide);
+        }
 
         void Update()
         {
             ClickConsumed = false;
             var kb = Keyboard.current;
-            if (kb != null && kb.vKey.wasPressedThisFrame) NextView();
+            if (kb != null && kb.vKey.wasPressedThisFrame && !OverlayInput.Captured) NextView();
             if (!IsFirstPerson) return;
 
             var mouse = Mouse.current;
-            bool shopOpen = shop != null && shop.IsOpen;
+            bool shopOpen = CursorNeeded;
             if (shopOpen) UnlockCursor();
             else if (!CursorCaptured && mouse != null && mouse.leftButton.wasPressedThisFrame)
             {
@@ -140,7 +158,7 @@ namespace PudgeWars.Gameplay
             }
             var focus = target.position + lookAhead;
             var arm = offset;
-            if (Mode == View.EnemySide)
+            if ((Mode == View.EnemySide) != (LocalPlayer.Team == Team.Bots))
             {
                 // the own view mirrored across the middle of the pit: the player is where the enemies are
                 // in the own view, the enemies are in front of the camera
