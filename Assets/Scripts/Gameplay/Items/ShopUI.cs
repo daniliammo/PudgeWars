@@ -6,7 +6,8 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// In-match shop (MagazinGame in the original): a panel toggled with B or the HUD button, plus an
-    /// always visible bar with the player's gold and item slots.
+    /// always visible bar with the player's gold and item slots. The panel flies in from the right screen edge
+    /// and flies back out when closed.
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -17,8 +18,16 @@ namespace PudgeWars.Gameplay
         public Text goldLabel;
         public Image[] slots = new Image[HeroInventory.SlotCount];
         public ShopItemRow[] rows = new ShopItemRow[0];
+        [Tooltip("Seconds the panel takes to fly in from beyond the screen edge (and back out).")]
+        public float slideDuration = 0.25f;
 
-        public bool IsOpen => panel != null && panel.activeSelf;
+        /// <summary>True from the moment the shop is opened, also while the panel is still flying in.</summary>
+        public bool IsOpen { get; private set; }
+        public bool IsAnimating => panel != null && panel.activeSelf && slide != (IsOpen ? 1f : 0f);
+
+        RectTransform panelRect;
+        Vector2 shownPosition, hiddenPosition;
+        float slide; // 0 = beyond the screen edge, 1 = in place
 
         void Start()
         {
@@ -35,7 +44,15 @@ namespace PudgeWars.Gameplay
                 var r = row;
                 r.buyButton.onClick.AddListener(() => Buy(r.item));
             }
-            if (panel != null) panel.SetActive(false);
+            if (panel != null)
+            {
+                panelRect = (RectTransform)panel.transform;
+                shownPosition = panelRect.anchoredPosition;
+                // anchored to the right screen edge: hidden, its left side lies just beyond that edge
+                hiddenPosition = new Vector2(panelRect.pivot.x * panelRect.sizeDelta.x, shownPosition.y);
+                panelRect.anchoredPosition = hiddenPosition;
+                panel.SetActive(false);
+            }
             Refresh();
         }
 
@@ -46,6 +63,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
+            Slide();
             var kb = Keyboard.current;
             if (kb == null) return;
             if (kb.bKey.wasPressedThisFrame) Toggle();
@@ -54,14 +72,32 @@ namespace PudgeWars.Gameplay
 
         public void Toggle()
         {
-            if (panel == null) return;
-            panel.SetActive(!panel.activeSelf);
+            if (IsOpen) Close();
+            else Open();
+        }
+
+        public void Open()
+        {
+            if (panel == null || IsOpen) return;
+            IsOpen = true;
+            panel.SetActive(true);
             Refresh();
         }
 
         public void Close()
         {
-            if (panel != null) panel.SetActive(false);
+            IsOpen = false;
+        }
+
+        /// <summary>Flies the panel toward its place or beyond the screen edge; switches it off once out.</summary>
+        void Slide()
+        {
+            if (panelRect == null || !panel.activeSelf) return;
+            float step = slideDuration > 0f ? Time.unscaledDeltaTime / slideDuration : 1f;
+            slide = Mathf.MoveTowards(slide, IsOpen ? 1f : 0f, step);
+            float eased = 1f - (1f - slide) * (1f - slide) * (1f - slide); // ease-out: fast start, soft landing
+            panelRect.anchoredPosition = Vector2.LerpUnclamped(hiddenPosition, shownPosition, eased);
+            if (!IsOpen && slide <= 0f) panel.SetActive(false);
         }
 
         public bool Buy(ItemDef item) => buyer != null && buyer.TryBuy(item);

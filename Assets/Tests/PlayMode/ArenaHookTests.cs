@@ -341,9 +341,44 @@ namespace PudgeWars.Tests
             yield return null;
             AssertPointerHits(shop.toggleButton);
             shop.Toggle();
-            yield return null;
+            yield return new WaitWhile(() => shop.IsAnimating);
             AssertPointerHits(shop.rows[0].buyButton);
             AssertPointerHits(shop.closeButton);
+        }
+
+        [UnityTest]
+        public IEnumerator ShopPanelFliesInFromTheScreenEdgeAndBackOut()
+        {
+            var shop = Object.FindFirstObjectByType<ShopUI>();
+            var rt = (RectTransform)shop.panel.transform;
+            var canvasRect = (RectTransform)rt.parent;
+            shop.slideDuration = 1f; // long enough that a slow first frame cannot skip the flight
+            float LeftEdge() // panel's left side in canvas units from the canvas's right edge
+            {
+                var corners = new Vector3[4];
+                rt.GetWorldCorners(corners);
+                return canvasRect.InverseTransformPoint(corners[0]).x - canvasRect.rect.xMax;
+            }
+
+            shop.Toggle();
+            Assert.IsTrue(shop.IsOpen);
+            Assert.IsTrue(shop.panel.activeSelf);
+            Assert.GreaterOrEqual(LeftEdge(), -1f, "the panel must start beyond the screen edge");
+            yield return null;
+            yield return null;
+            Assert.IsTrue(shop.IsAnimating, "the panel jumped into place instead of flying in");
+            float midway = LeftEdge();
+            Assert.Less(midway, 0f, "the panel did not start moving in");
+            yield return new WaitWhile(() => shop.IsAnimating);
+            Assert.Less(LeftEdge(), midway);
+            Assert.AreEqual(-24f, rt.anchoredPosition.x, 1e-3f, "the panel did not land in its place");
+
+            shop.Close();
+            Assert.IsFalse(shop.IsOpen);
+            yield return null;
+            Assert.IsTrue(shop.panel.activeSelf, "the panel vanished instead of flying out");
+            yield return new WaitUntil(() => !shop.panel.activeSelf);
+            Assert.GreaterOrEqual(LeftEdge(), -1f, "the panel was switched off before it left the screen");
         }
 
         /// <summary>What the EventSystem does for a mouse click: raycast at the button's centre and hit it first.</summary>
