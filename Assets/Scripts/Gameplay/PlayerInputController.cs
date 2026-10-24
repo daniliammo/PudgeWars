@@ -7,7 +7,9 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Desktop controls for the test arena: WASD / arrows to move relative to the camera view (V switches it,
     /// see TopDownCamera); Q selects the first ability (the hook) and shows where it will fly, left mouse
-    /// button or Space casts it toward the cursor, right mouse button or Escape drops the selection.
+    /// button or Space casts it toward the cursor, right mouse button or Escape drops the selection. With no ability
+    /// selected, a left click on a hero puts its gold and items on the shop bar in place of the player's
+    /// (<see cref="ShopUI.Inspect"/>); a click on empty ground or Escape brings the player's back.
     /// In first person the controls are a shooter's: the hero faces where the camera looks, strafes with
     /// A / D and throws the hook at the crosshair.
     /// </summary>
@@ -26,6 +28,7 @@ namespace PudgeWars.Gameplay
         HookAbility hook;
         Hookable self;
         TopDownCamera follow;
+        ShopUI shop;
 
         void Awake()
         {
@@ -83,7 +86,12 @@ namespace PudgeWars.Gameplay
             motor.SetLookDirection(firstPerson ? follow.MoveForward : null);
 
             if (kb != null && kb.qKey.wasPressedThisFrame) SelectAbility(HookSlot);
-            if (SelectedAbility == NoAbility) return;
+            bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            if (SelectedAbility == NoAbility)
+            {
+                Inspect(mouse, firstPerson, overUi);
+                return;
+            }
             if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)
                 || (self != null && !self.IsControllable))
             {
@@ -101,11 +109,20 @@ namespace PudgeWars.Gameplay
             var dir = hook.AimDirection(point);
             if (aimIndicator != null) aimIndicator.Show(hook.AimStart, dir, hook.AimLength, hook.HitWidth);
 
-            bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             bool click = mouse != null && mouse.leftButton.wasPressedThisFrame
                          && (firstPerson ? follow.CursorCaptured && !follow.ClickConsumed : !overUi);
             bool cast = click || (kb != null && kb.spaceKey.wasPressedThisFrame);
             if (cast && hook.TryCast(point)) Deselect();
+        }
+
+        /// <summary>Not aiming: a left click picks a hero to look at, or nobody (the player's own data again).</summary>
+        void Inspect(Mouse mouse, bool firstPerson, bool overUi)
+        {
+            if (firstPerson || overUi || mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+            if (shop == null) shop = FindAnyObjectByType<ShopUI>();
+            if (shop == null) return;
+            var hero = HeroPicker.PickAt(mouse.position.ReadValue(), viewCamera);
+            shop.Inspect(hero != null ? hero.GetComponent<HeroInventory>() : null);
         }
 
         Vector3 CameraRelative(Vector2 move)

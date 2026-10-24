@@ -1045,6 +1045,39 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ClickedHeroesGoldAndItemsReplaceThePlayersOnTheBar()
+        {
+            yield return null;
+            var shop = Object.FindAnyObjectByType<ShopUI>();
+            var lens = shop.rows[0].item;
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var botWallet = bot.GetComponent<HeroInventory>();
+            botWallet.AddGold(lens.cost + 300, popup: false);
+            Assert.IsTrue(botWallet.TryBuy(lens));
+            player.GetComponent<HeroInventory>().AddGold(40, popup: false);
+            Assert.AreEqual("40", shop.goldLabel.text);
+
+            // a click on the bot's figure picks it, a click on empty ground picks nobody
+            var cam = Camera.main;
+            var screen = (Vector2)cam.WorldToScreenPoint(bot.transform.position + Vector3.up * 1f);
+            Assert.AreEqual(bot, HeroPicker.PickAt(screen, cam), "a click on the bot did not pick it");
+            var ground = (Vector2)cam.WorldToScreenPoint(new Vector3(13f, 0f, 0f));
+            Assert.IsNull(HeroPicker.PickAt(ground, cam), "a click on empty ground picked a hero");
+
+            shop.Inspect(botWallet);
+            Assert.AreEqual(botWallet, shop.Shown);
+            Assert.AreEqual("300", shop.goldLabel.text, "the bar does not show the clicked hero's gold");
+            Assert.AreEqual(lens.icon, shop.slots[0].sprite, "the bar does not show the clicked hero's items");
+            botWallet.AddGold(50, popup: false);
+            Assert.AreEqual("350", shop.goldLabel.text, "the bar does not follow the clicked hero's gold");
+            Assert.IsFalse(shop.Buy(lens), "the player has no gold for the lens: buying must stay the player's own");
+
+            shop.Inspect(null);
+            Assert.AreEqual("40", shop.goldLabel.text, "the player's own gold did not come back");
+            Assert.IsNull(shop.slots[0].sprite);
+        }
+
+        [UnityTest]
         public IEnumerator GoldRewardShowsAmountAndCoinsOverTheHero()
         {
             var popups = Object.FindAnyObjectByType<GoldPopups>();

@@ -7,7 +7,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// In-match shop (MagazinGame in the original): a panel toggled with B or the HUD button, plus an
     /// always visible bar with the player's gold and item slots. The panel flies in from the right screen edge
-    /// and flies back out when closed.
+    /// and flies back out when closed. A hero picked with a click (<see cref="Inspect"/>) takes the player's place
+    /// on the bar, so its gold and items can be seen; purchases are still the player's own.
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -25,6 +26,11 @@ namespace PudgeWars.Gameplay
         public bool IsOpen { get; private set; }
         public bool IsAnimating => panel != null && panel.activeSelf && slide != (IsOpen ? 1f : 0f);
 
+        /// <summary>The hero whose gold and items the bar shows: the inspected one, otherwise the player.</summary>
+        public HeroInventory Shown => inspected != null ? inspected : buyer;
+
+        HeroInventory inspected;
+        bool inspecting;
         RectTransform panelRect;
         Vector2 shownPosition, hiddenPosition;
         float slide; // 0 = beyond the screen edge, 1 = in place
@@ -58,6 +64,18 @@ namespace PudgeWars.Gameplay
         {
             LocalPlayer.Changed -= OnLocalPlayerChanged;
             if (buyer != null) buyer.Changed -= Refresh;
+            if (inspected != null) inspected.Changed -= Refresh;
+        }
+
+        /// <summary>Shows another hero's gold and items on the bar; null (or the player itself) shows the player's again.</summary>
+        public void Inspect(HeroInventory hero)
+        {
+            if (hero == buyer) hero = null;
+            if (inspected != null) inspected.Changed -= Refresh;
+            inspected = hero;
+            inspecting = hero != null;
+            if (inspected != null) inspected.Changed += Refresh;
+            Refresh();
         }
 
         static HeroInventory LocalHeroInventory() => LocalPlayer.Hero != null ? LocalPlayer.Hero.GetComponent<HeroInventory>() : null;
@@ -75,10 +93,15 @@ namespace PudgeWars.Gameplay
         void Update()
         {
             Slide();
+            if (inspecting && inspected == null) Inspect(null); // the hero left the game
             var kb = Keyboard.current;
             if (kb == null || OverlayInput.Captured) return;
             if (kb.bKey.wasPressedThisFrame) Toggle();
-            else if (kb.escapeKey.wasPressedThisFrame) Close();
+            else if (kb.escapeKey.wasPressedThisFrame)
+            {
+                Close();
+                Inspect(null);
+            }
         }
 
         public void Toggle()
@@ -115,11 +138,12 @@ namespace PudgeWars.Gameplay
 
         void Refresh()
         {
-            if (goldLabel != null) goldLabel.text = buyer != null ? buyer.Gold.ToString() : "0";
+            var shown = Shown;
+            if (goldLabel != null) goldLabel.text = shown != null ? shown.Gold.ToString() : "0";
             for (int i = 0; i < slots.Length; i++)
             {
                 if (slots[i] == null) continue;
-                var item = buyer != null && i < buyer.Items.Count ? buyer.Items[i] : null;
+                var item = shown != null && i < shown.Items.Count ? shown.Items[i] : null;
                 slots[i].sprite = item != null ? item.icon : null;
                 slots[i].color = item != null ? Color.white : new Color(0f, 0f, 0f, 0.55f);
             }
