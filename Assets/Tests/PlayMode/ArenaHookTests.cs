@@ -209,49 +209,90 @@ namespace PudgeWars.Tests
             Assert.IsTrue(ally.IsAlive && !ally.IsFalling, "the ally fell after being let go");
         }
 
-        [UnityTest]
-        public IEnumerator AllyHookPullsAHeroOutOfAnEnemysHook()
+        /// <summary>
+        /// The enemy at z = 4 catches the ally at z = -8 with a slow pull; the rescuer stands beside the ally and holds
+        /// it with its hook. Hands the enemy's hook to <paramref name="done"/>.
+        /// </summary>
+        IEnumerator SetUpTugOfWar(Hookable ally, Hookable enemy, HookAbility rescuerHook, Hookable rescuer, System.Action<HookAbility> done)
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
-            var enemy = bots[0];
-            var ally = bots[1];
-            ally.team = Team.Player;
-            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            foreach (var b in bots.Where(b => b != ally && b != enemy && b != rescuer))
+                b.transform.position = new Vector3(-12f + 2f * bots.IndexOf(b), 0f, 12f);
             enemy.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4f), Quaternion.LookRotation(Vector3.back));
             ally.transform.position = new Vector3(0f, 0f, -8f);
-            player.transform.SetPositionAndRotation(new Vector3(3f, 0f, -8f), Quaternion.LookRotation(Vector3.left));
+            rescuer.transform.SetPositionAndRotation(new Vector3(3f, 0f, -8f), Quaternion.LookRotation(Vector3.left));
             var enemyHook = enemy.GetComponent<HookAbility>();
             enemyHook.pullSpeed = 2f; // slow pull: the rescue throw has time
             yield return null;
 
             Assert.IsTrue(enemyHook.TryCast(ally.transform.position));
             float t = 0f;
-            while (!ally.IsHooked && t < 3f)
-            {
-                t += Time.deltaTime;
-                yield return null;
-            }
+            while (!ally.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.AreEqual(enemyHook, ally.HookedBy, "the enemy did not catch the ally");
 
-            Hookable caught = null;
-            hook.TargetCaught += h => caught = h;
-            Assert.IsTrue(hook.TryCast(ally.transform.position));
+            Assert.IsTrue(rescuerHook.TryCast(ally.transform.position));
             t = 0f;
-            while ((hook.IsBusy || enemyHook.IsBusy) && t < 6f)
-            {
-                t += Time.deltaTime;
-                yield return null;
-            }
-            Assert.AreEqual(ally, caught, "the hook did not take the ally out of the enemy's hook");
+            while (ally.HeldBy == null && t < 2f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(rescuerHook, ally.HeldBy, "the rescuer's hook did not hold the ally");
+            Assert.AreEqual(enemyHook, ally.HookedBy, "a held ally must stay on the enemy's hook");
+            done(enemyHook);
+        }
+
+        [UnityTest]
+        public IEnumerator AllyHookHoldsAHeroOnAnEnemysHookAndPullsItHomeWhenItLetsGo()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            HookAbility enemyHook = null;
+            yield return SetUpTugOfWar(ally, enemy, hook, player, h => enemyHook = h);
+
+            // tug of war: the enemy pulls at half speed and drags the rescuer after the ally
+            var allyFrom = ally.transform.position;
+            var playerFrom = player.transform.position;
+            yield return new WaitForSeconds(0.5f);
+            float pulled = Vector3.Distance(allyFrom, ally.transform.position);
+            Assert.AreEqual(enemyHook.pullSpeed * enemyHook.heldPullFactor * 0.5f, pulled, 0.2f, "the held ally is not pulled at half speed");
+            Assert.Greater(Vector3.Distance(playerFrom, player.transform.position), 0.2f, "the rescuer is not dragged after the ally");
+            Assert.AreEqual(0, arena.RescuesOf(Team.Player), "holding is not a rescue yet");
+
+            // the enemy's hook lets go (its owner was caught): the rescuer pulls the ally home
+            enemyHook.Cancel();
+            float t = 0f;
+            while (hook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the rescued ally was not let go unharmed");
             var d = ally.transform.position - player.transform.position;
             Assert.Less(new Vector3(d.x, 0f, d.z).magnitude, 2f, "the ally was not pulled to the rescuer");
             Assert.AreEqual(0, arena.Deaths);
-            Assert.Greater(enemyHook.CooldownRemaining, 0f, "a hook that lost its target must not be refreshed");
             Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the rescue was not counted");
             Assert.AreEqual(0, arena.RescuesOf(Team.Bots));
             Assert.AreEqual(arena.killGold / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
             Assert.AreEqual(0, ally.GetComponent<HeroInventory>().Gold, "the rescued hero gets nothing");
+        }
+
+        [UnityTest]
+        public IEnumerator TugOfWarLostAtThePitBreaksTheRescuersChain()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            HookAbility enemyHook = null;
+            yield return SetUpTugOfWar(ally, enemy, hook, player, h => enemyHook = h);
+            enemyHook.pullSpeed = 6f; // hurry up: 3 m/s while held
+
+            bool allyDied = false;
+            ally.Died += _ => allyDied = true;
+            float t = 0f;
+            while (!allyDied && t < 6f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(allyDied, "the ally was not dragged into the pit");
+            Assert.IsTrue(player.IsAlive && !player.IsFalling, "the rescuer must stay on the edge");
+            Assert.IsFalse(hook.IsBusy, "the rescuer's chain did not break");
+            Assert.IsFalse(hook.HeadVisible);
+            Assert.IsFalse(arena.IsOverPit(player.transform.position));
+            Assert.AreEqual(0, arena.RescuesOf(Team.Player));
+            Assert.AreEqual(0, player.GetComponent<HeroInventory>().Gold);
         }
 
         [UnityTest]
@@ -261,24 +302,14 @@ namespace PudgeWars.Tests
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
-            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
-            enemy.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4f), Quaternion.LookRotation(Vector3.back));
-            player.transform.position = new Vector3(0f, 0f, -8f);
-            ally.transform.SetPositionAndRotation(new Vector3(3f, 0f, -8f), Quaternion.LookRotation(Vector3.left));
-            var enemyHook = enemy.GetComponent<HookAbility>();
             var allyHook = ally.GetComponent<HookAbility>();
-            enemyHook.pullSpeed = 2f; // slow pull: the rescue throw has time
-            yield return null;
+            HookAbility enemyHook = null;
+            yield return SetUpTugOfWar(player, enemy, allyHook, ally, h => enemyHook = h);
 
-            Assert.IsTrue(enemyHook.TryCast(player.transform.position));
+            enemyHook.Cancel();
             float t = 0f;
-            while (!player.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
-            Assert.AreEqual(enemyHook, player.HookedBy, "the enemy did not catch the player");
-
-            Assert.IsTrue(allyHook.TryCast(player.transform.position));
-            t = 0f;
-            while (player.HookedBy != allyHook && t < 2f) { t += Time.deltaTime; yield return null; }
-            Assert.AreEqual(allyHook, player.HookedBy, "the ally did not pull the player out");
+            while (player.HookedBy != allyHook && t < 1f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(allyHook, player.HookedBy, "the ally did not pull the player home");
             yield return null;
 
             var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
@@ -289,7 +320,7 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator BotRescuesAnAllyFromAnEnemysHook()
+        public IEnumerator BotLeadsItsHookToHoldAnAllyOnAnEnemysHook()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0];
@@ -297,8 +328,9 @@ namespace PudgeWars.Tests
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
             player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -4f), Quaternion.identity);
             ally.transform.position = new Vector3(0f, 0f, 8f);
-            rescuer.transform.SetPositionAndRotation(new Vector3(4f, 0f, 6f), Quaternion.LookRotation(Vector3.left));
-            hook.pullSpeed = 3f; // slow pull: the bot has time to react
+            // to the side of the drag line: the head must be thrown ahead of the ally, not at it
+            rescuer.transform.SetPositionAndRotation(new Vector3(6f, 0f, 5f), Quaternion.LookRotation(Vector3.left));
+            hook.pullSpeed = 4f;
             yield return null;
             yield return null;
 
@@ -306,6 +338,7 @@ namespace PudgeWars.Tests
             brain.rescueChance = 1f;
             brain.rescueReaction = Vector2.zero;
             brain.throwInterval = new Vector2(30f, 30f); // only the rescue throw
+            brain.pauseRange = new Vector2(30f, 30f);    // and no wandering off before it
             brain.enabled = true;
             var rescueHook = rescuer.GetComponent<HookAbility>();
             Hookable caught = null;
@@ -313,20 +346,42 @@ namespace PudgeWars.Tests
 
             Assert.IsTrue(hook.TryCast(ally.transform.position));
             float t = 0f;
-            while (caught == null && t < 4f)
-            {
-                t += Time.deltaTime;
-                yield return null;
-            }
-            Assert.AreEqual(ally, caught, "the bot did not pull its ally out of the enemy's hook");
+            while (caught == null && t < 4f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(ally, caught, "the bot's hook did not reach its dragged ally");
+            Assert.AreEqual(rescueHook, ally.HeldBy);
+            brain.enabled = false;
+
+            // the player's hook lets go: the bot pulls its ally home
+            hook.Cancel();
             t = 0f;
-            while ((hook.IsBusy || rescueHook.IsBusy) && t < 6f)
-            {
-                t += Time.deltaTime;
-                yield return null;
-            }
-            Assert.IsTrue(ally.IsAlive && !ally.IsFalling, "the rescued ally died");
-            Assert.AreEqual(0, arena.Score);
+            while (rescueHook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the rescued ally died");
+            Assert.AreEqual(1, arena.RescuesOf(Team.Bots));
+        }
+
+        [UnityTest]
+        public IEnumerator BotInterceptCountsWindupFlightAndTheHeadsReach()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bot = bots[0];
+            var target = bots[1];
+            bot.transform.SetPositionAndRotation(new Vector3(0f, 0f, 12f), Quaternion.LookRotation(Vector3.back));
+            target.transform.position = new Vector3(5f, 0f, 6f);
+            yield return null;
+
+            var brain = bot.GetComponent<BotBrain>();
+            var botHook = bot.GetComponent<HookAbility>();
+            var v = new Vector3(-4f, 0f, -2f);
+            Assert.IsTrue(brain.Intercept(target, v, out var aim));
+            var to = target.transform.position - bot.transform.position;
+            to.y = 0f;
+            float delay = bot.GetComponent<PudgeMotor>().TimeToFace(to) + botHook.castDelay;
+            float total = (aim - to).magnitude / v.magnitude; // the target walks to the meeting point for this long
+            float flight = total - delay;
+            Assert.Greater(flight, 0f);
+            float reach = botHook.hitRadius + target.radius + botHook.LaunchOffset;
+            Assert.AreEqual(botHook.flySpeed * flight + reach, aim.magnitude, 0.05f, "the head does not get to the meeting point in time");
+            Assert.Greater(Vector3.Dot(aim - to, v.normalized), 0.5f, "the aim does not lead the moving target");
         }
 
         [UnityTest]

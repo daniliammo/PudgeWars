@@ -38,6 +38,8 @@ namespace PudgeWars.Gameplay
         public Hookable LastHookedBy { get; private set; }
         /// <summary>The hook pulling this character now (server / offline; null on a network client).</summary>
         public HookAbility HookedBy => hookedBy;
+        /// <summary>An ally's hook holding this character while an enemy's hook pulls it (tug of war).</summary>
+        public HookAbility HeldBy { get; internal set; }
 
         public event Action<Hookable> Died;
         /// <summary>Back in the game at a new place (the network sync teleports instead of interpolating).</summary>
@@ -74,14 +76,8 @@ namespace PudgeWars.Gameplay
 
         public void AttachTo(HookAbility hook)
         {
-            // an ally's hook pulls the character out of an enemy's
-            var previous = hookedBy;
-            if (previous != null && previous != hook) previous.LoseTarget(this);
             hookedBy = hook;
             LastHookedBy = hook.GetComponent<Hookable>();
-            if (previous != null && previous != hook && previous.Owner != null && previous.Owner.team != team
-                && LastHookedBy != null && LastHookedBy.team == team)
-                Arena.Instance?.ReportRescue(this, LastHookedBy);
             // a caught character's own hook breaks off, or keeps its target on a taut chain
             if (ownHook != null) ownHook.OwnerLostControl();
             anim?.Play(PudgeAnimation.Hooked, 0.05f);

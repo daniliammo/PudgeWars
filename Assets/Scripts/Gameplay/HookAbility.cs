@@ -17,14 +17,16 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Pudge's hook: turn to the target (Dota 2 facing rule), wind-up, flight to max range, catch the first
     /// hero on the way and pull it back. A target dragged over the pit is released and falls in. As Meat Hook in Dota,
-    /// it catches allies too: an ally is pulled to Pudge unharmed and let go there, even out of an enemy's hook
-    /// (the enemy's hook then comes back empty).
+    /// it catches allies too: an ally is pulled to Pudge unharmed and let go there. An ally an enemy's hook is pulling
+    /// is held instead (a tug of war): the enemy pulls at half speed and drags the rescuer after the ally; if the
+    /// enemy's hook lets go, the rescuer pulls the ally home (a rescue), if the ally reaches the pit the rescuer's
+    /// chain breaks.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
     /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
     public class HookAbility : MonoBehaviour
     {
-        enum State { Ready, Turning, Windup, Flying, Returning, Tethered }
+        enum State { Ready, Turning, Windup, Flying, Returning, Tethered, Holding }
 
         [Header("Defaults of the original Player_PW Blueprint (cm -> m)")]
         [Tooltip("DistanceHook = 1300; measured from the hero's centre to the hook head, as cast range in Dota.")]
@@ -53,6 +55,10 @@ namespace PudgeWars.Gameplay
         [Tooltip("Safety limit: the target is let go after this many seconds on a tether.")]
         public float tetherTimeout = 4f;
 
+        [Header("Tug of war: an ally's hook holds the target")]
+        [Tooltip("Share of the pull speed left while an ally of the target holds it on its own hook.")]
+        [Range(0f, 1f)] public float heldPullFactor = 0.5f;
+
         [Header("References (the head and the chain are unparented at runtime)")]
         public Transform hookHead;
         public LineRenderer chain;
@@ -76,6 +82,15 @@ namespace PudgeWars.Gameplay
         public float TipLength { get; private set; }
         /// <summary>How far from the hero's centre the tip of the hook reaches.</summary>
         public float AimLength => EffectiveRange + TipLength;
+        /// <summary>How far ahead of the hero's centre the head appears at launch (level with the hand).</summary>
+        public float LaunchOffset
+        {
+            get
+            {
+                var hand = Origin - transform.position;
+                return Mathf.Clamp(Vector3.Dot(new Vector3(hand.x, 0f, hand.z), transform.forward), 0f, EffectiveRange);
+            }
+        }
         /// <summary>Start of the hook's flight line: the hero's centre at flight height.</summary>
         public Vector3 AimStart => transform.position + Vector3.up * flightHeight;
         public float CooldownRemaining => !IsBusy ? Mathf.Max(0f, readyAt - Time.time) : cooldown;
@@ -98,6 +113,7 @@ namespace PudgeWars.Gameplay
         float pendingCastUntil;
         Vector3 direction;
         Hookable target, self;
+        Hookable held; // tug of war: the ally this hook holds on an enemy's hook
         PudgeAnimation anim;
         PudgeMotor motor;
         HeroInventory inventory;
@@ -207,8 +223,11 @@ namespace PudgeWars.Gameplay
                 case State.Tethered:
                     Tether();
                     break;
+                case State.Holding:
+                    Hold();
+                    break;
             }
-            if (state is State.Flying or State.Returning or State.Tethered) UpdateChain();
+            if (state is State.Flying or State.Returning or State.Tethered or State.Holding) UpdateChain();
         }
 
         void Launch()
@@ -234,6 +253,18 @@ namespace PudgeWars.Gameplay
             hookHead.rotation = Quaternion.LookRotation(direction) * Quaternion.Euler(0f, 0f, spin);
             // swept test over this frame's path: a long frame must not let the hook pass through a target
             var hit = FindTarget(from, hookHead.position, out var contact);
+            if (hit != null && IsRescue(hit))
+            {
+                hookHead.position = contact;
+                Play(sounds.impact);
+                if (OwnerCaught) Cancel(); // a caught owner cannot hold anyone
+                else
+                {
+                    BeginHold(hit);
+                    TargetCaught?.Invoke(hit);
+                }
+                return;
+            }
             if (hit != null)
             {
                 hookHead.position = contact;
@@ -261,7 +292,8 @@ namespace PudgeWars.Gameplay
             var origin = Origin;
             var toOrigin = origin - hookHead.position;
             float dist = toOrigin.magnitude;
-            float step = (target != null ? pullSpeed : returnSpeed) * Time.deltaTime;
+            float pull = target != null && target.HeldBy != null ? pullSpeed * heldPullFactor : pullSpeed;
+            float step = (target != null ? pull : returnSpeed) * Time.deltaTime;
             var flatDir = new Vector3(toOrigin.x, 0f, toOrigin.z).normalized;
             if (dist <= step + 0.05f)
             {
@@ -297,14 +329,6 @@ namespace PudgeWars.Gameplay
             state = State.Ready;
             readyAt = Time.time + (caughtThisCast && resetCooldownOnHit ? 0f : cooldown);
             anim?.PlayAction(PudgeAnimation.HookEnd, 0.5f, 0.1f);
-        }
-
-        /// <summary>An ally's hook pulled the target out of this one: the hook comes back empty, with the normal cooldown.</summary>
-        public void LoseTarget(Hookable lost)
-        {
-            if (target != lost) return;
-            target = null;
-            caughtThisCast = false;
         }
 
         /// <summary>
@@ -380,6 +404,7 @@ namespace PudgeWars.Gameplay
         public void Cancel()
         {
             if (state == State.Ready) return;
+            ReleaseHeld();
             if (target != null)
             {
                 target.Release();
@@ -391,14 +416,84 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// A free enemy, or with hitsAllies a free ally or one an enemy's hook is pulling (a rescue). A hero already
-        /// on a hook of this team or falling cannot be caught.
+        /// A free enemy, or with hitsAllies a free ally or one an enemy's hook is pulling and nobody holds yet (a
+        /// rescue). A hero already on a hook of this team or falling cannot be caught.
         /// </summary>
         public bool CanCatch(Hookable h)
         {
             if (h == self || !h.IsAlive || h.IsFalling) return false;
             if (IsEnemy(h)) return !h.IsHooked;
-            return hitsAllies && (!h.IsHooked || (h.HookedBy != null && h.HookedBy.Owner != null && IsEnemy(h.HookedBy.Owner)));
+            return hitsAllies && (!h.IsHooked || IsRescue(h));
+        }
+
+        /// <summary>An ally on an enemy's hook that no other ally holds yet.</summary>
+        bool IsRescue(Hookable h) =>
+            h.IsHooked && h.HeldBy == null && h.HookedBy != null && h.HookedBy.Owner != null && IsEnemy(h.HookedBy.Owner);
+
+        /// <summary>
+        /// Tug of war: the ally stays on the enemy's hook, which now pulls slower, and the owner hangs on behind it
+        /// on a chain of the length at the catch.
+        /// </summary>
+        void BeginHold(Hookable ally)
+        {
+            held = ally;
+            ally.HeldBy = this;
+            var d = ally.transform.position - transform.position;
+            d.y = 0f;
+            ropeLength = d.magnitude;
+            state = State.Holding;
+        }
+
+        void Hold()
+        {
+            var enemyHook = held.HookedBy;
+            if (!held.IsAlive || held.IsFalling || enemyHook == null)
+            {
+                var ally = held;
+                bool saved = ally.IsAlive && !ally.IsFalling;
+                Cancel(); // fell into the pit (or died): the chain breaks
+                if (!saved) return;
+                // the enemy's hook let go: the ally is pulled home, which is the rescue
+                direction = AimDirection(ally.transform.position);
+                target = ally;
+                ally.AttachTo(this);
+                SetHookVisible(true);
+                state = State.Returning;
+                Arena.Instance?.ReportRescue(ally, self);
+                return;
+            }
+            if (enemyHook.Owner == null || !IsEnemy(enemyHook.Owner))
+            {
+                Cancel();
+                return;
+            }
+
+            // the owner is dragged after the ally on the taut chain, but not over the pit edge: there it breaks
+            var toAlly = held.transform.position - transform.position;
+            toAlly.y = 0f;
+            float dist = toAlly.magnitude;
+            var dir = dist > 1e-4f ? toAlly / dist : transform.forward;
+            if (dist > ropeLength && self != null)
+            {
+                var next = transform.position + dir * (dist - ropeLength);
+                var arena = Arena.Instance;
+                if (arena != null && arena.IsOverPit(next))
+                {
+                    Cancel();
+                    return;
+                }
+                self.DragTo(next, dir);
+            }
+            var head = held.transform.position;
+            hookHead.position = new Vector3(head.x, hookHead.position.y, head.z);
+            hookHead.rotation = Quaternion.LookRotation(-dir);
+        }
+
+        void ReleaseHeld()
+        {
+            if (held == null) return;
+            if (held.HeldBy == this) held.HeldBy = null;
+            held = null;
         }
 
         /// <summary>First hero (enemy, or ally with hitsAllies) whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
