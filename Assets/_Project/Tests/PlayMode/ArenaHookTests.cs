@@ -294,14 +294,15 @@ namespace PudgeWars.Tests
             foreach (var b in Hookable.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(12f, 0f, 14f);
             Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));
             yield return new WaitUntil(() => hook.hookHead.gameObject.activeSelf);
-            var launch = hook.hookHead.position;
             float maxDist = 0f;
             while (hook.IsBusy)
             {
-                maxDist = Mathf.Max(maxDist, Vector3.Distance(launch, hook.hookHead.position));
+                var d = hook.hookHead.position - player.transform.position;
+                maxDist = Mathf.Max(maxDist, new Vector3(d.x, 0f, d.z).magnitude);
                 yield return null;
             }
-            Assert.That(maxDist, Is.InRange(hook.EffectiveRange - 0.1f, hook.EffectiveRange + 0.6f));
+            // range is measured from the hero's centre, like the aim lines
+            Assert.AreEqual(hook.EffectiveRange, maxDist, 0.05f);
         }
 
         [UnityTest]
@@ -355,10 +356,11 @@ namespace PudgeWars.Tests
             // aim lines: two parallel edges, hook width apart, full range long
             var aim = input.aimIndicator;
             var dir = hook.AimDirection(player.transform.position + Vector3.forward * 5f);
-            aim.Show(hook.PredictLaunchPoint(dir), dir, hook.EffectiveRange, hook.HitWidth);
+            aim.Show(hook.AimStart, dir, hook.AimLength, hook.HitWidth);
             Assert.IsTrue(aim.left.enabled && aim.right.enabled);
             Assert.AreEqual(hook.HitWidth, Vector3.Distance(aim.left.GetPosition(0), aim.right.GetPosition(0)), 1e-3f);
-            Assert.AreEqual(hook.EffectiveRange, Vector3.Distance(aim.left.GetPosition(0), aim.left.GetPosition(1)), 1e-3f);
+            Assert.AreEqual(hook.AimLength, Vector3.Distance(aim.left.GetPosition(0), aim.left.GetPosition(1)), 1e-3f);
+            Assert.Greater(hook.TipLength, 0.5f, "hook model tip not measured");
             yield return null;
             CaptureScreen("aim");
             aim.Hide();
@@ -388,7 +390,7 @@ namespace PudgeWars.Tests
             input.enabled = true;
             Assert.IsTrue(input.SelectAbility(PlayerInputController.HookSlot));
             var dir = hook.AimDirection(player.transform.position + Vector3.forward * 5f);
-            aim.Show(hook.PredictLaunchPoint(dir), dir, hook.EffectiveRange, hook.HitWidth);
+            aim.Show(hook.AimStart, dir, hook.AimLength, hook.HitWidth);
 
             player.StartFalling(Vector3.zero);
             yield return null;

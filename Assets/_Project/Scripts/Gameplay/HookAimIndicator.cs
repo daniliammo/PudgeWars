@@ -3,22 +3,20 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Two lines on the ground marking the edges of the strip the hook will sweep: from the launch point
-    /// to the full range, as wide as the hook head.
+    /// Two lines marking the edges of the strip the hook will sweep, drawn at the head's flight height (on the
+    /// ground they would look shorter than the flight under the tilted camera): from the hero's centre to the
+    /// tip of the hook at full range, as wide as the hook head.
     /// </summary>
     public class HookAimIndicator : MonoBehaviour
     {
         public LineRenderer left;
         public LineRenderer right;
-        [Tooltip("Lift above the ground so the lines do not z-fight with it, metres.")]
-        public float groundOffset = 0.05f;
 
         void Awake() => Hide();
 
         public void Show(Vector3 start, Vector3 direction, float length, float width)
         {
             var side = Vector3.Cross(Vector3.up, direction).normalized * (width / 2f);
-            start.y = groundOffset;
             Set(left, start - side, direction, length);
             Set(right, start + side, direction, length);
         }

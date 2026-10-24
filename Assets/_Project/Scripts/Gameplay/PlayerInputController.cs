@@ -78,7 +78,7 @@ namespace PudgeWars.Gameplay
             }
 
             var dir = hook.AimDirection(point);
-            if (aimIndicator != null) aimIndicator.Show(hook.PredictLaunchPoint(dir), dir, hook.EffectiveRange, hook.HitWidth);
+            if (aimIndicator != null) aimIndicator.Show(hook.AimStart, dir, hook.AimLength, hook.HitWidth);
 
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             bool cast = (mouse.leftButton.wasPressedThisFrame && !overUi) || (kb != null && kb.spaceKey.wasPressedThisFrame);

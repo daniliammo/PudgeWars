@@ -23,7 +23,8 @@ namespace PudgeWars.Gameplay
         enum State { Ready, Turning, Windup, Flying, Returning, Tethered }
 
         [Header("Defaults of the original Player_PW Blueprint (cm -> m)")]
-        [Tooltip("DistanceHook = 1300")] public float range = 13f;
+        [Tooltip("DistanceHook = 1300; measured from the hero's centre to the hook head, as cast range in Dota.")]
+        public float range = 13f;
         [Tooltip("HookStartSpeed = 1500")] public float flySpeed = 15f;
         [Tooltip("SpeedHookPudge = 1200 (multiplayer Player_Pudge)")] public float pullSpeed = 12f;
         public float returnSpeed = 15f;
@@ -32,6 +33,8 @@ namespace PudgeWars.Gameplay
         [Tooltip("A cast that catches a target leaves the hook ready right after it comes back.")]
         public bool resetCooldownOnHit = true;
         [Tooltip("Hook head radius used for hits, metres.")] public float hitRadius = 0.35f;
+        [Tooltip("The head flies straight out of the hero's centre line at this height, metres (about the hand).")]
+        public float flightHeight = 1.1f;
         [Tooltip("Share of the pull speed a released target keeps while falling.")] public float dropCarry = 0.35f;
         [Header("Tether: the owner is caught while pulling a target")]
         [Tooltip("How fast a falling/dead owner reels the chain in, dragging the target after it, m/s.")]
@@ -54,6 +57,12 @@ namespace PudgeWars.Gameplay
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => state != State.Ready;
         public bool IsReady => state == State.Ready && Time.time >= readyAt;
+        /// <summary>Distance from the head's pivot (where hits and range are measured) to the tip of its model.</summary>
+        public float TipLength { get; private set; }
+        /// <summary>How far from the hero's centre the tip of the hook reaches.</summary>
+        public float AimLength => EffectiveRange + TipLength;
+        /// <summary>Start of the hook's flight line: the hero's centre at flight height.</summary>
+        public Vector3 AimStart => transform.position + Vector3.up * flightHeight;
         public float CooldownRemaining => state == State.Ready ? Mathf.Max(0f, readyAt - Time.time) : cooldown;
 
         State state;
@@ -72,6 +81,7 @@ namespace PudgeWars.Gameplay
             anim = GetComponent<PudgeAnimation>();
             motor = GetComponent<PudgeMotor>();
             inventory = GetComponent<HeroInventory>();
+            TipLength = MeasureTip();
             // the prefab keeps the head and the chain as children; in flight they must not follow the owner
             if (hookHead != null) hookHead.SetParent(null, true);
             if (chain != null) chain.transform.SetParent(null, true);
@@ -101,11 +111,22 @@ namespace PudgeWars.Gameplay
             return dir.sqrMagnitude < 1e-4f ? transform.forward : dir.normalized;
         }
 
-        /// <summary>Where the hook will start once the owner has turned to the direction (hand offset rotated to it).</summary>
-        public Vector3 PredictLaunchPoint(Vector3 direction)
+        /// <summary>Farthest point of the head's meshes in front of its pivot.</summary>
+        float MeasureTip()
         {
-            var local = transform.InverseTransformPoint(Origin);
-            return transform.position + Quaternion.LookRotation(direction) * local;
+            if (hookHead == null) return 0f;
+            float tip = 0f;
+            foreach (var mf in hookHead.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (mf.sharedMesh == null) continue;
+                var b = mf.sharedMesh.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                    tip = Mathf.Max(tip, hookHead.InverseTransformPoint(mf.transform.TransformPoint(corner)).z);
+                }
+            }
+            return tip;
         }
 
         /// <summary>Throws the hook toward a world point (only the horizontal direction matters).</summary>
@@ -153,9 +174,11 @@ namespace PudgeWars.Gameplay
 
         void Launch()
         {
-            var start = Origin;
-            hookHead.SetPositionAndRotation(new Vector3(start.x, start.y, start.z), Quaternion.LookRotation(direction));
-            traveled = 0f;
+            // the head appears level with the hand but on the centre line, so its path and range do not depend
+            // on where the animation has put the hand: exactly what the aim lines show
+            var hand = Origin - transform.position;
+            traveled = Mathf.Clamp(Vector3.Dot(new Vector3(hand.x, 0f, hand.z), direction), 0f, EffectiveRange);
+            hookHead.SetPositionAndRotation(AimStart + direction * traveled, Quaternion.LookRotation(direction));
             state = State.Flying;
             SetHookVisible(true);
             Play(sounds.cast);
