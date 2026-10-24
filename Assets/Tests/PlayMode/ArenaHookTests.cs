@@ -21,6 +21,7 @@ namespace PudgeWars.Tests
         [UnitySetUp]
         public IEnumerator LoadArena()
         {
+            AudioListener.volume = 0f; // tests run silent: no hook or announcer sounds
             SceneManager.LoadScene("Arena");
             yield return null;
             yield return null;
