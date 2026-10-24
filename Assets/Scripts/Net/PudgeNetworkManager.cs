@@ -142,7 +142,7 @@ namespace PudgeWars.Net
         void OnJoin(NetworkConnectionToClient conn, JoinMessage msg)
         {
             if (conn.identity != null) return;
-            var team = TeamForNewPlayer();
+            var team = TeamForNewPlayer(conn);
             string nick = string.IsNullOrWhiteSpace(msg.nickname) ? $"Игрок {conn.connectionId}" : msg.nickname.Trim();
             if (nick.Length > 20) nick = nick.Substring(0, 20);
             var hero = SpawnPoint(team, out var rotation, out var position) ? BuildHero(false, position, rotation) : null;
@@ -160,8 +160,15 @@ namespace PudgeWars.Net
 
         static int Players(Team team) => NetHero.OnServer.Count(h => !h.isBot && h.Team == team);
 
-        /// <summary>The team with fewer players; the near (player) side when even.</summary>
-        static Team TeamForNewPlayer() => Players(Team.Bots) < Players(Team.Player) ? Team.Bots : Team.Player;
+        /// <summary>
+        /// The host plays for Dire, the others join the team with fewer players, Radiant when even (so the first
+        /// client is Radiant).
+        /// </summary>
+        static Team TeamForNewPlayer(NetworkConnectionToClient conn)
+        {
+            if (conn is LocalConnectionToClient) return Team.Bots;
+            return Players(Team.Bots) < Players(Team.Player) ? Team.Bots : Team.Player;
+        }
 
         /// <summary>Keeps every team at <see cref="teamSize"/> heroes with bots (or removes the bots when off).</summary>
         public void FillWithBots()

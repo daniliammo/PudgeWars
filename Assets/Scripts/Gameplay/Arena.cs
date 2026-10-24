@@ -5,6 +5,10 @@ using UnityEngine;
 
 namespace PudgeWars.Gameplay
 {
+    /// <summary>
+    /// The two sides: <see cref="Player"/> is Radiant (the near side, z &lt; 0), <see cref="Bots"/> is Dire (the far
+    /// side, z &gt; 0). Offline the player is Radiant against Dire bots; in a network game the host plays for Dire.
+    /// </summary>
     public enum Team { Player, Bots }
 
     /// <summary>
