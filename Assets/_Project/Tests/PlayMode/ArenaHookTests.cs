@@ -380,6 +380,30 @@ namespace PudgeWars.Tests
             Assert.AreEqual(PlayerInputController.HookSlot, input.SelectedAbility);
         }
 
+        [UnityTest]
+        public IEnumerator AimLinesDisappearWhenAimingPlayerDiesAndStayHiddenAfterRespawn()
+        {
+            var input = player.GetComponent<PlayerInputController>();
+            var aim = input.aimIndicator;
+            input.enabled = true;
+            Assert.IsTrue(input.SelectAbility(PlayerInputController.HookSlot));
+            var dir = hook.AimDirection(player.transform.position + Vector3.forward * 5f);
+            aim.Show(hook.PredictLaunchPoint(dir), dir, hook.EffectiveRange, hook.HitWidth);
+
+            player.StartFalling(Vector3.zero);
+            yield return null;
+            Assert.AreEqual(PlayerInputController.NoAbility, input.SelectedAbility, "selection must drop when the player loses control");
+            Assert.IsFalse(aim.left.enabled || aim.right.enabled, "aim lines left on the ground");
+
+            float t = 0f;
+            while (player.IsAlive && t < 5f) { t += Time.deltaTime; yield return null; }
+            Assert.IsFalse(player.IsAlive);
+            yield return new WaitForSeconds(arena.respawnDelay + 0.5f);
+            Assert.IsTrue(player.IsAlive, "player did not respawn");
+            Assert.IsFalse(aim.left.enabled || aim.right.enabled, "respawn switched the aim lines back on");
+            input.enabled = false;
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");
