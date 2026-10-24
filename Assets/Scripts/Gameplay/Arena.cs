@@ -36,7 +36,7 @@ namespace PudgeWars.Gameplay
         public int killGoldPerLevel = 8;
         [Tooltip("Breaking a kill series pays extra: half the victim's kill reward + this much per kill of its streak.")]
         public int streakBreakPerKill = 5;
-        [Tooltip("Per-kill extra instead, if the victim had Rampages in a row (RAMPAGE ×2 and on).")]
+        [Tooltip("Per Rampage kill instead, if the victim had Rampages in a row (RAMPAGE ×2 and on); the kills before still pay streakBreakPerKill.")]
         public int streakBreakPerKillRampage = 10;
         [Tooltip("Gold every hero gets each passiveGoldInterval, without a popup.")]
         public int passiveGold = 2;
@@ -60,11 +60,14 @@ namespace PudgeWars.Gameplay
         /// <summary>Gold for killing a hero: 125 + its level × 8, so 133 at level 1.</summary>
         public int KillGold(Hookable victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
         /// <summary>
-        /// Extra gold for killing a hero on a kill series: half its kill reward + its kills without dying × 5, or × 10
-        /// if it had Rampages in a row (RAMPAGE ×2 and on).
+        /// Extra gold for killing a hero on a kill series: half its kill reward + its kills without dying × 5; if it had
+        /// Rampages in a row (RAMPAGE ×2 and on), each Rampage kill pays × 10 instead (the kills before them stay × 5).
         /// </summary>
-        public int StreakBreakBonus(Hookable victim, int streak, int rampagesInARow) =>
-            KillGold(victim) / 2 + streak * (rampagesInARow >= 2 ? streakBreakPerKillRampage : streakBreakPerKill);
+        public int StreakBreakBonus(Hookable victim, int streak, int rampagesInARow)
+        {
+            int rampageKills = rampagesInARow >= 2 ? Mathf.Min(rampagesInARow, streak) : 0;
+            return KillGold(victim) / 2 + (streak - rampageKills) * streakBreakPerKill + rampageKills * streakBreakPerKillRampage;
+        }
         /// <summary>(Score, Deaths) after any change of the counts.</summary>
         public event Action<int, int> ScoreChanged;
         /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>

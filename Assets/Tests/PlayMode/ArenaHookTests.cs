@@ -98,13 +98,14 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator BreakingRampagesInARowPaysTenPerKill()
+        public IEnumerator BreakingRampagesInARowPaysTenPerRampageAndFivePerKillBefore()
         {
             var bot = Hookable.All.First(h => h.team == Team.Bots);
             for (int i = 0; i < 6; i++) arena.Streaks.RegisterKill(bot, Time.time); // RAMPAGE ×2
             Assert.AreEqual(2, arena.Streaks.RampageCount(bot));
             yield return PlayerKillsBot(bot);
-            Assert.AreEqual(arena.KillGold(bot) + arena.KillGold(bot) / 2 + 6 * 10, player.GetComponent<HeroInventory>().Gold);
+            // kills 1–4 (up to Ultra Kill) × 5, the two Rampages × 10
+            Assert.AreEqual(133 + 66 + 4 * 5 + 2 * 10, player.GetComponent<HeroInventory>().Gold);
         }
 
         [UnityTest]
