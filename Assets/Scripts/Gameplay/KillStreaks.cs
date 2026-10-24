@@ -36,6 +36,8 @@ namespace PudgeWars.Gameplay
 
         public int MultiKillCount(object hero) => states.TryGetValue(hero, out var s) ? s.multi : 0;
         public int Streak(object hero) => states.TryGetValue(hero, out var s) ? s.streak : 0;
+        /// <summary>How many Rampages in a row the current multi-kill has made (0 before the fifth kill).</summary>
+        public int RampageCount(object hero) => Math.Max(0, MultiKillCount(hero) - 4);
 
         /// <summary>Counts a kill made at <paramref name="time"/>; returns what to announce, in order.</summary>
         public List<KillAnnouncement> RegisterKill(object killer, float time)

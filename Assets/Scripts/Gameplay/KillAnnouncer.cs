@@ -7,7 +7,7 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Announcer of kill series at the top of the screen, as in Dota: "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL",
     /// "RAMPAGE", "БОГОПОДОБИЕ" pop in, hold and dissolve one after another (announcements coming together
-    /// wait in a queue). The player's series are gold, the enemies' red with the hero's name below. When a series
+    /// wait in a queue); Rampages in a row are counted: "RAMPAGE ×2", "RAMPAGE ×3"… The player's series are gold, the enemies' red with the hero's name below. When a series
     /// ends, "СЕРИЯ ПРЕРВАНА" says why: time ran out or who killed the hero.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -18,6 +18,8 @@ namespace PudgeWars.Gameplay
         public int nameFontSize = 36;
         [Tooltip("Indexed by KillAnnouncement.")]
         public string[] texts = { "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE", "БОГОПОДОБИЕ" };
+        [Tooltip("Text of a Rampage after the first one in a row; {0} = Rampage text, {1} = how many in a row.")]
+        public string rampageRepeatFormat = "{0} ×{1}";
         [Tooltip("Announcer voice, indexed by KillAnnouncement; empty slots are silent.")]
         public AudioClip[] clips = new AudioClip[6];
         public Color playerColor = new(1f, 0.78f, 0.2f);
@@ -80,9 +82,10 @@ namespace PudgeWars.Gameplay
         public void Enqueue(Hookable hero, KillAnnouncement kind)
         {
             bool own = hero == null || hero.team == Team.Player;
+            int rampages = kind == KillAnnouncement.Rampage && hero != null && arena != null ? arena.Streaks.RampageCount(hero) : 0;
             Enqueue(new Message
             {
-                text = texts[(int)kind],
+                text = rampages > 1 ? string.Format(rampageRepeatFormat, texts[(int)kind], rampages) : texts[(int)kind],
                 subtitle = own ? "" : hero.name,
                 color = own ? playerColor : enemyColor,
                 clip = (int)kind < clips.Length ? clips[(int)kind] : null,

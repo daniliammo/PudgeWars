@@ -534,11 +534,15 @@ namespace PudgeWars.Tests
             CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 10f));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.TripleKill }, streaks.RegisterKill(hero, 27f), "the window counts from the previous kill");
             CollectionAssert.AreEqual(new[] { KillAnnouncement.UltraKill }, streaks.RegisterKill(hero, 30f));
+            Assert.AreEqual(0, streaks.RampageCount(hero));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.Rampage }, streaks.RegisterKill(hero, 31f));
+            Assert.AreEqual(1, streaks.RampageCount(hero));
             CollectionAssert.AreEqual(new[] { KillAnnouncement.Rampage }, streaks.RegisterKill(hero, 32f), "kills after Rampage stay Rampage");
+            Assert.AreEqual(2, streaks.RampageCount(hero), "Rampages in a row are counted");
 
             CollectionAssert.IsEmpty(streaks.RegisterKill(hero, 32f + 18.5f), "a long pause must reset the multi-kill");
             Assert.AreEqual(1, streaks.MultiKillCount(hero));
+            Assert.AreEqual(0, streaks.RampageCount(hero), "the Rampage count starts over with the multi-kill");
             CollectionAssert.AreEqual(new[] { KillAnnouncement.DoubleKill }, streaks.RegisterKill(hero, 60f));
 
             // series are per hero, and a death breaks the multi-kill
@@ -634,6 +638,26 @@ namespace PudgeWars.Tests
             Assert.AreEqual("DOUBLE KILL", announcer.LastText);
             Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].name));
             CaptureScreen("enemy_double_kill");
+        }
+
+        [UnityTest]
+        public IEnumerator AnnouncerCountsRampagesInARow()
+        {
+            var announcer = Object.FindFirstObjectByType<KillAnnouncer>();
+            announcer.duration = 0.2f;
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var shown = new List<string>();
+            for (int i = 0; i < 7; i++) arena.ReportDeath(bots[i % bots.Count], player);
+            for (int i = 0; i < 100 && (announcer.IsShowing || shown.Count == 0); i++)
+            {
+                if (shown.Count == 0 || shown[^1] != announcer.LastText)
+                {
+                    shown.Add(announcer.LastText);
+                    if (announcer.LastText == "RAMPAGE ×3") CaptureScreen("rampage_x3");
+                }
+                yield return new WaitForSeconds(0.05f);
+            }
+            CollectionAssert.AreEqual(new[] { "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE", "RAMPAGE ×2", "RAMPAGE ×3" }, shown);
         }
 
         [UnityTest]
