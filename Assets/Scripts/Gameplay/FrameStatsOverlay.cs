@@ -40,10 +40,22 @@ namespace PudgeWars.Gameplay
             go.AddComponent<FrameStatsOverlay>();
         }
 
-        /// <summary>Display refresh rate: the compositor's value when known (the editor always reports 60 Hz).</summary>
-        static float RefreshRate => DisplayScaling.NativeRefreshRate > 0f
-            ? DisplayScaling.NativeRefreshRate
-            : (float)Screen.currentResolution.refreshRateRatio.value;
+        /// <summary>
+        /// Display refresh rate: the compositor's value when known (the editor always reports 60 Hz). On mobile the
+        /// highest supported mode — phones keep the display at 60 Hz until the app asks for more via targetFrameRate.
+        /// </summary>
+        static float RefreshRate
+        {
+            get
+            {
+                if (DisplayScaling.NativeRefreshRate > 0f) return DisplayScaling.NativeRefreshRate;
+                float hz = (float)Screen.currentResolution.refreshRateRatio.value;
+#if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+                foreach (var mode in Screen.resolutions) hz = Mathf.Max(hz, (float)mode.refreshRateRatio.value);
+#endif
+                return hz;
+            }
+        }
 
         /// <summary>Frame cap = display refresh rate; VSync off so the cap is what limits the frame rate.</summary>
         public static int ApplyFrameCap()
