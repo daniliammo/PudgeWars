@@ -132,6 +132,9 @@ namespace PudgeWars.Gameplay
             var res = Screen.currentResolution;
             sb.Append("Экран: ").Append(Screen.width).Append('x').Append(Screen.height)
               .Append(" @ ").Append(res.refreshRateRatio.value.ToString("0.##")).Append(" Гц, ").Append(Screen.fullScreenMode).Append('\n');
+            sb.Append("Рабочий стол: ").Append(res.width).Append('x').Append(res.height).Append(", монитор: ");
+            if (DisplayScaling.NativeSize != Vector2Int.zero) sb.Append(DisplayScaling.NativeSize.x).Append('x').Append(DisplayScaling.NativeSize.y).Append('\n');
+            else sb.Append("неизвестно\n");
             sb.Append("Лимит кадров: ").Append(Application.targetFrameRate).Append(", VSync: ").Append(QualitySettings.vSyncCount).Append('\n');
             sb.Append("Кадр (").Append(frameCount).Append("): ср ").Append((avg * 1000f).ToString("0.0"))
               .Append(" / мин ").Append((min * 1000f).ToString("0.0"))
