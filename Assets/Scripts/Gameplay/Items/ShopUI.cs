@@ -8,7 +8,8 @@ namespace PudgeWars.Gameplay
     /// In-match shop (MagazinGame in the original): a panel toggled with B or the HUD button, plus an
     /// always visible bar with the player's gold and item slots. The panel flies in from the right screen edge
     /// and flies back out when closed. A hero picked with a click (<see cref="Inspect"/>) takes the player's place
-    /// on the bar, so its gold and items can be seen; purchases are still the player's own.
+    /// on the bar, so its gold and items can be seen, and a tab over the bar says whose they are ("Осмотр: Бот
+    /// Мясник"); purchases are still the player's own.
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -19,6 +20,12 @@ namespace PudgeWars.Gameplay
         public Text goldLabel;
         public Image[] slots = new Image[HeroInventory.SlotCount];
         public ShopItemRow[] rows = new ShopItemRow[0];
+        [Tooltip("Tab over the bar while another hero is inspected; made at runtime over the gold if empty.")]
+        public Text inspectLabel;
+        [Tooltip("{0} = the inspected hero's name.")]
+        public string inspectFormat = "Осмотр: {0}";
+        public Color inspectAllyColor = new(0.45f, 0.95f, 0.4f);
+        public Color inspectEnemyColor = new(1f, 0.4f, 0.32f);
         [Tooltip("Seconds the panel takes to fly in from beyond the screen edge (and back out).")]
         public float slideDuration = 0.25f;
 
@@ -31,6 +38,7 @@ namespace PudgeWars.Gameplay
 
         HeroInventory inspected;
         bool inspecting;
+        GameObject inspectTab;
         RectTransform panelRect;
         Vector2 shownPosition, hiddenPosition;
         float slide; // 0 = beyond the screen edge, 1 = in place
@@ -41,6 +49,8 @@ namespace PudgeWars.Gameplay
             if (buyer == null) Bind(LocalHeroInventory());
             else buyer.Changed += Refresh;
             LocalPlayer.Changed += OnLocalPlayerChanged;
+            if (inspectLabel == null) inspectLabel = BuildInspectLabel();
+            else inspectTab = inspectLabel.gameObject;
             if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             foreach (var row in rows)
@@ -136,8 +146,54 @@ namespace PudgeWars.Gameplay
 
         public bool Buy(ItemDef item) => buyer != null && buyer.TryBuy(item);
 
+        /// <summary>A dark tab sitting on the bar's top edge, over the gold.</summary>
+        Text BuildInspectLabel()
+        {
+            if (goldLabel == null) return null;
+            var bar = goldLabel.transform.parent;
+            var tab = new GameObject("InspectTab", typeof(RectTransform)).GetComponent<RectTransform>();
+            tab.SetParent(bar, false);
+            tab.anchorMin = tab.anchorMax = tab.pivot = new Vector2(0f, 1f);
+            tab.anchoredPosition = new Vector2(0f, 46f);
+            tab.sizeDelta = new Vector2(420f, 42f);
+            var bg = tab.gameObject.AddComponent<Image>();
+            bg.color = new Color(0.05f, 0.06f, 0.08f, 0.9f);
+            bg.raycastTarget = false;
+            var rt = new GameObject("Inspect", typeof(RectTransform)).GetComponent<RectTransform>();
+            rt.SetParent(tab, false);
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(16f, 0f);
+            rt.offsetMax = new Vector2(-8f, 0f);
+            var text = rt.gameObject.AddComponent<Text>();
+            text.font = goldLabel.font;
+            text.fontSize = 26;
+            text.fontStyle = FontStyle.Bold;
+            text.alignment = TextAnchor.MiddleLeft;
+            text.raycastTarget = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var outline = rt.gameObject.AddComponent<Outline>();
+            outline.effectColor = Color.black;
+            outline.effectDistance = new Vector2(2f, -2f);
+            inspectTab = tab.gameObject;
+            inspectTab.SetActive(false);
+            return text;
+        }
+
+        /// <summary>The tab says whose gold and items the bar shows; hidden for the player's own.</summary>
+        void ShowInspected()
+        {
+            if (inspectLabel == null) return;
+            var hero = inspected != null ? inspected.GetComponent<Hookable>() : null;
+            inspectTab.SetActive(hero != null);
+            if (hero == null) return;
+            inspectLabel.text = string.Format(inspectFormat, hero.DisplayName);
+            inspectLabel.color = hero.team == LocalPlayer.Team ? inspectAllyColor : inspectEnemyColor;
+        }
+
         void Refresh()
         {
+            ShowInspected();
             var shown = Shown;
             if (goldLabel != null) goldLabel.text = shown != null ? shown.Gold.ToString() : "0";
             for (int i = 0; i < slots.Length; i++)

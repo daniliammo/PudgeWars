@@ -1069,8 +1069,11 @@ namespace PudgeWars.Tests
             var ground = (Vector2)cam.WorldToScreenPoint(new Vector3(13f, 0f, 0f));
             Assert.IsNull(HeroPicker.PickAt(ground, cam), "a click on empty ground picked a hero");
 
+            Assert.IsFalse(shop.inspectLabel.transform.parent.gameObject.activeSelf, "no inspect tab for the player's own data");
             shop.Inspect(botWallet);
             Assert.AreEqual(botWallet, shop.Shown);
+            Assert.IsTrue(shop.inspectLabel.transform.parent.gameObject.activeSelf, "no mark that another hero is inspected");
+            Assert.AreEqual($"Осмотр: Бот {bot.Nickname}", shop.inspectLabel.text);
             Assert.AreEqual("300", shop.goldLabel.text, "the bar does not show the clicked hero's gold");
             Assert.AreEqual(lens.icon, shop.slots[0].sprite, "the bar does not show the clicked hero's items");
             botWallet.AddGold(50, popup: false);
@@ -1079,6 +1082,7 @@ namespace PudgeWars.Tests
 
             shop.Inspect(null);
             Assert.AreEqual("40", shop.goldLabel.text, "the player's own gold did not come back");
+            Assert.IsFalse(shop.inspectLabel.transform.parent.gameObject.activeSelf, "the inspect tab stayed after going back");
             Assert.IsNull(shop.slots[0].sprite);
         }
 
