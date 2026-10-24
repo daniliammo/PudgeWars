@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Announcer of kill series at the top of the screen, as in Dota: "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL",
+    /// Announcer of kill series at the top of the screen, as in Dota: "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL",
     /// "RAMPAGE", "БОГОПОДОБИЕ" pop in, hold and dissolve one after another (announcements coming together
     /// wait in a queue). The player's series are gold, the enemies' red with the hero's name below.
     /// </summary>
@@ -16,9 +16,9 @@ namespace PudgeWars.Gameplay
         public int fontSize = 84;
         public int nameFontSize = 36;
         [Tooltip("Indexed by KillAnnouncement.")]
-        public string[] texts = { "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE", "БОГОПОДОБИЕ" };
+        public string[] texts = { "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE", "БОГОПОДОБИЕ" };
         [Tooltip("Announcer voice, indexed by KillAnnouncement; empty slots are silent.")]
-        public AudioClip[] clips = new AudioClip[5];
+        public AudioClip[] clips = new AudioClip[6];
         public Color playerColor = new(1f, 0.78f, 0.2f);
         public Color enemyColor = new(1f, 0.3f, 0.22f);
         public float duration = 2.2f;

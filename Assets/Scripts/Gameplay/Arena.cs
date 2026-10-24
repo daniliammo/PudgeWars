@@ -35,7 +35,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Times the player was killed.</summary>
         public int Deaths { get; private set; }
         public event Action<int, int> ScoreChanged;
-        /// <summary>Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
+        /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
         public event Action<Hookable, KillAnnouncement> KillAnnounced;
 
         public KillStreaks Streaks { get; private set; }

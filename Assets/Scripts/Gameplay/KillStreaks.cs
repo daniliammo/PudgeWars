@@ -3,12 +3,12 @@ using System.Collections.Generic;
 
 namespace PudgeWars.Gameplay
 {
-    public enum KillAnnouncement { DoubleKill, TripleKill, UltraKill, Rampage, Godlike }
+    public enum KillAnnouncement { FirstBlood, DoubleKill, TripleKill, UltraKill, Rampage, Godlike }
 
     /// <summary>
-    /// Kill series per hero, as in Dota 2. Multi-kills (Double → Triple → Ultra → Rampage): each kill must come
-    /// within <see cref="multiKillWindow"/> of the previous one, otherwise the count starts over; after Rampage
-    /// every further kill in the window is Rampage again. Godlike is a kill streak: <see cref="godlikeStreak"/>
+    /// Kill series per hero, as in Dota 2. First Blood is the first kill of the match. Multi-kills (Double → Triple →
+    /// Ultra → Rampage): each kill must come within <see cref="multiKillWindow"/> of the previous one, otherwise the
+    /// count starts over; after Rampage every further kill in the window is Rampage again. Godlike is a kill streak: <see cref="godlikeStreak"/>
     /// kills without dying (time does not matter), announced again for each kill beyond it that is not a multi-kill.
     /// </summary>
     public class KillStreaks
@@ -23,6 +23,7 @@ namespace PudgeWars.Gameplay
         }
 
         readonly Dictionary<object, State> states = new();
+        bool firstBloodDone;
 
         State Of(object hero) => states.TryGetValue(hero, out var s) ? s : states[hero] = new State();
 
@@ -38,7 +39,9 @@ namespace PudgeWars.Gameplay
             s.streak++;
 
             var result = new List<KillAnnouncement>();
-            if (s.multi >= 2) result.Add((KillAnnouncement)Math.Min(s.multi - 2, (int)KillAnnouncement.Rampage));
+            if (!firstBloodDone) result.Add(KillAnnouncement.FirstBlood);
+            firstBloodDone = true;
+            if (s.multi >= 2) result.Add((KillAnnouncement)Math.Min((int)KillAnnouncement.DoubleKill + s.multi - 2, (int)KillAnnouncement.Rampage));
             if (s.streak == godlikeStreak || (s.streak > godlikeStreak && s.multi < 2)) result.Add(KillAnnouncement.Godlike);
             return result;
         }
