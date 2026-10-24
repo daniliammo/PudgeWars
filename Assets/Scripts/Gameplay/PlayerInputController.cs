@@ -12,6 +12,9 @@ namespace PudgeWars.Gameplay
     /// (<see cref="ShopUI.Inspect"/>); a click on empty ground or Escape brings the player's back.
     /// In first person the controls are a shooter's: the hero faces where the camera looks, strafes with
     /// A / D and throws the hook at the crosshair.
+    /// On a phone (<see cref="TouchControls"/>) the left stick runs at full speed; a finger on the right stick picks
+    /// the hook and aims it, letting go throws it at full range; a tap without dragging throws it straight ahead,
+    /// dragging back to the centre before letting go cancels. A tap on a hero inspects it like a click.
     /// </summary>
     public class PlayerInputController : MonoBehaviour
     {
@@ -43,8 +46,16 @@ namespace PudgeWars.Gameplay
 
         void OnDestroy() => LocalPlayer.Unregister(this);
 
+        void OnEnable()
+        {
+            TouchControls.HookPressed += OnHookStickPressed;
+            TouchControls.HookReleased += OnHookStickReleased;
+        }
+
         void OnDisable()
         {
+            TouchControls.HookPressed -= OnHookStickPressed;
+            TouchControls.HookReleased -= OnHookStickReleased;
             Deselect();
             motor.SetLookDirection(null);
         }
@@ -73,6 +84,7 @@ namespace PudgeWars.Gameplay
             }
             var kb = Keyboard.current;
             var mouse = Mouse.current;
+            var touch = TouchControls.Active;
             var move = Vector2.zero;
             if (kb != null)
             {
@@ -81,21 +93,30 @@ namespace PudgeWars.Gameplay
                 if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) move.x += 1f;
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) move.x -= 1f;
             }
+            if (touch != null && touch.Move != Vector2.zero) move += touch.Move.normalized; // Dota heroes have no walk
             bool firstPerson = follow != null && follow.IsFirstPerson;
             motor.SetMoveInput(CameraRelative(move));
             motor.SetLookDirection(firstPerson ? follow.MoveForward : null);
 
             if (kb != null && kb.qKey.wasPressedThisFrame) SelectAbility(HookSlot);
+            bool stickAiming = touch != null && touch.hookStick != null && touch.hookStick.IsHeld;
+            if (stickAiming && SelectedAbility == NoAbility) SelectAbility(HookSlot); // held through the cooldown
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             if (SelectedAbility == NoAbility)
             {
-                Inspect(mouse, firstPerson, overUi);
+                Inspect(firstPerson, overUi || (touch != null && touch.AnyHeld));
                 return;
             }
             if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)
                 || (self != null && !self.IsControllable))
             {
                 Deselect();
+                return;
+            }
+            if (stickAiming) // thrown when the finger lets go (OnHookStickReleased)
+            {
+                var stickDir = hook.AimDirection(StickAimPoint(touch.hookStick.Value));
+                if (aimIndicator != null) aimIndicator.Show(hook.AimStart, stickDir, hook.AimLength, hook.HitWidth);
                 return;
             }
             Vector3 point;
@@ -115,13 +136,34 @@ namespace PudgeWars.Gameplay
             if (cast && hook.TryCast(point)) Deselect();
         }
 
-        /// <summary>Not aiming: a left click picks a hero to look at, or nobody (the player's own data again).</summary>
-        void Inspect(Mouse mouse, bool firstPerson, bool overUi)
+        void OnHookStickPressed()
         {
-            if (firstPerson || overUi || mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+            if (!OverlayInput.Captured) SelectAbility(HookSlot);
+        }
+
+        void OnHookStickReleased(Vector2 stick, bool dragged)
+        {
+            if (SelectedAbility != HookSlot || OverlayInput.Captured) return;
+            bool cancelled = dragged && stick == Vector2.zero; // aimed, then brought back to the centre
+            if (!cancelled) hook.TryCast(StickAimPoint(stick));
+            Deselect();
+        }
+
+        /// <summary>Where the hook stick points on the ground: along the stick seen from the camera, or ahead when centred.</summary>
+        Vector3 StickAimPoint(Vector2 stick)
+        {
+            var dir = stick == Vector2.zero ? transform.forward : CameraRelative(stick.normalized);
+            return transform.position + dir * hook.EffectiveRange;
+        }
+
+        /// <summary>Not aiming: a left click (or a tap) picks a hero to look at, or nobody (the player's own data again).</summary>
+        void Inspect(bool firstPerson, bool overUi)
+        {
+            var pointer = Pointer.current; // the mouse, or the first finger on a touchscreen
+            if (firstPerson || overUi || pointer == null || !pointer.press.wasPressedThisFrame) return;
             if (shop == null) shop = FindAnyObjectByType<ShopUI>();
             if (shop == null) return;
-            var hero = HeroPicker.PickAt(mouse.position.ReadValue(), viewCamera);
+            var hero = HeroPicker.PickAt(pointer.position.ReadValue(), viewCamera);
             shop.Inspect(hero != null ? hero.GetComponent<HeroInventory>() : null);
         }
 
