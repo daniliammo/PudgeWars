@@ -8,7 +8,7 @@ namespace PudgeWars.Gameplay
     /// HUD popups for gold rewards in the manner of Dota's bounty: "+N монет" pops up over the hero who got the
     /// gold, floats up slowing down and dissolves, while a few coins (the original's Gold icon) jump out of the
     /// hero, spin and fall, steadily fading. Follows the hero on screen, so it works in every
-    /// camera view.
+    /// camera view. The coin sound plays only for the local player's own reward (kill or rescue), not for others'.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class GoldPopups : MonoBehaviour
@@ -30,6 +30,9 @@ namespace PudgeWars.Gameplay
         public Vector2 coinSpeedX = new(-150f, 150f);
         public Vector2 coinSpeedY = new(260f, 440f);
         public float coinGravity = 900f;
+        [Tooltip("Played when the local player's hero gets a reward; others' rewards are silent.")]
+        public AudioClip coinSound;
+        [Range(0f, 1f)] public float coinVolume = 1f;
 
         class Coin
         {
@@ -52,15 +55,21 @@ namespace PudgeWars.Gameplay
         readonly Dictionary<HeroInventory, System.Action<int>> subscriptions = new();
         RectTransform rect;
         Canvas canvas;
+        AudioSource coinAudio;
         static Sprite drawnCoin;
 
         public int ActiveCount => popups.Count;
         public string LastText { get; private set; }
+        /// <summary>How many times the coin sound was played (the local player's rewards).</summary>
+        public int SoundsPlayed { get; private set; }
 
         void Awake()
         {
             rect = (RectTransform)transform;
             canvas = GetComponentInParent<Canvas>();
+            coinAudio = gameObject.AddComponent<AudioSource>();
+            coinAudio.playOnAwake = false;
+            coinAudio.spatialBlend = 0f; // a UI sound: the same wherever the camera is
         }
 
         void Start() => Subscribe();
@@ -126,6 +135,15 @@ namespace PudgeWars.Gameplay
 
             popups.Add(popup);
             Place(popup);
+            PlayCoinSound(hero);
+        }
+
+        void PlayCoinSound(Transform hero)
+        {
+            var own = LocalPlayer.Hero;
+            if (coinSound == null || own == null || hero != own.transform) return;
+            coinAudio.PlayOneShot(coinSound, coinVolume);
+            SoundsPlayed++;
         }
 
         void LateUpdate()

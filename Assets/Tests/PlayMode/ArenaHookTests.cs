@@ -1046,9 +1046,14 @@ namespace PudgeWars.Tests
             player.GetComponent<HeroInventory>().AddGold(arena.killGold);
             Assert.AreEqual(1, popups.ActiveCount);
             Assert.AreEqual($"+{arena.killGold} монет", popups.LastText);
+            Assert.IsNotNull(popups.coinSound, "coin sound (coinsondesk.mp3) missing");
+            Assert.AreEqual(1, popups.SoundsPlayed, "the local player's reward must clink");
+            Hookable.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(arena.killGold);
+            Assert.AreEqual(1, popups.SoundsPlayed, "another hero's reward must be silent for the local player");
+            Assert.AreEqual(2, popups.ActiveCount, "another hero's reward still shows its popup");
             yield return new WaitForSeconds(0.3f);
             var coins = popups.GetComponentsInChildren<Image>().Where(i => i.name == "Coin").ToList();
-            Assert.AreEqual(popups.coinCount, coins.Count);
+            Assert.AreEqual(popups.coinCount * 2, coins.Count);
             Assert.That(coins.Select(c => c.color.a), Is.All.InRange(0.5f, 0.95f), "coins must fade steadily from the start");
             CaptureScreen("gold_popup");
             for (int f = 0; f < 4; f++)

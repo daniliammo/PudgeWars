@@ -22,6 +22,7 @@ namespace PudgeWars.EditorTools
         const string MaterialDir = "Assets/Art/Arena/Materials";
         const string AudioDir = "Assets/Audio/Pudge";
         const string AnnouncerDir = "Assets/Audio/Announcer";
+        const string CoinSound = "Assets/Audio/coinsondesk.mp3";
         const string PlayerPrefabPath = "Assets/Prefabs/Characters/Pudge_Player.prefab";
         const string BotPrefabPath = "Assets/Prefabs/Characters/Pudge_Bot.prefab";
         const string LatinFont = "Assets/Art/UI/Fonts/TrajanPro-Bold.otf";
@@ -317,6 +318,7 @@ namespace PudgeWars.EditorTools
             var popups = go.AddComponent<GoldPopups>();
             popups.font = font;
             popups.coinSprite = AbilityBarBuilder.Sprite(CoinIcon);
+            popups.coinSound = AssetDatabase.LoadAssetAtPath<AudioClip>(CoinSound);
         }
 
         /// <summary>Double / Triple / Ultra Kill, Rampage, Godlike in the upper middle of the screen.</summary>
