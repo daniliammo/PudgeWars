@@ -284,6 +284,7 @@ namespace PudgeWars.EditorTools
 
             var score = Label(canvasGo.transform, "Score", font, 56, new Vector2(40f, -30f), TextAnchor.UpperLeft);
             canvasGo.AddComponent<ScoreHud>().label = score;
+            TouchControlsBuilder.Build(canvasGo.transform); // before the shop: its open panel covers the sticks
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
             AbilityBarBuilder.Build(canvasGo.transform, font);
             GoldPopupLayer(canvasGo.transform, font);
