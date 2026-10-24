@@ -1,749 +1,749 @@
 {
  "textures": [
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_back_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_back_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_back_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_back_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_shoulder_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_shoulder_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_shoulder_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_shoulder_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_base_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_base_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_base_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_base_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_arms_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_arms_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_arms_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_arms_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_offhand_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_offhand_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_offhand_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_offhand_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_head_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_head_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_head_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_head_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_belt_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_belt_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_belt_normal.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_belt_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_weapon_color.png",
+   "path": "Assets/Art/Characters/Pudge/Textures/pudge_weapon_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_head_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_head_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_head_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_head_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_hair_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_hair_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_hair_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_hair_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_back_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_back_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_back_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_back_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_color.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_normal.png",
+   "path": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Standart/Textures/pudge_weapon_color.png",
+   "path": "Assets/Art/Hooks/Standart/Textures/pudge_weapon_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Standart/Textures/pudge_weapon_normal.png",
+   "path": "Assets/Art/Hooks/Standart/Textures/pudge_weapon_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_color.png",
+   "path": "Assets/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_normal.png",
+   "path": "Assets/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_color.png",
+   "path": "Assets/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_normal.png",
+   "path": "Assets/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Hooks/ScorchingTalon/Textures/scorching_talon_color.png",
+   "path": "Assets/Art/Hooks/ScorchingTalon/Textures/scorching_talon_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/ScorchingTalon/Textures/scorching_talon_normal.png",
+   "path": "Assets/Art/Hooks/ScorchingTalon/Textures/scorching_talon_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_arm_right_color.png",
+   "path": "Assets/Art/Hooks/Toy/Textures/pudge_cute_arm_right_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_arm_right_normal.png",
+   "path": "Assets/Art/Hooks/Toy/Textures/pudge_cute_arm_right_normal.png",
    "normal": true
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_hook_color.png",
+   "path": "Assets/Art/Hooks/Toy/Textures/pudge_cute_hook_color.png",
    "normal": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_hook_normal.png",
+   "path": "Assets/Art/Hooks/Toy/Textures/pudge_cute_hook_normal.png",
    "normal": true
   }
  ],
  "materials": [
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn1.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn1.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn1",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_back_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_back_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_back_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_back_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn2.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn2.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn2",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_shoulder_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_shoulder_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_shoulder_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_shoulder_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn3.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn3.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn3",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_base_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_base_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_base_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_base_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn4.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn4.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn4",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_arms_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_arms_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_arms_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_arms_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn5.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn5.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn5",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_offhand_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_offhand_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_offhand_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_offhand_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn6.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn6.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn6",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_head_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_head_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_head_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_head_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/blinn8.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/blinn8.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/blinn8",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_belt_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_belt_normal.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_belt_color.png",
+   "normalMap": "Assets/Art/Characters/Pudge/Textures/pudge_belt_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn1_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn1_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn1_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_back_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_back_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn2_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn2_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn2_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_shoulder_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_shoulder_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn3_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn3_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn3_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_base_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_base_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn4_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn4_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn4_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_arms_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_arms_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn5_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn5_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn5_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_offhand_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_offhand_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn6_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn6_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn6_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_head_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_head_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn7_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn7_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn7_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_weapon_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_weapon_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Materials/Lotar/blinn8_Lotar.mat",
+   "path": "Assets/Art/Characters/Pudge/Materials/Lotar/blinn8_Lotar.mat",
    "source": "/Game/PudgeWars/Assets/Pudge/Texture/Lotar/blinn8_Lotar",
    "blend": "BLEND_Additive",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/Pudge/Textures/pudge_belt_color.png",
+   "baseMap": "Assets/Art/Characters/Pudge/Textures/pudge_belt_color.png",
    "normalMap": null,
    "scalars": {
     "123": 0.5
    }
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_arm_left.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_arm_left.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute_arm_left",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_left_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_arm_right.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_arm_right.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute_arm_right",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_arm_right_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_head.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_head.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute_head",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_head_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_head_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_head_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_head_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_hair.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_hair.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute_hair",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_hair_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_hair_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_hair_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_hair_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_back.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_back.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute_back",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_back_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_back_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_back_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_back_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_offhand.mat",
+   "path": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_offhand.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Texture/pudge_cute_offhand",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_color.png",
-   "normalMap": "Assets/_Project/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_normal.png",
+   "baseMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_color.png",
+   "normalMap": "Assets/Art/Characters/PudgeToy/Textures/pudge_cute_offhand_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Standart/Materials/blinn7.mat",
+   "path": "Assets/Art/Hooks/Standart/Materials/blinn7.mat",
    "source": "/Game/PudgeWars/Assets/Hook/Hook_Standart/blinn7",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Hooks/Standart/Textures/pudge_weapon_color.png",
-   "normalMap": "Assets/_Project/Art/Hooks/Standart/Textures/pudge_weapon_normal.png",
+   "baseMap": "Assets/Art/Hooks/Standart/Textures/pudge_weapon_color.png",
+   "normalMap": "Assets/Art/Hooks/Standart/Textures/pudge_weapon_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Dragonclaw/Materials/pudge_skeleton_hook.mat",
+   "path": "Assets/Art/Hooks/Dragonclaw/Materials/pudge_skeleton_hook.mat",
    "source": "/Game/PudgeWars/Assets/Hook/DragonclawHook/pudge_skeleton_hook",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_color.png",
-   "normalMap": "Assets/_Project/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_normal.png",
+   "baseMap": "Assets/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_color.png",
+   "normalMap": "Assets/Art/Hooks/Dragonclaw/Textures/pudge_skeleton_hook_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Hooks/SorrowfulPrey/Materials/hook_of_the_sorrowful_prey.mat",
+   "path": "Assets/Art/Hooks/SorrowfulPrey/Materials/hook_of_the_sorrowful_prey.mat",
    "source": "/Game/PudgeWars/Assets/Hook/Hook_OTSP/hook_of_the_sorrowful_prey",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_color.png",
-   "normalMap": "Assets/_Project/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_normal.png",
+   "baseMap": "Assets/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_color.png",
+   "normalMap": "Assets/Art/Hooks/SorrowfulPrey/Textures/hook_of_the_sorrowful_prey_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Hooks/ScorchingTalon/Materials/scorching_talon.mat",
+   "path": "Assets/Art/Hooks/ScorchingTalon/Materials/scorching_talon.mat",
    "source": "/Game/PudgeWars/Assets/Hook/Hook_ScorchingTalon/scorching_talon",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Hooks/ScorchingTalon/Textures/scorching_talon_color.png",
-   "normalMap": "Assets/_Project/Art/Hooks/ScorchingTalon/Textures/scorching_talon_normal.png",
+   "baseMap": "Assets/Art/Hooks/ScorchingTalon/Textures/scorching_talon_color.png",
+   "normalMap": "Assets/Art/Hooks/ScorchingTalon/Textures/scorching_talon_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Materials/pudge_cute_arm_right.mat",
+   "path": "Assets/Art/Hooks/Toy/Materials/pudge_cute_arm_right.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Hook/pudge_cute_arm_right",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_arm_right_color.png",
-   "normalMap": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_arm_right_normal.png",
+   "baseMap": "Assets/Art/Hooks/Toy/Textures/pudge_cute_arm_right_color.png",
+   "normalMap": "Assets/Art/Hooks/Toy/Textures/pudge_cute_arm_right_normal.png",
    "scalars": {}
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Materials/pudge_cute_hook.mat",
+   "path": "Assets/Art/Hooks/Toy/Materials/pudge_cute_hook.mat",
    "source": "/Game/PudgeWars/Assets/Toy/Hook/pudge_cute_hook",
    "blend": "BLEND_Opaque",
    "shading": "MSM_Unlit",
    "twoSided": false,
-   "baseMap": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_hook_color.png",
-   "normalMap": "Assets/_Project/Art/Hooks/Toy/Textures/pudge_cute_hook_normal.png",
+   "baseMap": "Assets/Art/Hooks/Toy/Textures/pudge_cute_hook_color.png",
+   "normalMap": "Assets/Art/Hooks/Toy/Textures/pudge_cute_hook_normal.png",
    "scalars": {}
   }
  ],
  "models": [
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "path": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "blinn1",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn1.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn1.mat"
     },
     {
      "slot": "blinn2",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn2.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn2.mat"
     },
     {
      "slot": "blinn3",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn3.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn3.mat"
     },
     {
      "slot": "blinn4",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn4.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn4.mat"
     },
     {
      "slot": "blinn5",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn5.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn5.mat"
     },
     {
      "slot": "blinn6",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn6.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn6.mat"
     },
     {
      "slot": "blinn8",
-     "material": "Assets/_Project/Art/Characters/Pudge/Materials/blinn8.mat"
+     "material": "Assets/Art/Characters/Pudge/Materials/blinn8.mat"
     }
    ]
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Idle.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Idle.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Idle",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Walk.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Walk.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Walk",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Pudge_Run.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Pudge_Run.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Pudge_Run",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Pudge_Run1.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Pudge_Run1.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Pudge_Run1",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Pudge_Run2.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Pudge_Run2.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Pudge_Run2",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@StartHookPudge.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@StartHookPudge.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "StartHookPudge",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@EndHookPudge.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@EndHookPudge.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "EndHookPudge",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@HookStartPudgeDendy.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@HookStartPudgeDendy.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "HookStartPudgeDendy",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@EndHookPudgeDendy.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@EndHookPudgeDendy.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "EndHookPudgeDendy",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@PopadaniePudge.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@PopadaniePudge.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "PopadaniePudge",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Pudge_Stun.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Pudge_Stun.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Pudge_Stun",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Death_HookPudge_pudge1_End_HookPudge.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Death_HookPudge_pudge1_End_HookPudge.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Death_HookPudge_pudge1_End_HookPudge",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Spawn_1.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Spawn_1.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Spawn_1",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@PorojeniePudge.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@PorojeniePudge.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "PorojeniePudge",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/Pudge/Animations/Pudge@Nasmechka.fbx",
+   "path": "Assets/Art/Characters/Pudge/Animations/Pudge@Nasmechka.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/Pudge/Pudge.fbx",
+   "avatar": "Assets/Art/Characters/Pudge/Pudge.fbx",
    "clip": "Nasmechka",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "pudge_cute_arm_left",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_arm_left.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_arm_left.mat"
     },
     {
      "slot": "pudge_cute_arm_right",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_arm_right.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_arm_right.mat"
     },
     {
      "slot": "pudge_cute_head",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_head.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_head.mat"
     },
     {
      "slot": "pudge_cute",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute.mat"
     },
     {
      "slot": "pudge_cute_hair",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_hair.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_hair.mat"
     },
     {
      "slot": "pudge_cute_back",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_back.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_back.mat"
     },
     {
      "slot": "pudge_cute_offhand",
-     "material": "Assets/_Project/Art/Characters/PudgeToy/Materials/pudge_cute_offhand.mat"
+     "material": "Assets/Art/Characters/PudgeToy/Materials/pudge_cute_offhand.mat"
     }
    ]
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Walk.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Walk.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Walk",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Run.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Run.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Run",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Hook_Start.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Hook_Start.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Hook_Start",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Hook_End.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Hook_End.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Hook_End",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Polet.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Polet.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Polet",
    "loop": true
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Nasmechka.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Nasmechka.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Nasmechka",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Nasmechka2.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Nasmechka2.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Nasmechka2",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Characters/PudgeToy/Animations/PudgeToy@Nasmechka3.fbx",
+   "path": "Assets/Art/Characters/PudgeToy/Animations/PudgeToy@Nasmechka3.fbx",
    "type": "anim",
-   "avatar": "Assets/_Project/Art/Characters/PudgeToy/PudgeToy.fbx",
+   "avatar": "Assets/Art/Characters/PudgeToy/PudgeToy.fbx",
    "clip": "Nasmechka3",
    "loop": false
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Standart/Hook_Standart.fbx",
+   "path": "Assets/Art/Hooks/Standart/Hook_Standart.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "blinn7",
-     "material": "Assets/_Project/Art/Hooks/Standart/Materials/blinn7.mat"
+     "material": "Assets/Art/Hooks/Standart/Materials/blinn7.mat"
     }
    ]
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Dragonclaw/Hook_Dragonclaw.fbx",
+   "path": "Assets/Art/Hooks/Dragonclaw/Hook_Dragonclaw.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "pudge_skeleton_hook",
-     "material": "Assets/_Project/Art/Hooks/Dragonclaw/Materials/pudge_skeleton_hook.mat"
+     "material": "Assets/Art/Hooks/Dragonclaw/Materials/pudge_skeleton_hook.mat"
     }
    ]
   },
   {
-   "path": "Assets/_Project/Art/Hooks/SorrowfulPrey/Hook_SorrowfulPrey.fbx",
+   "path": "Assets/Art/Hooks/SorrowfulPrey/Hook_SorrowfulPrey.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "hook_of_the_sorrowful_prey",
-     "material": "Assets/_Project/Art/Hooks/SorrowfulPrey/Materials/hook_of_the_sorrowful_prey.mat"
+     "material": "Assets/Art/Hooks/SorrowfulPrey/Materials/hook_of_the_sorrowful_prey.mat"
     }
    ]
   },
   {
-   "path": "Assets/_Project/Art/Hooks/ScorchingTalon/Hook_ScorchingTalon.fbx",
+   "path": "Assets/Art/Hooks/ScorchingTalon/Hook_ScorchingTalon.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "scorching_talon",
-     "material": "Assets/_Project/Art/Hooks/ScorchingTalon/Materials/scorching_talon.mat"
+     "material": "Assets/Art/Hooks/ScorchingTalon/Materials/scorching_talon.mat"
     }
    ]
   },
   {
-   "path": "Assets/_Project/Art/Hooks/Toy/Hook_Toy.fbx",
+   "path": "Assets/Art/Hooks/Toy/Hook_Toy.fbx",
    "type": "model",
    "remaps": [
     {
      "slot": "pudge_cute_arm_right",
-     "material": "Assets/_Project/Art/Hooks/Toy/Materials/pudge_cute_arm_right.mat"
+     "material": "Assets/Art/Hooks/Toy/Materials/pudge_cute_arm_right.mat"
     },
     {
      "slot": "pudge_cute_hook",
-     "material": "Assets/_Project/Art/Hooks/Toy/Materials/pudge_cute_hook.mat"
+     "material": "Assets/Art/Hooks/Toy/Materials/pudge_cute_hook.mat"
     }
    ]
   }

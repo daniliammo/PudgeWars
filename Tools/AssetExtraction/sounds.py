@@ -7,13 +7,13 @@
 #   python3 sounds.py --binkadec /path/to/binkadec.exe [--wine [WINE]] [--all]
 # --wine without a path uses the wine of PortProton (~/PortProton/data/dist/GE-PROTON*) with its own prefix
 # (~/.local/share/pudgewars-wine), so PortProton's game prefixes stay untouched.
-# Writes Assets/_Project/Audio/Pudge/<Folder>_<Name>.wav (hook set by default, --all for every sound), then run
+# Writes Assets/Audio/Pudge/<Folder>_<Name>.wav (hook set by default, --all for every sound), then run
 # "Pudge Wars/Assign Hook Sounds" (or rebuild the arena) in Unity.
 import argparse, glob, os, shutil, subprocess, sys, tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(HERE, 'SoundsRaw')
-OUT = os.path.join(HERE, '..', '..', 'Assets', '_Project', 'Audio', 'Pudge')
+OUT = os.path.join(HERE, '..', '..', 'Assets', 'Audio', 'Pudge')
 
 # Hook sounds wired in Player_PW (see HookSounds in HookAbility.cs)
 HOOK_SET = ['Chain/Hook', 'Chain/ReturnHook', 'Popal/PopalSound', 'Popal/Pud_1', 'Popal/Pud_2', 'Popal/Pud_3',

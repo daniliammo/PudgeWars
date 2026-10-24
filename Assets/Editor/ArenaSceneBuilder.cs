@@ -10,22 +10,22 @@ using UnityEngine.UI;
 namespace PudgeWars.EditorTools
 {
     /// <summary>
-    /// Builds Assets/_Project/Scenes/Arena.unity: the player on one side, bots on the other, a pit in between.
+    /// Builds Assets/Scenes/Arena.unity: the player on one side, bots on the other, a pit in between.
     /// Whoever gets hooked is dragged over the pit, falls in and dies; bots throw their hooks at the player too.
     /// </summary>
     public static class ArenaSceneBuilder
     {
-        const string ScenePath = "Assets/_Project/Scenes/Arena.unity";
-        const string PudgePrefab = "Assets/_Project/Art/Characters/Pudge/Pudge.prefab";
-        const string HookModel = "Assets/_Project/Art/Hooks/Standart/Hook_Standart.fbx";
-        const string ChainTexture = "Assets/_Project/Art/FX/Chain/Textures/chain_standart.png";
-        const string MaterialDir = "Assets/_Project/Art/Arena/Materials";
-        const string AudioDir = "Assets/_Project/Audio/Pudge";
-        const string PlayerPrefabPath = "Assets/_Project/Prefabs/Characters/Pudge_Player.prefab";
-        const string BotPrefabPath = "Assets/_Project/Prefabs/Characters/Pudge_Bot.prefab";
-        const string LatinFont = "Assets/_Project/Art/UI/Fonts/TrajanPro-Bold.otf";
-        const string CyrillicFont = "Assets/_Project/Art/UI/Fonts/Кириллица_FrizQuadrata.ttf";
-        const string CoinIcon = "Assets/_Project/Art/UI/Gold.png";
+        const string ScenePath = "Assets/Scenes/Arena.unity";
+        const string PudgePrefab = "Assets/Art/Characters/Pudge/Pudge.prefab";
+        const string HookModel = "Assets/Art/Hooks/Standart/Hook_Standart.fbx";
+        const string ChainTexture = "Assets/Art/FX/Chain/Textures/chain_standart.png";
+        const string MaterialDir = "Assets/Art/Arena/Materials";
+        const string AudioDir = "Assets/Audio/Pudge";
+        const string PlayerPrefabPath = "Assets/Prefabs/Characters/Pudge_Player.prefab";
+        const string BotPrefabPath = "Assets/Prefabs/Characters/Pudge_Bot.prefab";
+        const string LatinFont = "Assets/Art/UI/Fonts/TrajanPro-Bold.otf";
+        const string CyrillicFont = "Assets/Art/UI/Fonts/Кириллица_FrizQuadrata.ttf";
+        const string CoinIcon = "Assets/Art/UI/Gold.png";
         const int BotCount = 4;
 
         [MenuItem("Pudge Wars/Build Test Arena")]

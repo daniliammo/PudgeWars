@@ -11,8 +11,8 @@ namespace PudgeWars.EditorTools
     /// <summary>Item assets and the uGUI shop (panel + gold/slots bar) for the test arena.</summary>
     public static class ShopUiBuilder
     {
-        const string ItemDir = "Assets/_Project/ScriptableObjects/Items";
-        const string AetherLensIcon = "Assets/_Project/Art/UI/Items/aether_lens.jpg";
+        const string ItemDir = "Assets/ScriptableObjects/Items";
+        const string AetherLensIcon = "Assets/Art/UI/Items/aether_lens.jpg";
 
         internal static readonly Color Panel = new(0.07f, 0.08f, 0.10f, 0.92f);
         internal static readonly Color Frame = new(0.16f, 0.17f, 0.20f, 1f);

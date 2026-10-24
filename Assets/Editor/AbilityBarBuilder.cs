@@ -9,7 +9,7 @@ namespace PudgeWars.EditorTools
     /// <summary>uGUI ability bar at the bottom centre of the HUD (slot 0: the hook, key Q).</summary>
     public static class AbilityBarBuilder
     {
-        const string HookIcon = "Assets/_Project/Art/UI/Abilities/hook.jpeg";
+        const string HookIcon = "Assets/Art/UI/Abilities/hook.jpeg";
         const float SlotSize = 112f, Gap = 12f, Padding = 14f;
 
         public static AbilityBar Build(Transform canvas, Font font)

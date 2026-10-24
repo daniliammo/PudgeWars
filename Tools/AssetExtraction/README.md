@@ -1,6 +1,6 @@
 # Извлечение ассетов Pudge Wars (UE 5.3 → Unity)
 
-Пайплайн, которым получены `Assets/_Project/Art/Characters/{Pudge,PudgeToy}` и `Assets/_Project/Art/Hooks/*`.
+Пайплайн, которым получены `Assets/Art/Characters/{Pudge,PudgeToy}` и `Assets/Art/Hooks/*`.
 Нативный Oodle не нужен: CUE4Parse распаковывает через управляемый OodleSharp.
 
 ## Шаги
@@ -29,14 +29,14 @@
    ```
    `preview.py` рендерит позу из JSON для визуальной проверки.
 4. **Unity:** скопировать `stage/Assets/...` в проект, `stage/unity_manifest.json` — сюда, затем
-   меню **Pudge Wars → Setup Imported Assets** (`Assets/_Project/Editor/PudgeAssetImporter.cs`):
+   меню **Pudge Wars → Setup Imported Assets** (`Assets/Editor/PudgeAssetImporter.cs`):
    настройки текстур, URP-материалы, ремап материалов FBX, Generic-риг, клипы, Animator Controller и префабы.
 
 5. **Звук.** `SoundDumper/` выгружает SoundWave как есть в `SoundsRaw/` (уже лежат здесь, 44 файла).
    Это **BINKA = Bink Audio 2** (RAD): ffmpeg (`-f binka`) разбирает контейнер, но декодирует шумом — кодек новее.
    Нужен декодер RAD `binkadec` (FModel: `Output/.data/binkadec.exe`, на Linux — через wine):
    ```bash
-   python3 sounds.py --binkadec /path/binkadec.exe --wine        # wine из PortProton, свой префикс; звуки хука → Assets/_Project/Audio/Pudge
+   python3 sounds.py --binkadec /path/binkadec.exe --wine        # wine из PortProton, свой префикс; звуки хука → Assets/Audio/Pudge
    ```
    Затем в Unity: **Pudge Wars → Assign Hook Sounds** (или пересобрать арену).
 

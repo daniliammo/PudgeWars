@@ -4,7 +4,7 @@ import json, os, re, shutil, sys
 
 SRC = os.path.join(sys.argv[1], 'PudgeWars/Assets')
 DST = sys.argv[2]
-ROOT = 'Assets/_Project/Art'
+ROOT = 'Assets/Art'
 
 def tex_name(stem):
     s = re.sub(r'_(tga|psd)_[0-9a-f]{6,8}$', '', stem)

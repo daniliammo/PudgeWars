@@ -9,7 +9,7 @@ namespace PudgeWars.EditorTools
     /// </summary>
     public class ExtractedTexturePostprocessor : AssetPostprocessor
     {
-        const string Root = "Assets/_Project/Art/Extracted/";
+        const string Root = "Assets/Art/Extracted/";
 
         // 3D art (meshes, terrain, FX, menu pedestal); everything else in Extracted is interface
         static readonly string[] WorldFolders =
