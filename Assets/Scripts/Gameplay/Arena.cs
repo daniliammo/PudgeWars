@@ -34,6 +34,10 @@ namespace PudgeWars.Gameplay
         public int killGoldBase = 125;
         [Tooltip("Kill reward added per level of the victim.")]
         public int killGoldPerLevel = 8;
+        [Tooltip("Breaking a kill series pays extra: half the victim's kill reward + this much per kill of its streak.")]
+        public int streakBreakPerKill = 5;
+        [Tooltip("Per-kill extra instead, if the victim had Rampages in a row (RAMPAGE ×2 and on).")]
+        public int streakBreakPerKillRampage = 10;
         [Tooltip("Gold every hero gets each passiveGoldInterval, without a popup.")]
         public int passiveGold = 2;
         [Tooltip("Seconds between passive gold ticks.")]
@@ -55,6 +59,12 @@ namespace PudgeWars.Gameplay
         public int RescuesOf(Team team) => rescues[(int)team];
         /// <summary>Gold for killing a hero: 125 + its level × 8, so 133 at level 1.</summary>
         public int KillGold(Hookable victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
+        /// <summary>
+        /// Extra gold for killing a hero on a kill series: half its kill reward + its kills without dying × 5, or × 10
+        /// if it had Rampages in a row (RAMPAGE ×2 and on).
+        /// </summary>
+        public int StreakBreakBonus(Hookable victim, int streak, int rampagesInARow) =>
+            KillGold(victim) / 2 + streak * (rampagesInARow >= 2 ? streakBreakPerKillRampage : streakBreakPerKill);
         /// <summary>(Score, Deaths) after any change of the counts.</summary>
         public event Action<int, int> ScoreChanged;
         /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
@@ -120,11 +130,14 @@ namespace PudgeWars.Gameplay
         public void ReportDeath(Hookable victim, Hookable killer)
         {
             if (killer != null && killer.team == victim.team) killer = null;
-            if (Streaks.RegisterDeath(victim))
+            int streak = Streaks.Streak(victim), rampages = Streaks.RampageCount(victim); // before the death clears them
+            bool seriesBroken = Streaks.RegisterDeath(victim);
+            if (seriesBroken)
                 SeriesEnded?.Invoke(victim, SeriesEnd.Killed, killer);
             if (killer != null)
             {
-                if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(KillGold(victim));
+                int gold = KillGold(victim) + (seriesBroken ? StreakBreakBonus(victim, streak, rampages) : 0);
+                if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(gold);
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
                     KillAnnounced?.Invoke(killer, announcement);
             }

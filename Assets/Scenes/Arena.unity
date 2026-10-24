@@ -1976,6 +1976,8 @@ MonoBehaviour:
   respawnDelay: 2.5
   killGoldBase: 125
   killGoldPerLevel: 8
+  streakBreakPerKill: 5
+  streakBreakPerKillRampage: 10
   passiveGold: 2
   passiveGoldInterval: 1
   multiKillWindow: 18

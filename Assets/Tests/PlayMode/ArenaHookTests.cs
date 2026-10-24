@@ -73,6 +73,49 @@ namespace PudgeWars.Tests
             Capture("after_respawn");
         }
 
+        /// <summary>The player hooks the bot, put right at the pit edge, into the pit.</summary>
+        IEnumerator PlayerKillsBot(Hookable bot)
+        {
+            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(10f, 0f, 12f);
+            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+            yield return null;
+            int score = arena.Score;
+            Assert.IsTrue(hook.TryCast(bot.transform.position));
+            float t = 0f;
+            while (arena.Score == score && t < 5f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(score + 1, arena.Score, "the player did not kill the bot");
+        }
+
+        [UnityTest]
+        public IEnumerator BreakingAKillSeriesPaysHalfTheKillPlusFivePerKill()
+        {
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            for (int i = 0; i < 3; i++) arena.Streaks.RegisterKill(bot, Time.time); // a Triple Kill on the go
+            yield return PlayerKillsBot(bot);
+            int expected = arena.KillGold(bot) + arena.KillGold(bot) / 2 + 3 * 5;
+            Assert.AreEqual(133 + 66 + 15, expected);
+            Assert.AreEqual(expected, player.GetComponent<HeroInventory>().Gold, "no bonus for breaking the series");
+        }
+
+        [UnityTest]
+        public IEnumerator BreakingRampagesInARowPaysTenPerKill()
+        {
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            for (int i = 0; i < 6; i++) arena.Streaks.RegisterKill(bot, Time.time); // RAMPAGE ×2
+            Assert.AreEqual(2, arena.Streaks.RampageCount(bot));
+            yield return PlayerKillsBot(bot);
+            Assert.AreEqual(arena.KillGold(bot) + arena.KillGold(bot) / 2 + 6 * 10, player.GetComponent<HeroInventory>().Gold);
+        }
+
+        [UnityTest]
+        public IEnumerator KillWithoutASeriesPaysNoBonus()
+        {
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            arena.Streaks.RegisterKill(bot, Time.time); // a single kill is no series yet
+            yield return PlayerKillsBot(bot);
+            Assert.AreEqual(arena.KillGold(bot), player.GetComponent<HeroInventory>().Gold);
+        }
+
         [UnityTest]
         public IEnumerator MissReturnsHookWithoutScore()
         {
