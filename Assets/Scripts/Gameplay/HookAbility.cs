@@ -20,7 +20,8 @@ namespace PudgeWars.Gameplay
     /// it catches allies too: an ally is pulled to Pudge unharmed and let go there. An ally an enemy's hook is pulling
     /// is held instead (a tug of war): the enemy pulls at half speed and drags the rescuer after the ally; if the
     /// enemy's hook lets go, the rescuer pulls the ally home (a rescue), if the ally reaches the pit the rescuer's
-    /// chain breaks.
+    /// chain breaks. Pulling a free ally out of the way of an enemy hook that would surely catch it (the ally stood
+    /// still or was casting, so it could not dodge) is a rescue too.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
     /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
@@ -270,7 +271,9 @@ namespace PudgeWars.Gameplay
                 hookHead.position = contact;
                 target = hit;
                 caughtThisCast = IsEnemy(target); // rescuing an ally does not refresh the hook
+                bool savedFromHook = !IsEnemy(target) && WouldSurelyBeCaught(target); // before it is on this hook
                 target.AttachTo(this);
+                if (savedFromHook) Arena.Instance?.ReportRescue(target, self);
                 TargetCaught?.Invoke(target);
                 Play(sounds.impact);
                 Play(Pick(sounds.hitVoice));
@@ -424,6 +427,49 @@ namespace PudgeWars.Gameplay
             if (h == self || !h.IsAlive || h.IsFalling) return false;
             if (IsEnemy(h)) return !h.IsHooked;
             return hitsAllies && (!h.IsHooked || IsRescue(h));
+        }
+
+        /// <summary>
+        /// The hero this hook would catch first if everyone stayed where they are: for a hook in flight along the
+        /// rest of its way, for one still turning or winding up along the whole of it (its direction is already set
+        /// and its owner cannot move meanwhile). Null when the hook is not on its way out or would catch nobody.
+        /// </summary>
+        public Hookable PredictedCatch()
+        {
+            Vector3 from;
+            float length;
+            switch (state)
+            {
+                case State.Flying:
+                    from = hookHead.position;
+                    length = EffectiveRange - traveled;
+                    break;
+                case State.Turning:
+                case State.Windup:
+                    from = AimStart;
+                    length = EffectiveRange;
+                    break;
+                default:
+                    return null;
+            }
+            return FindTarget(from, from + direction * length, out _);
+        }
+
+        /// <summary>
+        /// An enemy hook on its way would catch this ally for sure: the ally is the first hero on that hook's path
+        /// and cannot dodge — it stands still or is casting its own hook.
+        /// </summary>
+        bool WouldSurelyBeCaught(Hookable ally)
+        {
+            var allyHook = ally.GetComponent<HookAbility>();
+            bool cannotDodge = ally.PlanarVelocity.sqrMagnitude < 0.04f || (allyHook != null && allyHook.IsBusy);
+            if (!cannotDodge) return false;
+            foreach (var hero in Hookable.All)
+            {
+                if (hero.team == ally.team || !hero.TryGetComponent<HookAbility>(out var enemyHook)) continue;
+                if (enemyHook.PredictedCatch() == ally) return true;
+            }
+            return false;
         }
 
         /// <summary>An ally on an enemy's hook that no other ally holds yet.</summary>

@@ -272,6 +272,71 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0, ally.GetComponent<HeroInventory>().Gold, "the rescued hero gets nothing");
         }
 
+        /// <summary>
+        /// The enemy at z = 4 throws at the ally standing at z = -9 (or, with <paramref name="enemyAim"/>, elsewhere);
+        /// the player beside the ally pulls it away first. Returns through <paramref name="done"/> whether it was a rescue.
+        /// </summary>
+        IEnumerator PullAllyAwayFromAnEnemyThrow(Vector3? allyRun, Vector3? enemyAim, System.Action<Hookable> done)
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            enemy.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4f), Quaternion.LookRotation(Vector3.back));
+            ally.transform.SetPositionAndRotation(new Vector3(0f, 0f, -9f), Quaternion.LookRotation(Vector3.back));
+            player.transform.SetPositionAndRotation(new Vector3(3f, 0f, -9f), Quaternion.LookRotation(Vector3.left));
+            yield return null;
+            yield return null;
+
+            var enemyHook = enemy.GetComponent<HookAbility>();
+            Assert.IsTrue(enemyHook.TryCast(enemyAim ?? ally.transform.position));
+            if (allyRun is { } run)
+            {
+                ally.GetComponent<PudgeMotor>().SetMoveInput(run);
+                yield return new WaitForSeconds(0.15f); // under way, able to dodge
+            }
+            Hookable caught = null;
+            hook.TargetCaught += h => caught = h;
+            var lead = allyRun is { } r ? r * (ally.GetComponent<PudgeMotor>().moveSpeed * 0.4f) : Vector3.zero;
+            Assert.IsTrue(hook.TryCast(ally.transform.position + lead));
+            float t = 0f;
+            while (caught == null && t < 2f) { t += Time.deltaTime; yield return null; }
+            ally.GetComponent<PudgeMotor>().SetMoveInput(Vector3.zero);
+            Assert.AreEqual(ally, caught, "the player's hook did not reach the ally first");
+            Assert.IsTrue(enemyHook.IsBusy, "the enemy's hook must still be on its way");
+            done(ally);
+        }
+
+        [UnityTest]
+        public IEnumerator PullingAStandingAllyOutOfASureEnemyHookIsARescue()
+        {
+            Hookable ally = null;
+            yield return PullAllyAwayFromAnEnemyThrow(null, null, a => ally = a);
+            Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the enemy hook would surely have caught the standing ally");
+            Assert.AreEqual(arena.KillGold(ally) / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
+            float t = 0f;
+            while (hook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling, "the rescued ally died");
+        }
+
+        [UnityTest]
+        public IEnumerator PullingAnAllyThatCouldDodgeOrWasNotAimedAtIsNoRescue()
+        {
+            // the ally runs: it could have dodged, so the enemy's hit was not sure
+            yield return PullAllyAwayFromAnEnemyThrow(Vector3.back, null, _ => { });
+            Assert.AreEqual(0, arena.RescuesOf(Team.Player), "a running ally could have dodged");
+            Assert.AreEqual(0, player.GetComponent<HeroInventory>().Gold);
+        }
+
+        [UnityTest]
+        public IEnumerator PullingAnAllyTheEnemyHookMissesIsNoRescue()
+        {
+            // the enemy throws well to the side: the ally was never in danger
+            yield return PullAllyAwayFromAnEnemyThrow(null, new Vector3(-10f, 0f, -9f), _ => { });
+            Assert.AreEqual(0, arena.RescuesOf(Team.Player), "the enemy hook would have missed the ally");
+        }
+
         [UnityTest]
         public IEnumerator TugOfWarLostAtThePitBreaksTheRescuersChain()
         {
