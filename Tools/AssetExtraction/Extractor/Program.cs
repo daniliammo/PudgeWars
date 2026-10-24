@@ -32,6 +32,7 @@ void Save(string rel, object o)
     File.WriteAllText(f, JsonConvert.SerializeObject(o));
 }
 
+var texturesOnly = Environment.GetEnvironmentVariable("TEXTURES_ONLY") == "1";
 var report = new List<string>();
 var files = p.Files.Keys.Where(f => f.EndsWith(".uasset") && roots.Any(r => f.StartsWith(r, StringComparison.OrdinalIgnoreCase))).OrderBy(f => f).ToList();
 foreach (var file in files)
@@ -41,6 +42,7 @@ foreach (var file in files)
     catch (Exception ex) { report.Add($"FAIL load {file}: {ex.Message}"); continue; }
     foreach (var e in exports)
     {
+        if (texturesOnly && e is not UTexture2D) continue;
         var rel = Rel(e.GetPathName());
         try
         {

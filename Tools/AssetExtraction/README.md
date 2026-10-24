@@ -17,6 +17,11 @@
        PudgeWars/Content/PudgeWars/Assets/Pudge/ PudgeWars/Content/PudgeWars/Assets/Toy/ PudgeWars/Content/PudgeWars/Assets/Hook/
    python3 -I tex2png.py out          # PNG; у normal map восстанавливается B и инвертируется G (DirectX → OpenGL)
    ```
+   Все текстуры игры (219 шт.: персонажи, FX, карта, UI, меню) без мешей и анимаций — `TEXTURES_ONLY=1`:
+   ```bash
+   TEXTURES_ONLY=1 USMAP=pudge.usmap dotnet run -c Release --project Extractor -- <obb>/PudgeWars/Content/Paks textures PudgeWars/Content/
+   python3 -I tex2png.py textures     # несжатые UI-текстуры (B8G8R8A8) переставляются в RGB и сохраняют альфу
+   ```
 3. **Раскладка и FBX** (Blender 5.x):
    ```bash
    python3 -I stage.py out stage
