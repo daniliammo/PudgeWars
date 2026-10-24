@@ -5,9 +5,9 @@ using UnityEngine.InputSystem;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Desktop controls for the test arena: WASD / arrows to move; Q selects the first ability (the hook)
-    /// and shows where it will fly, left mouse button or Space casts it toward the cursor, right mouse
-    /// button or Escape drops the selection.
+    /// Desktop controls for the test arena: WASD / arrows to move relative to the camera view (V switches it,
+    /// see TopDownCamera); Q selects the first ability (the hook) and shows where it will fly, left mouse
+    /// button or Space casts it toward the cursor, right mouse button or Escape drops the selection.
     /// </summary>
     public class PlayerInputController : MonoBehaviour
     {
@@ -88,8 +88,11 @@ namespace PudgeWars.Gameplay
         Vector3 CameraRelative(Vector2 move)
         {
             if (viewCamera == null) return new Vector3(move.x, 0f, move.y);
-            var fwd = viewCamera.transform.forward; fwd.y = 0f; fwd.Normalize();
-            var right = viewCamera.transform.right; right.y = 0f; right.Normalize();
+            var follow = viewCamera.GetComponent<TopDownCamera>();
+            var fwd = follow != null ? follow.MoveForward : viewCamera.transform.forward;
+            fwd.y = 0f;
+            fwd.Normalize();
+            var right = Vector3.Cross(Vector3.up, fwd);
             return fwd * move.y + right * move.x;
         }
 

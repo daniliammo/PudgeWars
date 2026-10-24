@@ -406,6 +406,38 @@ namespace PudgeWars.Tests
             input.enabled = false;
         }
 
+        [UnityTest]
+        public IEnumerator CameraViewsCycleOwnSideEnemySideFirstPerson()
+        {
+            var follow = Camera.main.GetComponent<TopDownCamera>();
+            Assert.AreEqual(TopDownCamera.View.OwnSide, follow.Mode);
+            Assert.Greater(follow.transform.forward.z, 0f, "own view looks toward the enemy");
+            Assert.Less(follow.transform.position.z, player.transform.position.z);
+            Assert.Less(Vector3.Distance(Vector3.forward, follow.MoveForward), 1e-4f);
+            yield return null;
+            CaptureScreen("view_own");
+
+            follow.NextView();
+            yield return null;
+            Assert.AreEqual(TopDownCamera.View.EnemySide, follow.Mode);
+            Assert.Less(follow.transform.forward.z, 0f, "enemy view looks back at the player's side");
+            Assert.Greater(follow.transform.position.z, arena.pitHalfDepth, "enemy view stands over the enemy side");
+            Assert.Less(Vector3.Distance(Vector3.back, follow.MoveForward), 1e-4f, "W moves up the screen");
+            CaptureScreen("view_enemy");
+
+            follow.NextView();
+            yield return null;
+            Assert.AreEqual(TopDownCamera.View.FirstPerson, follow.Mode);
+            var eye = follow.transform.position - player.transform.position;
+            Assert.AreEqual(follow.eyeHeight, eye.y, 1e-3f);
+            Assert.Greater(Vector3.Dot(follow.transform.forward, player.transform.forward), 0.9f, "looks where the hero faces");
+            Assert.Less(Vector3.Distance(Vector3.forward, follow.MoveForward), 1e-4f, "W moves toward the enemy side, not along the facing");
+            CaptureScreen("view_first_person");
+
+            follow.NextView();
+            Assert.AreEqual(TopDownCamera.View.OwnSide, follow.Mode);
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");
