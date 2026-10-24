@@ -495,6 +495,27 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0, popups.ActiveCount, "popup did not go away");
         }
 
+        [UnityTest]
+        public IEnumerator HudUsesCyrillicFontForCyrillicTextAndLatinFontOtherwise()
+        {
+            var fonts = Object.FindFirstObjectByType<HudFonts>();
+            Assert.IsNotNull(fonts.latin, "Latin font missing");
+            Assert.IsNotNull(fonts.cyrillic, "Cyrillic font missing");
+            yield return null;
+            var shop = Object.FindFirstObjectByType<ShopUI>();
+            var keyLabel = Object.FindFirstObjectByType<AbilityBar>().slots[0].keyLabel;
+            Assert.AreEqual(fonts.latin, keyLabel.font, "\"Q\" must use the Latin font");
+            Assert.AreEqual(fonts.latin, shop.goldLabel.font, "gold digits must use the Latin font");
+            foreach (var text in fonts.GetComponentsInChildren<Text>(true))
+                Assert.AreEqual(HudFonts.HasCyrillic(text.text) ? fonts.cyrillic : fonts.latin, text.font, text.name + ": " + text.text);
+
+            // a label switching language at runtime switches its font
+            shop.goldLabel.text = "Нет";
+            yield return null;
+            Assert.AreEqual(fonts.cyrillic, shop.goldLabel.font);
+            CaptureScreen("fonts");
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");

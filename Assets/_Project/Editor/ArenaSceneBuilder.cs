@@ -23,6 +23,8 @@ namespace PudgeWars.EditorTools
         const string AudioDir = "Assets/_Project/Audio/Pudge";
         const string PlayerPrefabPath = "Assets/_Project/Prefabs/Characters/Pudge_Player.prefab";
         const string BotPrefabPath = "Assets/_Project/Prefabs/Characters/Pudge_Bot.prefab";
+        const string LatinFont = "Assets/_Project/Art/UI/Fonts/TrajanPro-Bold.otf";
+        const string CyrillicFont = "Assets/_Project/Art/UI/Fonts/Кириллица_FrizQuadrata.ttf";
         const int BotCount = 4;
 
         [MenuItem("Pudge Wars/Build Test Arena")]
@@ -261,7 +263,11 @@ namespace PudgeWars.EditorTools
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
             canvasGo.AddComponent<GraphicRaycaster>(); // without it the EventSystem sees no UI under the mouse
-            var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            // HudFonts picks the font per text at runtime; the builder sets the Cyrillic one as a start
+            var fonts = canvasGo.AddComponent<HudFonts>();
+            fonts.latin = AssetDatabase.LoadAssetAtPath<Font>(LatinFont);
+            fonts.cyrillic = AssetDatabase.LoadAssetAtPath<Font>(CyrillicFont);
+            var font = fonts.cyrillic != null ? fonts.cyrillic : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var score = Label(canvasGo.transform, "Score", font, 56, new Vector2(40f, -30f), TextAnchor.UpperLeft);
             canvasGo.AddComponent<ScoreHud>().label = score;
