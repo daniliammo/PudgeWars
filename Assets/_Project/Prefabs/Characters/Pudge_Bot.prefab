@@ -350,6 +350,7 @@ MonoBehaviour:
   cooldown: 1
   resetCooldownOnHit: 1
   hitRadius: 0.35
+  flightHeight: 1.1
   dropCarry: 0.35
   tetherReelSpeed: 8
   tetherTimeout: 4

@@ -223,6 +223,7 @@ MonoBehaviour:
   cooldown: 1
   resetCooldownOnHit: 1
   hitRadius: 0.35
+  flightHeight: 1.1
   dropCarry: 0.35
   tetherReelSpeed: 8
   tetherTimeout: 4
@@ -524,7 +525,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.HookAimIndicator
   left: {fileID: 4143063352203572825}
   right: {fileID: 2921435290599857009}
-  groundOffset: 0.05
 --- !u!1 &6269929316989186890
 GameObject:
   m_ObjectHideFlags: 0
