@@ -20,8 +20,9 @@ namespace PudgeWars.Gameplay
     /// it catches allies too: an ally is pulled to Pudge unharmed and let go there. An ally an enemy's hook is pulling
     /// is held instead (a tug of war): the enemy pulls at half speed and drags the rescuer after the ally; if the
     /// enemy's hook lets go, the rescuer pulls the ally home (a rescue), if the ally reaches the pit the rescuer's
-    /// chain breaks. Pulling a free ally out of the way of an enemy hook that would surely catch it (the ally stood
-    /// still or was casting, so it could not dodge) is a rescue too.
+    /// chain breaks. Pulling a free ally out of the way of an enemy hook that would surely catch it is a rescue too:
+    /// the ally, moving on as it moves now (standing, casting, or running too late), would be the first one the
+    /// enemy's head reaches.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
     /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
@@ -430,44 +431,77 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// The hero this hook would catch first if everyone stayed where they are: for a hook in flight along the
-        /// rest of its way, for one still turning or winding up along the whole of it (its direction is already set
-        /// and its owner cannot move meanwhile). Null when the hook is not on its way out or would catch nobody.
+        /// This hook, on its way out, would catch <paramref name="hero"/> moving on at <paramref name="velocity"/>
+        /// before reaching anyone else (the others staying where they are). A hook in flight goes on from its head,
+        /// one still turning or winding up starts once that is over (its direction is already set and its owner
+        /// cannot move meanwhile). False for a hook that is not on its way out.
         /// </summary>
-        public Hookable PredictedCatch()
+        public bool WouldCatch(Hookable hero, Vector3 velocity)
         {
-            Vector3 from;
-            float length;
+            Vector3 start;
+            float delay, length;
             switch (state)
             {
                 case State.Flying:
-                    from = hookHead.position;
+                    start = hookHead.position;
+                    delay = 0f;
                     length = EffectiveRange - traveled;
                     break;
                 case State.Turning:
+                    start = AimStart;
+                    delay = (motor != null ? motor.TimeToFace(direction) : 0f) + castDelay;
+                    length = EffectiveRange;
+                    break;
                 case State.Windup:
-                    from = AimStart;
+                    start = AimStart;
+                    delay = timer;
                     length = EffectiveRange;
                     break;
                 default:
-                    return null;
+                    return false;
             }
-            return FindTarget(from, from + direction * length, out _);
+            if (!CanCatch(hero)) return false;
+            float when = TimeToReach(hero, velocity, start, delay, length);
+            if (float.IsPositiveInfinity(when)) return false;
+            foreach (var other in Hookable.All)
+                if (other != hero && CanCatch(other) && TimeToReach(other, Vector3.zero, start, delay, length) < when)
+                    return false; // someone else is in the way first
+            return true;
         }
 
         /// <summary>
-        /// An enemy hook on its way would catch this ally for sure: the ally is the first hero on that hook's path
-        /// and cannot dodge — it stands still or is casting its own hook.
+        /// Seconds of flight until the head, starting at <paramref name="start"/> after <paramref name="delay"/> and
+        /// flying <paramref name="length"/> along the cast direction, touches a hero moving at <paramref name="velocity"/>
+        /// (horizontal plane); infinity if it never does.
+        /// </summary>
+        float TimeToReach(Hookable hero, Vector3 velocity, Vector3 start, float delay, float length)
+        {
+            velocity.y = 0f;
+            var p = start - (hero.transform.position + velocity * delay);
+            p.y = 0f;
+            var q = direction * flySpeed - velocity;
+            q.y = 0f;
+            float r = hitRadius + hero.radius;
+            float a = q.sqrMagnitude, b = 2f * Vector3.Dot(p, q), c = p.sqrMagnitude - r * r;
+            if (c <= 0f) return 0f; // already touching
+            float disc = b * b - 4f * a * c;
+            if (a < 1e-8f || disc < 0f) return float.PositiveInfinity;
+            float t = (-b - Mathf.Sqrt(disc)) / (2f * a);
+            return t >= 0f && t * flySpeed <= length ? t : float.PositiveInfinity;
+        }
+
+        /// <summary>
+        /// An enemy hook on its way would catch this ally for sure: moving on as it moves now (standing, casting its
+        /// own hook, or starting to run too late), the ally is the first one that hook reaches.
         /// </summary>
         bool WouldSurelyBeCaught(Hookable ally)
         {
             var allyHook = ally.GetComponent<HookAbility>();
-            bool cannotDodge = ally.PlanarVelocity.sqrMagnitude < 0.04f || (allyHook != null && allyHook.IsBusy);
-            if (!cannotDodge) return false;
+            var velocity = allyHook != null && allyHook.IsBusy ? Vector3.zero : ally.PlanarVelocity; // casting: rooted
             foreach (var hero in Hookable.All)
             {
                 if (hero.team == ally.team || !hero.TryGetComponent<HookAbility>(out var enemyHook)) continue;
-                if (enemyHook.PredictedCatch() == ally) return true;
+                if (enemyHook.WouldCatch(ally, velocity)) return true;
             }
             return false;
         }

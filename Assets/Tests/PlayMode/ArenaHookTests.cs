@@ -321,11 +321,21 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator PullingAnAllyThatCouldDodgeOrWasNotAimedAtIsNoRescue()
+        public IEnumerator PullingAnAllyThatRunsTooLateOutOfASureEnemyHookIsARescue()
         {
-            // the ally runs: it could have dodged, so the enemy's hit was not sure
-            yield return PullAllyAwayFromAnEnemyThrow(Vector3.back, null, _ => { });
-            Assert.AreEqual(0, arena.RescuesOf(Team.Player), "a running ally could have dodged");
+            // the ally runs, but toward the enemy: the head would still reach it
+            Hookable ally = null;
+            yield return PullAllyAwayFromAnEnemyThrow(Vector3.forward, null, a => ally = a);
+            Assert.AreEqual(1, arena.RescuesOf(Team.Player), "running did not get the ally out of the hook's way");
+            Assert.AreEqual(arena.KillGold(ally) / 2, player.GetComponent<HeroInventory>().Gold);
+        }
+
+        [UnityTest]
+        public IEnumerator PullingAnAllyThatRunsClearIsNoRescue()
+        {
+            // the ally runs sideways: it gets off the hook's line before the head arrives
+            yield return PullAllyAwayFromAnEnemyThrow(Vector3.left, null, _ => { });
+            Assert.AreEqual(0, arena.RescuesOf(Team.Player), "the ally was dodging the hook by itself");
             Assert.AreEqual(0, player.GetComponent<HeroInventory>().Gold);
         }
 
