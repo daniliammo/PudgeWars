@@ -32,7 +32,8 @@ namespace PudgeWars.Gameplay
         public float cooldown = 1f;
         [Tooltip("A cast that catches a target leaves the hook ready right after it comes back.")]
         public bool resetCooldownOnHit = true;
-        [Tooltip("Hook head radius used for hits, metres.")] public float hitRadius = 0.35f;
+        [Tooltip("Hook head radius used for hits, metres. Dota 2 Meat Hook: hook_width 100 plus Pudge's hull 24 is about 1.24 m from the hero's centre; with our hero radius 0.6 that is 0.65.")]
+        public float hitRadius = 0.65f;
         [Tooltip("The head flies straight out of the hero's centre line at this height, metres (about the hand).")]
         public float flightHeight = 1.1f;
         [Tooltip("Share of the pull speed a released target keeps while falling.")] public float dropCarry = 0.35f;

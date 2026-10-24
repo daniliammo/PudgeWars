@@ -354,7 +354,7 @@ MonoBehaviour:
   castDelay: 0.29
   cooldown: 1
   resetCooldownOnHit: 1
-  hitRadius: 0.35
+  hitRadius: 0.65
   flightHeight: 1.1
   dropCarry: 0.35
   tetherReelSpeed: 8
