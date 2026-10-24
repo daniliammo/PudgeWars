@@ -7,7 +7,10 @@ namespace PudgeWars.Gameplay
     /// Player camera with views switched by V: from above behind the player's side looking slightly ahead
     /// toward the enemy, the same view from the enemy side (mirrored across the pit), and first person with
     /// shooter controls (mouse look with a locked cursor and a crosshair; the cursor is freed while the shop is open).
+    /// The cursor is captured on entering first person and released on leaving it; when something else frees it
+    /// (Escape in the editor, another window), a click or the window regaining focus captures it again.
     /// </summary>
+    [DefaultExecutionOrder(-10)] // before PlayerInputController: a click that recaptures the cursor is not a cast
     public class TopDownCamera : MonoBehaviour
     {
         public enum View { OwnSide, EnemySide, FirstPerson }
@@ -29,6 +32,12 @@ namespace PudgeWars.Gameplay
 
         public View Mode { get; private set; }
         public bool IsFirstPerson => Mode == View.FirstPerson;
+        /// <summary>Mouse look is on: first person with the shop closed (the cursor should be locked).</summary>
+        public bool WantsCursorCaptured => IsFirstPerson && !(shop != null && shop.IsOpen);
+        /// <summary>The cursor is locked for mouse look.</summary>
+        public bool CursorCaptured => Cursor.lockState == CursorLockMode.Locked;
+        /// <summary>This frame's left click only recaptured the cursor and must not act in the game.</summary>
+        public bool ClickConsumed { get; private set; }
 
         /// <summary>Horizontal direction WASD's "forward" maps to: the screen's up in the top views, the look
         /// direction in first person.</summary>
@@ -37,6 +46,7 @@ namespace PudgeWars.Gameplay
         Camera cam;
         ShopUI shop;
         float baseFov, yaw, pitch;
+        bool shopWasOpen;
         Vector3 velocity;
 
         void Awake()
@@ -52,20 +62,29 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
+            ClickConsumed = false;
             var kb = Keyboard.current;
             if (kb != null && kb.vKey.wasPressedThisFrame) NextView();
             if (!IsFirstPerson) return;
 
-            bool free = shop != null && shop.IsOpen;
-            if (free) UnlockCursor();
-            else
+            var mouse = Mouse.current;
+            bool shopOpen = shop != null && shop.IsOpen;
+            if (shopOpen) UnlockCursor();
+            else if (!CursorCaptured && mouse != null && mouse.leftButton.wasPressedThisFrame)
             {
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-                var mouse = Mouse.current;
-                if (mouse != null) AddLook(mouse.delta.ReadValue() * mouseSensitivity);
+                CaptureCursor();
+                ClickConsumed = true;
             }
-            if (crosshair != null) crosshair.SetActive(!free);
+            else if (shopWasOpen) CaptureCursor(); // closing the shop returns to mouse look
+            shopWasOpen = shopOpen;
+
+            if (CursorCaptured && mouse != null) AddLook(mouse.delta.ReadValue() * mouseSensitivity);
+            if (crosshair != null) crosshair.SetActive(!shopOpen);
+        }
+
+        void OnApplicationFocus(bool focused)
+        {
+            if (focused && WantsCursorCaptured) CaptureCursor();
         }
 
         /// <summary>Turns the first-person view: x = yaw to the right, y = pitch up, degrees.</summary>
@@ -96,7 +115,8 @@ namespace PudgeWars.Gameplay
                 yaw = Quaternion.LookRotation(Flat(target.forward)).eulerAngles.y;
                 pitch = firstPersonPitch;
             }
-            if (!IsFirstPerson) UnlockCursor();
+            if (IsFirstPerson) CaptureCursor();
+            else UnlockCursor();
             if (crosshair != null) crosshair.SetActive(IsFirstPerson);
             SnapToTarget();
         }
@@ -130,6 +150,12 @@ namespace PudgeWars.Gameplay
             }
             position = focus + arm;
             rotation = Quaternion.LookRotation(-arm);
+        }
+
+        static void CaptureCursor()
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
         }
 
         static void UnlockCursor()

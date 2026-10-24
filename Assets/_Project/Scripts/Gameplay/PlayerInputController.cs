@@ -93,7 +93,8 @@ namespace PudgeWars.Gameplay
             if (aimIndicator != null) aimIndicator.Show(hook.AimStart, dir, hook.AimLength, hook.HitWidth);
 
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
-            bool click = mouse != null && mouse.leftButton.wasPressedThisFrame && (!overUi || Cursor.lockState == CursorLockMode.Locked);
+            bool click = mouse != null && mouse.leftButton.wasPressedThisFrame
+                         && (firstPerson ? follow.CursorCaptured && !follow.ClickConsumed : !overUi);
             bool cast = click || (kb != null && kb.spaceKey.wasPressedThisFrame);
             if (cast && hook.TryCast(point)) Deselect();
         }

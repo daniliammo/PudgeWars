@@ -433,6 +433,8 @@ namespace PudgeWars.Tests
             Assert.Greater(Vector3.Dot(follow.transform.forward, player.transform.forward), 0.9f, "looks where the hero faces");
             Assert.Less(Vector3.Distance(Vector3.forward, follow.MoveForward), 1e-4f, "W moves where the view looks");
             Assert.IsTrue(follow.crosshair.activeSelf, "no crosshair in first person");
+            // batchmode has no window to lock the cursor in, so the request is checked, the release below for real
+            Assert.IsTrue(follow.WantsCursorCaptured, "first person must capture the mouse");
             CaptureScreen("view_first_person");
 
             // shooter controls: the mouse turns the view and W with it
@@ -454,7 +456,8 @@ namespace PudgeWars.Tests
             follow.NextView();
             Assert.AreEqual(TopDownCamera.View.OwnSide, follow.Mode);
             Assert.IsFalse(follow.crosshair.activeSelf);
-            Assert.AreEqual(CursorLockMode.None, Cursor.lockState);
+            Assert.IsFalse(follow.WantsCursorCaptured);
+            Assert.AreEqual(CursorLockMode.None, Cursor.lockState, "leaving first person must free the mouse");
         }
 
         static void CaptureScreen(string name)
