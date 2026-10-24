@@ -481,6 +481,20 @@ namespace PudgeWars.Tests
             Assert.AreEqual(botHook.range + lens.castRangeBonus, botHook.EffectiveRange, 1e-4f);
         }
 
+        [UnityTest]
+        public IEnumerator GoldRewardShowsAmountAndCoinsOverTheHero()
+        {
+            var popups = Object.FindFirstObjectByType<GoldPopups>();
+            Assert.IsNotNull(popups, "no gold popups layer in the HUD");
+            player.GetComponent<HeroInventory>().AddGold(arena.killGold);
+            Assert.AreEqual(1, popups.ActiveCount);
+            Assert.AreEqual($"+{arena.killGold} монет", popups.LastText);
+            yield return new WaitForSeconds(0.25f);
+            CaptureScreen("gold_popup");
+            yield return new WaitForSeconds(popups.lifetime);
+            Assert.AreEqual(0, popups.ActiveCount, "popup did not go away");
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");

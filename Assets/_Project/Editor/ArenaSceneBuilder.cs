@@ -267,7 +267,21 @@ namespace PudgeWars.EditorTools
             canvasGo.AddComponent<ScoreHud>().label = score;
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
             AbilityBarBuilder.Build(canvasGo.transform, font);
+            GoldPopupLayer(canvasGo.transform, font);
             return Crosshair(canvasGo.transform);
+        }
+
+        /// <summary>Full-screen layer for the "+N монет" popups, under the shop and the bars.</summary>
+        static void GoldPopupLayer(Transform canvas, Font font)
+        {
+            var go = new GameObject("GoldPopups", typeof(RectTransform));
+            go.transform.SetParent(canvas, false);
+            go.transform.SetSiblingIndex(0);
+            var rt = (RectTransform)go.transform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = rt.offsetMax = Vector2.zero;
+            go.AddComponent<GoldPopups>().font = font;
         }
 
         static GameObject Crosshair(Transform canvas)

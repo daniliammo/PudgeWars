@@ -15,6 +15,8 @@ namespace PudgeWars.Gameplay
         public int Gold => gold;
         public IReadOnlyList<ItemDef> Items => items;
         public event Action Changed;
+        /// <summary>Gold received (a kill reward): the amount, for the "+N" popup.</summary>
+        public event Action<int> GoldAdded;
 
         public float CastRangeBonus
         {
@@ -30,6 +32,7 @@ namespace PudgeWars.Gameplay
         {
             gold += amount;
             Changed?.Invoke();
+            if (amount > 0) GoldAdded?.Invoke(amount);
         }
 
         public bool Owns(ItemDef item) => items.Contains(item);
