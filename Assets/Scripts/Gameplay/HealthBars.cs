@@ -7,7 +7,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Health bars over the heroes in the manner of Dota 2: a black frame with the health fill (green for the
     /// local player's team, red for enemies), a light gloss on its upper half, thin notches every <see cref="segmentHealth"/>,
-    /// "current / max" health in white with a black outline over the bar and the hero's nickname above. Follows each hero on screen (never leaving it at the top, where the far
+    /// "current / max" health in white with a black outline over the bar, the hero's name above ("Бот …" for bots)
+    /// and its level in a dark circle with a light gold digit at the bar's left end, just below the name. Follows each hero on screen (never leaving it at the top, where the far
     /// heroes stand) and hides while it is dead or behind the camera.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -27,6 +28,11 @@ namespace PudgeWars.Gameplay
         public string healthFormat = "{0}/{1}";
         public int healthFontSize = 16;
         public Color healthTextColor = Color.white;
+        [Tooltip("Diameter of the level circle, canvas units.")] public float levelSize = 30f;
+        public int levelFontSize = 19;
+        public Color levelTextColor = new(1f, 0.9f, 0.6f);
+        public Color levelCircleColor = new(0.08f, 0.08f, 0.1f, 0.95f);
+        public Color levelRimColor = new(0.85f, 0.68f, 0.3f);
         [Tooltip("Bars of heroes at the far edge of the view are held this far below the top of the screen, canvas units.")]
         public float topMargin = 40f;
 
@@ -34,8 +40,8 @@ namespace PudgeWars.Gameplay
         {
             public RectTransform root, fill;
             public Image fillImage;
-            public Text name, health;
-            public int shownHealth = -1, shownMax = -1;
+            public Text name, health, level;
+            public int shownHealth = -1, shownMax = -1, shownLevel = -1;
         }
 
         readonly Dictionary<Hookable, Bar> bars = new();
@@ -69,6 +75,9 @@ namespace PudgeWars.Gameplay
         /// <summary>The "current / max" health label on a hero's bar (null if it has none yet).</summary>
         public Text HealthLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.health : null;
 
+        /// <summary>The level digit in the circle on a hero's bar (null if it has none yet).</summary>
+        public Text LevelLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.level : null;
+
         void LateUpdate()
         {
             foreach (var hero in Hookable.All)
@@ -82,10 +91,11 @@ namespace PudgeWars.Gameplay
                     gone.Add(hero);
                     continue;
                 }
-                bar.name.text = hero.Nickname;
+                bar.name.text = hero.DisplayName;
                 bar.fillImage.color = hero.team == LocalPlayer.Team ? playerColor : enemyColor; // teams may change in a network game
                 bar.fill.anchorMax = new Vector2(hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f, 1f);
                 ShowHealth(hero, bar);
+                ShowLevel(hero, bar);
                 Place(hero, bar);
             }
             foreach (var hero in gone)
@@ -103,6 +113,13 @@ namespace PudgeWars.Gameplay
             bar.shownHealth = health;
             bar.shownMax = max;
             bar.health.text = string.Format(healthFormat, health, max);
+        }
+
+        void ShowLevel(Hookable hero, Bar bar)
+        {
+            if (hero.Level == bar.shownLevel) return;
+            bar.shownLevel = hero.Level;
+            bar.level.text = hero.Level.ToString();
         }
 
         void Place(Hookable hero, Bar bar)
@@ -168,14 +185,55 @@ namespace PudgeWars.Gameplay
             name.alignment = TextAnchor.MiddleCenter;
             name.color = Color.white;
             name.raycastTarget = false;
-            name.text = hero.Nickname;
+            name.text = hero.DisplayName;
             var outline = nameRt.gameObject.AddComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
             outline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            var bar = new Bar { root = root, fill = fill, fillImage = fillImage, name = name, health = health };
+            // level: a dark circle with a gold rim hanging off the bar's left end, as on Dota's bars
+            var circle = Rect(root, "Level", Vector2.one * levelSize);
+            circle.anchoredPosition = new Vector2(-(size.x / 2f + border), 0f);
+            Img(circle, levelRimColor).sprite = Circle();
+            var face = Rect(circle, "Face", Vector2.one * (levelSize - 4f));
+            Img(face, levelCircleColor).sprite = Circle();
+            var levelRt = Rect(circle, "Digit", Vector2.one * levelSize);
+            var level = levelRt.gameObject.AddComponent<Text>();
+            level.font = font;
+            level.fontSize = levelFontSize;
+            level.fontStyle = FontStyle.Bold;
+            level.alignment = TextAnchor.MiddleCenter;
+            level.color = levelTextColor;
+            level.raycastTarget = false;
+            level.horizontalOverflow = HorizontalWrapMode.Overflow;
+            level.verticalOverflow = VerticalWrapMode.Overflow;
+            var levelOutline = levelRt.gameObject.AddComponent<Outline>();
+            levelOutline.effectColor = Color.black;
+            levelOutline.effectDistance = new Vector2(1f, -1f);
+
+            var bar = new Bar { root = root, fill = fill, fillImage = fillImage, name = name, health = health, level = level };
             ShowHealth(hero, bar);
+            ShowLevel(hero, bar);
             return bar;
+        }
+
+        static Sprite circle;
+
+        /// <summary>A white antialiased disc, tinted by the Image colour.</summary>
+        static Sprite Circle()
+        {
+            if (circle != null) return circle;
+            const int size = 64;
+            var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            float r = size / 2f - 1f;
+            for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float dx = x + 0.5f - size / 2f, dy = y + 0.5f - size / 2f;
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, Mathf.Clamp01(r - Mathf.Sqrt(dx * dx + dy * dy) + 0.5f)));
+            }
+            tex.Apply();
+            circle = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            return circle;
         }
 
         static RectTransform Rect(Transform parent, string name, Vector2 sizeDelta)

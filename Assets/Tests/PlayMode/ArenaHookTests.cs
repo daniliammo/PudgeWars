@@ -881,7 +881,11 @@ namespace PudgeWars.Tests
                 var (root, fill, name) = bars.Of(hero);
                 Assert.IsTrue(root.gameObject.activeSelf, hero.Nickname + " has no bar shown");
                 Assert.LessOrEqual(root.anchoredPosition.y, ((RectTransform)bars.transform).rect.yMax - bars.topMargin + 1e-3f, hero.Nickname + "'s bar is off the top of the screen");
-                Assert.AreEqual(hero.Nickname, name.text);
+                Assert.AreEqual(hero.team == Team.Bots ? "Бот " + hero.Nickname : hero.Nickname, name.text, "bots are marked over the head");
+                var level = bars.LevelLabel(hero);
+                Assert.AreEqual(hero.Level.ToString(), level.text, "the level circle shows the hero's level");
+                Assert.AreEqual(bars.levelTextColor, level.color, "the level digit is light gold");
+                Assert.Less(level.transform.parent.localPosition.y, name.transform.localPosition.y, "the level sits below the name");
                 Assert.AreEqual(1f, fill.anchorMax.x, 1e-4f, "a live hero is at full health");
                 Assert.AreEqual(hero.team == Team.Player ? bars.playerColor : bars.enemyColor, fill.GetComponent<Image>().color);
                 Assert.AreEqual(Mathf.CeilToInt(hero.maxHealth / bars.segmentHealth) - 1, root.GetComponentsInChildren<Transform>().Count(t => t.name == "Notch"));

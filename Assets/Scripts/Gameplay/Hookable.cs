@@ -24,7 +24,13 @@ namespace PudgeWars.Gameplay
         public Color allyMarkerColor = new(0.2f, 0.9f, 0.3f);
         public Color enemyMarkerColor = new(0.95f, 0.15f, 0.1f);
 
+        public const string BotPrefix = "Бот ";
+
         public string Nickname => string.IsNullOrEmpty(nickname) ? name : nickname;
+        /// <summary>True for a hero the computer plays (it has a <see cref="BotBrain"/>, on every machine).</summary>
+        public bool IsBot { get; private set; }
+        /// <summary>Name shown over the head: bots are marked, "Бот Мясник".</summary>
+        public string DisplayName => IsBot ? BotPrefix + Nickname : Nickname;
         /// <summary>Hero level; a stub until levels exist: always 1.</summary>
         public int Level => 1;
         public float Health { get; private set; }
@@ -62,6 +68,7 @@ namespace PudgeWars.Gameplay
         {
             anim = GetComponent<PudgeAnimation>();
             ownHook = GetComponent<HookAbility>();
+            IsBot = GetComponent<BotBrain>() != null;
             // the hook head and the chain may still be children here (prefab); their visibility belongs to HookAbility,
             // the aim lines' to HookAimIndicator: respawn must not switch them back on
             var aim = GetComponentInChildren<HookAimIndicator>(true);
