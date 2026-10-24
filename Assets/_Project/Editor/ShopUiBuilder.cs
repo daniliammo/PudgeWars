@@ -14,8 +14,8 @@ namespace PudgeWars.EditorTools
         const string ItemDir = "Assets/_Project/ScriptableObjects/Items";
         const string AetherLensIcon = "Assets/_Project/Art/UI/Items/aether_lens.jpg";
 
-        static readonly Color Panel = new(0.07f, 0.08f, 0.10f, 0.92f);
-        static readonly Color Frame = new(0.16f, 0.17f, 0.20f, 1f);
+        internal static readonly Color Panel = new(0.07f, 0.08f, 0.10f, 0.92f);
+        internal static readonly Color Frame = new(0.16f, 0.17f, 0.20f, 1f);
         static readonly Color GoldColor = new(1f, 0.82f, 0.25f);
         static readonly Color ButtonColor = new(0.20f, 0.45f, 0.22f, 1f);
 
@@ -105,7 +105,7 @@ namespace PudgeWars.EditorTools
             return row;
         }
 
-        static RectTransform Rect(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size)
+        internal static RectTransform Rect(Transform parent, string name, Vector2 anchor, Vector2 pos, Vector2 size)
         {
             var go = new GameObject(name, typeof(RectTransform));
             go.transform.SetParent(parent, false);
@@ -116,14 +116,14 @@ namespace PudgeWars.EditorTools
             return rt;
         }
 
-        static Image Img(RectTransform rt, Color color)
+        internal static Image Img(RectTransform rt, Color color)
         {
             var img = rt.gameObject.AddComponent<Image>();
             img.color = color;
             return img;
         }
 
-        static Text Txt(RectTransform parent, string name, Font font, int size, string text, TextAnchor align, Vector2 anchor, Vector2 pos, Vector2 box)
+        internal static Text Txt(RectTransform parent, string name, Font font, int size, string text, TextAnchor align, Vector2 anchor, Vector2 pos, Vector2 box)
         {
             var t = Rect(parent, name, anchor, pos, box).gameObject.AddComponent<Text>();
             t.font = font;
@@ -135,7 +135,7 @@ namespace PudgeWars.EditorTools
             return t;
         }
 
-        static Button Btn(RectTransform parent, string name, Font font, string label, Vector2 anchor, Vector2 pos, Vector2 size)
+        internal static Button Btn(RectTransform parent, string name, Font font, string label, Vector2 anchor, Vector2 pos, Vector2 size)
         {
             var rt = Rect(parent, name, anchor, pos, size);
             var img = Img(rt, ButtonColor);

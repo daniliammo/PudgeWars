@@ -263,11 +263,8 @@ namespace PudgeWars.EditorTools
 
             var score = Label(canvasGo.transform, "Score", font, 56, new Vector2(40f, -30f), TextAnchor.UpperLeft);
             canvasGo.AddComponent<ScoreHud>().label = score;
-            var hint = Label(canvasGo.transform, "Hint", font, 30, new Vector2(40f, -100f), TextAnchor.UpperLeft);
-            hint.text = "WASD — движение, ЛКМ / Пробел — хук в сторону курсора, B — магазин";
-            hint.color = new Color(1f, 1f, 1f, 0.7f);
-
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
+            AbilityBarBuilder.Build(canvasGo.transform, font);
         }
 
         static Text Label(Transform parent, string name, Font font, int size, Vector2 pos, TextAnchor anchor)

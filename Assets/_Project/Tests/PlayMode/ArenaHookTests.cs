@@ -343,6 +343,43 @@ namespace PudgeWars.Tests
         }
 
         /// <summary>Screenshot including the overlay UI (Camera.Render does not draw ScreenSpaceOverlay canvases).</summary>
+        [UnityTest]
+        public IEnumerator AbilityBarShowsHookCooldownAndAimLines()
+        {
+            var input = player.GetComponent<PlayerInputController>();
+            var bar = Object.FindFirstObjectByType<AbilityBar>();
+            var view = bar.slots[PlayerInputController.HookSlot];
+            Assert.AreEqual("Q", view.keyLabel.text);
+            Assert.IsNotNull(view.icon.sprite, "hook icon missing");
+
+            // aim lines: two parallel edges, hook width apart, full range long
+            var aim = input.aimIndicator;
+            var dir = hook.AimDirection(player.transform.position + Vector3.forward * 5f);
+            aim.Show(hook.PredictLaunchPoint(dir), dir, hook.EffectiveRange, hook.HitWidth);
+            Assert.IsTrue(aim.left.enabled && aim.right.enabled);
+            Assert.AreEqual(hook.HitWidth, Vector3.Distance(aim.left.GetPosition(0), aim.right.GetPosition(0)), 1e-3f);
+            Assert.AreEqual(hook.EffectiveRange, Vector3.Distance(aim.left.GetPosition(0), aim.left.GetPosition(1)), 1e-3f);
+            yield return null;
+            CaptureScreen("aim");
+            aim.Hide();
+
+            // a miss: the cooldown is written over the icon in seconds and milliseconds
+            Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));
+            float t = 0f;
+            while (hook.IsBusy && t < 5f) { t += Time.deltaTime; yield return null; }
+            yield return null;
+            Assert.IsFalse(input.SelectAbility(PlayerInputController.HookSlot), "a hook on cooldown must not be selectable");
+            StringAssert.IsMatch(@"^\d+\.\d{3}$", view.cooldownLabel.text);
+            Assert.IsTrue(view.cooldownOverlay.enabled);
+            CaptureScreen("cooldown");
+
+            yield return new WaitForSeconds(hook.cooldown);
+            Assert.AreEqual("", view.cooldownLabel.text);
+            Assert.IsFalse(view.cooldownOverlay.enabled);
+            Assert.IsTrue(input.SelectAbility(PlayerInputController.HookSlot));
+            Assert.AreEqual(PlayerInputController.HookSlot, input.SelectedAbility);
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");
