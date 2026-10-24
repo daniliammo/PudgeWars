@@ -51,7 +51,7 @@ namespace PudgeWars.Tests
                 var hero = LocalPlayer.Hero;
                 Assert.IsFalse(Simulation.IsProxy, "the host simulates the match itself");
                 Assert.AreEqual("Хост", hero.Nickname);
-                Assert.AreEqual(Team.Player, hero.team);
+                Assert.AreEqual(Team.Bots, hero.team, "the host plays for Dire");
                 Assert.IsTrue(Hookable.All.All(h => h.GetComponent<NetworkIdentity>() != null), "an offline hero is left");
                 Assert.AreEqual(3, Hookable.All.Count(h => h.team == Team.Player), "the host's team is not filled with bots");
                 Assert.AreEqual(3, Hookable.All.Count(h => h.team == Team.Bots));
@@ -59,21 +59,24 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(hero.transform, Object.FindFirstObjectByType<TopDownCamera>().target, "the camera does not follow the host's hero");
                 Assert.AreEqual(0, arena.Score);
 
-                // the host plays as offline: its hook drags an enemy bot into the pit
+                // the host plays as offline: its hook drags a Radiant bot into the pit
                 foreach (var brain in Object.FindObjectsByType<BotBrain>(FindObjectsSortMode.None)) brain.enabled = false;
-                var enemies = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+                var enemies = Hookable.All.Where(h => h.team == Team.Player).ToList();
                 var bot = enemies[0];
-                for (int i = 1; i < enemies.Count; i++) enemies[i].transform.position = new Vector3(12f, 0f, 12f - i);
-                bot.transform.position = new Vector3(hero.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+                for (int i = 1; i < enemies.Count; i++) enemies[i].transform.position = new Vector3(12f, 0f, -12f + i);
+                bot.transform.position = new Vector3(hero.transform.position.x, 0f, -(arena.pitHalfDepth + 1.5f));
                 Assert.IsTrue(hero.GetComponent<HookAbility>().TryCast(bot.transform.position));
                 t = 0f;
-                while (arena.Score == 0 && t < 6f)
+                while (arena.KillsOf(Team.Bots) == 0 && t < 6f)
                 {
                     t += Time.deltaTime;
                     yield return null;
                 }
-                Assert.AreEqual(1, arena.Score, "the hook did not kill the bot");
+                Assert.AreEqual(1, arena.KillsOf(Team.Bots), "the hook did not kill the bot");
                 Assert.AreEqual(arena.killGold, hero.GetComponent<HeroInventory>().Gold, "no gold for the kill");
+                var hud = Object.FindFirstObjectByType<ScoreHud>();
+                Assert.AreEqual("0", hud.RadiantKills.text);
+                Assert.AreEqual("1", hud.DireKills.text, "the top bar does not show Dire's kill");
             }
             finally
             {
@@ -90,6 +93,37 @@ namespace PudgeWars.Tests
             Assert.IsNotNull(LocalPlayer.Hero, "the offline player did not come back");
             Assert.IsFalse(IsNetworkHero(LocalPlayer.Hero));
             Assert.IsFalse(NetworkServer.active || NetworkClient.active);
+        }
+
+        [UnityTest]
+        public IEnumerator DireCameraLooksAcrossThePitFromItsOwnSide()
+        {
+            // a Dire hero (the host, or a client on the far side): its own side at the bottom, Radiant ahead
+            var hero = LocalPlayer.Hero;
+            hero.team = Team.Bots;
+            hero.transform.SetPositionAndRotation(new Vector3(0f, 0f, arena.pitHalfDepth + 5f), Quaternion.LookRotation(Vector3.back));
+            var follow = Object.FindFirstObjectByType<TopDownCamera>();
+            follow.SetView(TopDownCamera.View.OwnSide);
+            yield return null;
+            var cam = Camera.main;
+            var self = cam.WorldToViewportPoint(hero.transform.position);
+            var enemySide = cam.WorldToViewportPoint(new Vector3(0f, 0f, -(arena.pitHalfDepth + 3f)));
+            Assert.Greater(cam.transform.position.z, hero.transform.position.z, "the camera is not behind Dire's side");
+            Assert.Less(cam.transform.forward.z, 0f, "the camera does not look toward Radiant");
+            Assert.IsTrue(self.z > 0f && self.x > 0f && self.x < 1f && self.y > 0f && self.y < 0.5f, $"the hero is not at the bottom of the view: {self}");
+            Assert.IsTrue(enemySide.z > 0f && enemySide.y > self.y && enemySide.y < 1f, $"Radiant's side is out of view: {enemySide}");
+
+            // the mirrored view looks at Dire from Radiant's side
+            follow.SetView(TopDownCamera.View.EnemySide);
+            yield return null;
+            Assert.Less(cam.transform.position.z, 0f);
+            Assert.Greater(cam.transform.forward.z, 0f);
+
+            // the top bar marks the own team
+            var hud = Object.FindFirstObjectByType<ScoreHud>();
+            Assert.IsNotNull(hud.RadiantKills, "no team score at the top");
+            Assert.AreEqual("0", hud.RadiantKills.text);
+            Assert.AreEqual("0", hud.DireKills.text);
         }
 
         [UnityTest]
