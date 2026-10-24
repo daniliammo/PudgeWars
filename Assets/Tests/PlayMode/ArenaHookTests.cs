@@ -782,7 +782,12 @@ namespace PudgeWars.Tests
             Assert.AreEqual(fonts.latin, keyLabel.font, "\"Q\" must use the Latin font");
             Assert.AreEqual(fonts.latin, shop.goldLabel.font, "gold digits must use the Latin font");
             foreach (var text in fonts.GetComponentsInChildren<Text>(true))
+            {
                 Assert.AreEqual(HudFonts.HasCyrillic(text.text) ? fonts.cyrillic : fonts.latin, text.font, text.name + ": " + text.text);
+                Assert.IsTrue(text.TryGetComponent<Outline>(out var outline), text.name + " has no outline");
+                Assert.AreEqual(0f, outline.effectColor.r + outline.effectColor.g + outline.effectColor.b, 1e-3f, text.name + "'s outline is not black");
+            }
+            Assert.AreEqual("У/С 0/0", Object.FindFirstObjectByType<ScoreHud>().label.text, "short own score in the corner");
 
             // a label switching language at runtime switches its font
             shop.goldLabel.text = "Нет";
