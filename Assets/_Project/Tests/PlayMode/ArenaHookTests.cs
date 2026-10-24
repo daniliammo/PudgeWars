@@ -460,6 +460,27 @@ namespace PudgeWars.Tests
             Assert.AreEqual(CursorLockMode.None, Cursor.lockState, "leaving first person must free the mouse");
         }
 
+        [UnityTest]
+        public IEnumerator BotsBuyItemsWithTheirGold()
+        {
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var wallet = bot.GetComponent<HeroInventory>();
+            var shopper = bot.GetComponent<BotShopper>();
+            Assert.IsNotNull(shopper, "bots have no shopper");
+            var lens = shopper.catalog.First();
+            var botHook = bot.GetComponent<HookAbility>();
+
+            wallet.AddGold(lens.cost - 1);
+            yield return new WaitForSeconds(shopper.checkInterval + 0.2f);
+            Assert.IsFalse(wallet.Owns(lens), "bought without enough gold");
+
+            wallet.AddGold(1);
+            yield return new WaitForSeconds(shopper.checkInterval + 0.2f);
+            Assert.IsTrue(wallet.Owns(lens), "bot did not buy Aether Lens");
+            Assert.AreEqual(0, wallet.Gold);
+            Assert.AreEqual(botHook.range + lens.castRangeBonus, botHook.EffectiveRange, 1e-4f);
+        }
+
         static void CaptureScreen(string name)
         {
             var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");

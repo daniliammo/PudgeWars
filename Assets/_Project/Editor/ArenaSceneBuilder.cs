@@ -117,6 +117,7 @@ namespace PudgeWars.EditorTools
             var bot = CreateCharacter("Pudge_Bot", Team.Bots);
             SetupHook(bot, spatialAudio: true);
             bot.AddComponent<BotBrain>();
+            bot.AddComponent<BotShopper>().catalog = new[] { ShopUiBuilder.AetherLens() };
             var botPrefab = PrefabUtility.SaveAsPrefabAsset(bot, BotPrefabPath);
             Object.DestroyImmediate(bot);
             return (playerPrefab, botPrefab);
