@@ -11,8 +11,8 @@ namespace PudgeWars.Gameplay
     public class ScoreHud : MonoBehaviour
     {
         public Text label;
-        [Tooltip("{0} = kills of the local player's team, {1} = its deaths.")]
-        public string format = "Счёт: {0}    Смерти: {1}";
+        [Tooltip("{0} = kills of the local player's team, {1} = its deaths (У/С = убийства / смерти).")]
+        public string format = "У/С {0}/{1}";
         public string radiantName = "RADIANT", direName = "DIRE";
         public Color radiantColor = new(0.35f, 0.85f, 0.3f);
         public Color direColor = new(0.9f, 0.25f, 0.18f);
