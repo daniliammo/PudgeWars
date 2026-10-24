@@ -292,6 +292,32 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator PudgesHookingEachOtherAtOnceBothFallIntoThePit()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bot = bots[0];
+            for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -6f), Quaternion.LookRotation(Vector3.forward));
+            bot.transform.SetPositionAndRotation(new Vector3(0f, 0f, 6f), Quaternion.LookRotation(Vector3.back));
+            var botHook = bot.GetComponent<HookAbility>();
+            yield return null;
+
+            bool playerDied = false, botDied = false;
+            player.Died += _ => playerDied = true;
+            bot.Died += _ => botDied = true;
+            Assert.IsTrue(hook.TryCast(bot.transform.position));
+            Assert.IsTrue(botHook.TryCast(player.transform.position));
+
+            // well before the tether timeout: the two must not hang in place
+            float t = 0f;
+            while (!(playerDied && botDied) && t < 3.5f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(botDied, "the bot did not fall into the pit");
+            Assert.IsTrue(playerDied, "the player did not fall into the pit");
+            Assert.AreEqual(1, arena.Score, "the player's hook did not get the kill");
+            Assert.AreEqual(1, arena.Deaths);
+        }
+
+        [UnityTest]
         public IEnumerator HeroesDoNotWalkThroughEachOtherButSlideAlong()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();

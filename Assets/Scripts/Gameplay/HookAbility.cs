@@ -83,6 +83,8 @@ namespace PudgeWars.Gameplay
         public float ReadyAt => readyAt;
         public bool HeadVisible => hookHead != null && hookHead.gameObject.activeSelf;
         public bool IsFlying => state == State.Flying;
+        /// <summary>The owner was caught while pulling: the target hangs on a taut chain.</summary>
+        public bool IsTethered => state == State.Tethered;
         /// <summary>Where the head points, without the spin.</summary>
         public Vector3 HeadDirection => state == State.Flying ? direction : hookHead != null ? hookHead.forward : transform.forward;
 
@@ -340,14 +342,17 @@ namespace PudgeWars.Gameplay
                 Cancel();
                 return;
             }
-            // a falling or dead owner hangs on the chain and reels it in
-            if (self != null && (self.IsFalling || !self.IsAlive))
-                ropeLength = Mathf.Max(0f, ropeLength - tetherReelSpeed * Time.deltaTime);
-
+            // a falling or dead owner hangs on the chain and reels it in; an owner held by a taut chain too (two
+            // Pudges hooked each other) is pulled by nobody, so both chains reel in and drag them together
             var anchor = transform.position;
             var toAnchor = anchor - target.transform.position;
             toAnchor.y = 0f;
             float dist = toAnchor.magnitude;
+            if (self != null && (self.IsFalling || !self.IsAlive))
+                ropeLength = Mathf.Max(0f, ropeLength - tetherReelSpeed * Time.deltaTime);
+            else if (self != null && self.HookedBy != null && self.HookedBy.IsTethered)
+                // slack taken up first: the other chain has already pulled this frame, both must pull alike
+                ropeLength = Mathf.Max(0f, Mathf.Min(ropeLength, dist) - pullSpeed * Time.deltaTime);
             var dir = dist > 1e-4f ? toAnchor / dist : Vector3.zero;
             if (dist > ropeLength)
                 target.DragTo(target.transform.position + dir * (dist - ropeLength), dir);
