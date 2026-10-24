@@ -59,7 +59,8 @@ namespace PudgeWars.EditorTools
             return bar;
         }
 
-        static Sprite Sprite(string path)
+        /// <summary>Loads an image as a 2D sprite, fixing its import settings first.</summary>
+        internal static Sprite Sprite(string path)
         {
             var ti = (TextureImporter)AssetImporter.GetAtPath(path);
             if (ti != null && (ti.textureType != TextureImporterType.Sprite || ti.spriteImportMode != SpriteImportMode.Single

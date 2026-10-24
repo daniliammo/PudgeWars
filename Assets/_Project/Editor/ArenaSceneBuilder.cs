@@ -25,6 +25,7 @@ namespace PudgeWars.EditorTools
         const string BotPrefabPath = "Assets/_Project/Prefabs/Characters/Pudge_Bot.prefab";
         const string LatinFont = "Assets/_Project/Art/UI/Fonts/TrajanPro-Bold.otf";
         const string CyrillicFont = "Assets/_Project/Art/UI/Fonts/Кириллица_FrizQuadrata.ttf";
+        const string CoinIcon = "Assets/_Project/Art/UI/Gold.png";
         const int BotCount = 4;
 
         [MenuItem("Pudge Wars/Build Test Arena")]
@@ -287,7 +288,9 @@ namespace PudgeWars.EditorTools
             rt.anchorMin = Vector2.zero;
             rt.anchorMax = Vector2.one;
             rt.offsetMin = rt.offsetMax = Vector2.zero;
-            go.AddComponent<GoldPopups>().font = font;
+            var popups = go.AddComponent<GoldPopups>();
+            popups.font = font;
+            popups.coinSprite = AbilityBarBuilder.Sprite(CoinIcon);
         }
 
         static GameObject Crosshair(Transform canvas)

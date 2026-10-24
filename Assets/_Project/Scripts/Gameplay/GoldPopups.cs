@@ -6,7 +6,8 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// HUD popups for gold rewards: "+N монет" over the hero who got the gold and a burst of coins that jump
-    /// up, spin, fall and fade. Follows the hero on screen, so it works in every camera view.
+    /// up, spin, fall and fade (the original's Gold icon). Follows the hero on screen, so it works in every
+    /// camera view.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class GoldPopups : MonoBehaviour
@@ -18,8 +19,10 @@ namespace PudgeWars.Gameplay
         [Tooltip("Height above the hero's feet the popup is anchored to, metres.")] public float anchorHeight = 2.6f;
         public float lifetime = 1.6f;
         [Tooltip("Text rise over the lifetime, canvas units.")] public float rise = 90f;
+        [Tooltip("Coin picture (Shop_Game/Gold of the original); a coin drawn at runtime if empty.")]
+        public Sprite coinSprite;
         public int coinCount = 10;
-        public float coinSize = 30f;
+        public float coinSize = 40f;
         public float coinLifetime = 1.1f;
         public Vector2 coinSpeedX = new(-220f, 220f);
         public Vector2 coinSpeedY = new(320f, 620f);
@@ -46,7 +49,7 @@ namespace PudgeWars.Gameplay
         readonly List<(HeroInventory wallet, System.Action<int> handler)> subscriptions = new();
         RectTransform rect;
         Canvas canvas;
-        static Sprite coinSprite;
+        static Sprite drawnCoin;
 
         public int ActiveCount => popups.Count;
         public string LastText { get; private set; }
@@ -87,7 +90,8 @@ namespace PudgeWars.Gameplay
                 coin.SetParent(root, false);
                 coin.sizeDelta = new Vector2(coinSize, coinSize);
                 var image = coin.gameObject.AddComponent<Image>();
-                image.sprite = CoinSprite();
+                image.sprite = coinSprite != null ? coinSprite : DrawnCoin();
+                image.preserveAspect = true;
                 image.raycastTarget = false;
                 popup.coins.Add(new Coin
                 {
@@ -170,9 +174,9 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>A gold coin drawn once at runtime: rim, face and a highlight.</summary>
-        static Sprite CoinSprite()
+        static Sprite DrawnCoin()
         {
-            if (coinSprite != null) return coinSprite;
+            if (drawnCoin != null) return drawnCoin;
             const int size = 64;
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
             var rim = new Color(0.72f, 0.45f, 0.05f);
@@ -191,8 +195,8 @@ namespace PudgeWars.Gameplay
                 tex.SetPixel(x, y, col);
             }
             tex.Apply();
-            coinSprite = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
-            return coinSprite;
+            drawnCoin = Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 100f);
+            return drawnCoin;
         }
     }
 }

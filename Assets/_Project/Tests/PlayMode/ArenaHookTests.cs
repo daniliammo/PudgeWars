@@ -486,6 +486,7 @@ namespace PudgeWars.Tests
         {
             var popups = Object.FindFirstObjectByType<GoldPopups>();
             Assert.IsNotNull(popups, "no gold popups layer in the HUD");
+            Assert.IsNotNull(popups.coinSprite, "coin picture (Gold.png) missing");
             player.GetComponent<HeroInventory>().AddGold(arena.killGold);
             Assert.AreEqual(1, popups.ActiveCount);
             Assert.AreEqual($"+{arena.killGold} монет", popups.LastText);
