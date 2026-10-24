@@ -251,6 +251,69 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator BotRescuesAnAllyFromAnEnemysHook()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var ally = bots[0];
+            var rescuer = bots[1];
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -4f), Quaternion.identity);
+            ally.transform.position = new Vector3(0f, 0f, 8f);
+            rescuer.transform.SetPositionAndRotation(new Vector3(4f, 0f, 6f), Quaternion.LookRotation(Vector3.left));
+            hook.pullSpeed = 3f; // slow pull: the bot has time to react
+            yield return null;
+            yield return null;
+
+            var brain = rescuer.GetComponent<BotBrain>();
+            brain.rescueChance = 1f;
+            brain.rescueReaction = Vector2.zero;
+            brain.throwInterval = new Vector2(30f, 30f); // only the rescue throw
+            brain.enabled = true;
+            var rescueHook = rescuer.GetComponent<HookAbility>();
+            Hookable caught = null;
+            rescueHook.TargetCaught += h => caught = h;
+
+            Assert.IsTrue(hook.TryCast(ally.transform.position));
+            float t = 0f;
+            while (caught == null && t < 4f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.AreEqual(ally, caught, "the bot did not pull its ally out of the enemy's hook");
+            t = 0f;
+            while ((hook.IsBusy || rescueHook.IsBusy) && t < 6f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling, "the rescued ally died");
+            Assert.AreEqual(0, arena.Score);
+        }
+
+        [UnityTest]
+        public IEnumerator BotDoesNotThrowThroughAnAlly()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bot = bots[0];
+            var ally = bots[1];
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
+            bot.transform.SetPositionAndRotation(new Vector3(0f, 0f, 10f), Quaternion.LookRotation(Vector3.back));
+            ally.transform.position = new Vector3(0.5f, 0f, 6f);
+            player.transform.position = new Vector3(0f, 0f, -4f);
+            yield return null;
+            yield return null; // velocities settle after the teleport
+
+            var brain = bot.GetComponent<BotBrain>();
+            var aim = brain.AimOffset(player, lead: false);
+            Assert.IsFalse(brain.PathClear(aim, player), "an ally stands in the hook's path");
+            ally.transform.position = new Vector3(6f, 0f, 6f);
+            yield return null;
+            yield return null;
+            Assert.IsTrue(brain.PathClear(aim, player), "the path is clear once the ally steps aside");
+        }
+
+        [UnityTest]
         public IEnumerator MarkersAndHealthBarsAreColouredByTheLocalPlayersTeam()
         {
             yield return null;
