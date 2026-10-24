@@ -45,6 +45,8 @@ namespace PudgeWars.Gameplay
         public event Action<Hookable> TargetCaught;
         public event Action<Hookable> TargetDropped;
 
+        /// <summary>Range including item bonuses (Aether Lens).</summary>
+        public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => state != State.Ready;
         public bool IsReady => state == State.Ready && Time.time >= readyAt;
         public float CooldownRemaining => state == State.Ready ? Mathf.Max(0f, readyAt - Time.time) : cooldown;
@@ -56,12 +58,14 @@ namespace PudgeWars.Gameplay
         Hookable target, self;
         PudgeAnimation anim;
         PudgeMotor motor;
+        HeroInventory inventory;
 
         void Awake()
         {
             self = GetComponent<Hookable>();
             anim = GetComponent<PudgeAnimation>();
             motor = GetComponent<PudgeMotor>();
+            inventory = GetComponent<HeroInventory>();
             // the prefab keeps the head and the chain as children; in flight they must not follow the owner
             if (hookHead != null) hookHead.SetParent(null, true);
             if (chain != null) chain.transform.SetParent(null, true);
@@ -135,12 +139,15 @@ namespace PudgeWars.Gameplay
 
         void Fly()
         {
-            float step = flySpeed * Time.deltaTime;
+            float step = Mathf.Min(flySpeed * Time.deltaTime, EffectiveRange - traveled);
+            var from = hookHead.position;
             hookHead.position += direction * step;
             traveled += step;
-            var hit = FindTarget(hookHead.position);
+            // swept test over this frame's path: a long frame must not let the hook pass through a target
+            var hit = FindTarget(from, hookHead.position, out var contact);
             if (hit != null)
             {
+                hookHead.position = contact;
                 target = hit;
                 caughtThisCast = true;
                 target.AttachTo(this);
@@ -149,7 +156,7 @@ namespace PudgeWars.Gameplay
                 Play(Pick(sounds.hitVoice));
                 state = State.Returning;
             }
-            else if (traveled >= range)
+            else if (traveled >= EffectiveRange)
             {
                 Play(Pick(sounds.missVoice));
                 state = State.Returning;
@@ -215,17 +222,30 @@ namespace PudgeWars.Gameplay
             readyAt = Time.time + cooldown;
         }
 
-        Hookable FindTarget(Vector3 head)
+        /// <summary>First enemy whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
+        Hookable FindTarget(Vector3 from, Vector3 to, out Vector3 contact)
         {
+            Hookable best = null;
+            float bestT = float.MaxValue;
+            contact = to;
+            var seg = to - from;
+            seg.y = 0f;
+            float len2 = seg.sqrMagnitude;
             foreach (var h in Hookable.All)
             {
                 if (h == self || !h.CanBeHooked || (self != null && h.team == self.team)) continue;
-                var d = h.transform.position - head;
-                d.y = 0f;
+                var rel = h.transform.position - from;
+                rel.y = 0f;
+                float t = len2 > 1e-8f ? Mathf.Clamp01(Vector3.Dot(rel, seg) / len2) : 0f;
                 float r = hitRadius + h.radius;
-                if (d.sqrMagnitude <= r * r) return h;
+                if ((rel - seg * t).sqrMagnitude <= r * r && t < bestT)
+                {
+                    bestT = t;
+                    best = h;
+                }
             }
-            return null;
+            if (best != null) contact = from + (to - from) * bestT;
+            return best;
         }
 
         void UpdateChain()

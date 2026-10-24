@@ -25,6 +25,8 @@ namespace PudgeWars.Gameplay
         public bool IsControllable => IsAlive && !IsHooked && !IsFalling;
         /// <summary>Horizontal velocity over the last frame, m/s (used by bots to lead their throws).</summary>
         public Vector3 PlanarVelocity { get; private set; }
+        /// <summary>Owner of the last hook that caught this character: credited with the kill.</summary>
+        public Hookable LastHookedBy { get; private set; }
 
         public event Action<Hookable> Died;
 
@@ -50,6 +52,7 @@ namespace PudgeWars.Gameplay
         public void AttachTo(HookAbility hook)
         {
             hookedBy = hook;
+            LastHookedBy = hook.GetComponent<Hookable>();
             // a caught character loses its own hook (and whatever it was pulling)
             if (ownHook != null) ownHook.Cancel();
             anim?.Play(PudgeAnimation.Hooked, 0.05f);
@@ -105,13 +108,14 @@ namespace PudgeWars.Gameplay
             velocity = Vector3.zero;
             SetVisible(false);
             Died?.Invoke(this);
-            Arena.Instance?.ReportDeath(this);
+            Arena.Instance?.ReportDeath(this, LastHookedBy);
         }
 
         public void Respawn(Vector3 position, Quaternion rotation)
         {
             transform.SetPositionAndRotation(position, rotation);
             lastPosition = position;
+            LastHookedBy = null;
             IsAlive = true;
             SetVisible(true);
             anim?.PlayAction(PudgeAnimation.Spawn, 1.2f, 0f);

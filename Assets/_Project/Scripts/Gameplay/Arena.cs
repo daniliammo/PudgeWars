@@ -23,6 +23,8 @@ namespace PudgeWars.Gameplay
         [Tooltip("A falling character dies below this height.")]
         public float killHeight = -4f;
         public float respawnDelay = 2.5f;
+        [Tooltip("Gold for the hero whose hook dragged the victim into the pit.")]
+        public int killGold = 250;
 
         /// <summary>Bots killed by the player.</summary>
         public int Score { get; private set; }
@@ -54,8 +56,10 @@ namespace PudgeWars.Gameplay
             return new Vector3(x, 0f, team == Team.Player ? -z : z);
         }
 
-        public void ReportDeath(Hookable victim)
+        public void ReportDeath(Hookable victim, Hookable killer)
         {
+            if (killer != null && killer.team != victim.team && killer.TryGetComponent<HeroInventory>(out var wallet))
+                wallet.AddGold(killGold);
             if (victim.team == Team.Bots) Score++;
             else Deaths++;
             ScoreChanged?.Invoke(Score, Deaths);

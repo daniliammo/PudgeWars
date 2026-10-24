@@ -52,6 +52,7 @@ namespace PudgeWars.Tests
             Assert.IsTrue(dropped, "bot was not released over the pit");
             Assert.AreEqual(1, arena.Score);
             Assert.IsFalse(bot.IsAlive);
+            Assert.AreEqual(arena.killGold, player.GetComponent<HeroInventory>().Gold, "no gold for the kill");
 
             yield return new WaitUntil(() => !hook.IsBusy);
             Assert.IsTrue(hook.IsReady, "cooldown was not reset by the hit");
@@ -107,6 +108,8 @@ namespace PudgeWars.Tests
             brain.enabled = false;
             Assert.AreEqual(1, arena.Deaths, "bot did not kill the player");
             Assert.AreEqual(0, arena.Score);
+            Assert.AreEqual(arena.killGold, bot.GetComponent<HeroInventory>().Gold, "bot got no gold for the kill");
+            Assert.AreEqual(0, player.GetComponent<HeroInventory>().Gold);
             Assert.IsFalse(player.IsAlive);
             Assert.IsFalse(hook.TryCast(Vector3.zero), "a dead player must not throw");
 
@@ -214,6 +217,50 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ShopSellsAetherLensThatExtendsHookRange()
+        {
+            var shop = Object.FindFirstObjectByType<ShopUI>();
+            var inventory = player.GetComponent<HeroInventory>();
+            var row = shop.rows[0];
+            var lens = row.item;
+            Assert.AreEqual(2275, lens.cost);
+            Assert.IsNotNull(lens.icon, "item icon missing");
+            Assert.IsFalse(shop.IsOpen);
+            shop.Toggle();
+            Assert.IsTrue(shop.IsOpen);
+            Assert.IsFalse(row.buyButton.interactable, "buy must be disabled without gold");
+            Assert.IsFalse(inventory.TryBuy(lens));
+
+            inventory.AddGold(lens.cost);
+            Assert.IsTrue(row.buyButton.interactable);
+            Assert.AreEqual(lens.cost.ToString(), shop.goldLabel.text);
+            row.buyButton.onClick.Invoke();
+            Assert.AreEqual(0, inventory.Gold);
+            Assert.IsTrue(inventory.Owns(lens));
+            Assert.AreEqual(hook.range + 2.25f, hook.EffectiveRange, 1e-4f);
+            Assert.AreEqual(lens.icon, shop.slots[0].sprite);
+            Assert.AreEqual("Куплено", row.buyLabel.text);
+            yield return null;
+            CaptureScreen("shop_open");
+            inventory.AddGold(10000);
+            Assert.IsFalse(inventory.TryBuy(lens), "Aether Lens does not stack");
+            shop.Close();
+
+            // the hook really flies 15.25 m now
+            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(12f, 0f, 14f);
+            Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));
+            yield return new WaitUntil(() => hook.hookHead.gameObject.activeSelf);
+            var launch = hook.hookHead.position;
+            float maxDist = 0f;
+            while (hook.IsBusy)
+            {
+                maxDist = Mathf.Max(maxDist, Vector3.Distance(launch, hook.hookHead.position));
+                yield return null;
+            }
+            Assert.That(maxDist, Is.InRange(hook.EffectiveRange - 0.1f, hook.EffectiveRange + 0.6f));
+        }
+
+        [UnityTest]
         public IEnumerator PlayerStaysOnOwnSide()
         {
             var motor = player.GetComponent<PudgeMotor>();
@@ -222,6 +269,23 @@ namespace PudgeWars.Tests
             Assert.Greater(player.transform.position.z, -arena.pitHalfDepth - 1f, "player should have reached the pit edge");
             motor.SetMoveInput(Vector3.zero);
             Assert.Less(player.transform.position.z, -arena.pitHalfDepth);
+        }
+
+        /// <summary>Screenshot including the overlay UI (Camera.Render does not draw ScreenSpaceOverlay canvases).</summary>
+        static void CaptureScreen(string name)
+        {
+            var dir = System.Environment.GetEnvironmentVariable("PUDGE_PREVIEW_DIR");
+            if (string.IsNullOrEmpty(dir)) return;
+            Directory.CreateDirectory(dir);
+            var canvas = Object.FindFirstObjectByType<Canvas>();
+            var cam = Camera.main;
+            var mode = canvas.renderMode;
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = cam;
+            canvas.planeDistance = 1f;
+            Canvas.ForceUpdateCanvases();
+            Capture(name);
+            canvas.renderMode = mode;
         }
 
         static void Capture(string name)

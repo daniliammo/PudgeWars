@@ -139,6 +139,7 @@ namespace PudgeWars.EditorTools
             var hookable = root.AddComponent<Hookable>();
             hookable.team = team;
             root.AddComponent<PudgeMotor>();
+            root.AddComponent<HeroInventory>();
 
             // team marker under the feet (the original uses Target_M / Target_M_Red)
             var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -232,8 +233,10 @@ namespace PudgeWars.EditorTools
             var score = Label(canvasGo.transform, "Score", font, 56, new Vector2(40f, -30f), TextAnchor.UpperLeft);
             canvasGo.AddComponent<ScoreHud>().label = score;
             var hint = Label(canvasGo.transform, "Hint", font, 30, new Vector2(40f, -100f), TextAnchor.UpperLeft);
-            hint.text = "WASD — движение, ЛКМ / Пробел — хук в сторону курсора";
+            hint.text = "WASD — движение, ЛКМ / Пробел — хук в сторону курсора, B — магазин";
             hint.color = new Color(1f, 1f, 1f, 0.7f);
+
+            ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
         }
 
         static Text Label(Transform parent, string name, Font font, int size, Vector2 pos, TextAnchor anchor)

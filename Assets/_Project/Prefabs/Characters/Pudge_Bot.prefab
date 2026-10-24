@@ -244,6 +244,7 @@ GameObject:
   - component: {fileID: 7064866004064617576}
   - component: {fileID: 675430410260972503}
   - component: {fileID: 1385268436013105734}
+  - component: {fileID: 2493412752412822984}
   - component: {fileID: 7122012146131065702}
   - component: {fileID: 4682421106900679195}
   - component: {fileID: 8997861103064302614}
@@ -315,6 +316,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.PudgeMotor
   moveSpeed: 2.8
   turnRate: 0.7
+--- !u!114 &2493412752412822984
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8770411149012270294}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2bd791e91f871a08b839ed58d2f66f34, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.HeroInventory
+  gold: 0
+  items: []
 --- !u!114 &7122012146131065702
 MonoBehaviour:
   m_ObjectHideFlags: 0

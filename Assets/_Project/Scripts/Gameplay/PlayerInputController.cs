@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace PudgeWars.Gameplay
@@ -35,7 +36,8 @@ namespace PudgeWars.Gameplay
             }
             motor.SetMoveInput(CameraRelative(move));
 
-            bool cast = (mouse != null && mouse.leftButton.wasPressedThisFrame) || (kb != null && kb.spaceKey.wasPressedThisFrame);
+            bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            bool cast = (mouse != null && mouse.leftButton.wasPressedThisFrame && !overUi) || (kb != null && kb.spaceKey.wasPressedThisFrame);
             if (cast && mouse != null && TryGetGroundPoint(mouse.position.ReadValue(), out var point))
                 hook.TryCast(point);
         }

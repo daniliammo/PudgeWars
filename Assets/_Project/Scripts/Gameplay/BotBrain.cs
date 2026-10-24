@@ -88,7 +88,7 @@ namespace PudgeWars.Gameplay
         Hookable FindTarget()
         {
             Hookable best = null;
-            float bestDist = hook.range * rangeFraction;
+            float bestDist = hook.EffectiveRange * rangeFraction;
             foreach (var h in Hookable.All)
             {
                 if (h.team == self.team || !h.CanBeHooked) continue;

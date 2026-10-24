@@ -7,8 +7,8 @@
 | | |
 |---|---|
 | ✅ Извлечение | Пайплайн `Tools/AssetExtraction` (CUE4Parse + свой `.usmap` из `libUnreal.so` + Blender → FBX). Перенесены Pudge, Toy Pudge, 5 хуков, текстура цепи |
-| ✅ Тестовая арена | `Assets/_Project/Scenes/Arena.unity` (собирается меню **Pudge Wars → Build Test Arena**), 28×28 м, яма 6 м: игрок и 4 бота по разные стороны; хук ловит цель, тащит, цель падает в яму и умирает; боты тоже кидают хук в игрока (случайно с упреждением или в текущую позицию + ошибка прицела); счёт «убийства / смерти», респавн через 2.5 с; попадание обнуляет перезарядку; пойманный теряет свой хук. Игрок и боты — префабы `Prefabs/Characters/Pudge_Player`, `Pudge_Bot`; движение и поворот как у Pudge в Dota 2 |
-| ✅ Тесты | 8 PlayMode-тестов `Assets/_Project/Tests/PlayMode` (игрок хукает бота → яма → счёт → респавн; бот хукает игрока → смерть → респавн; хук не «зависает» после смерти владельца посреди броска; прицел бота с упреждением и без; поворот по правилам Dota перед движением и кастом; пойманный теряет свой хук; промах; граница стороны) — проходят в batchmode |
+| ✅ Тестовая арена | `Assets/_Project/Scenes/Arena.unity` (собирается меню **Pudge Wars → Build Test Arena**), 28×28 м, яма 6 м: игрок и 4 бота по разные стороны; хук ловит цель, тащит, цель падает в яму и умирает; боты тоже кидают хук в игрока (случайно с упреждением или в текущую позицию + ошибка прицела); счёт «убийства / смерти», респавн через 2.5 с; попадание обнуляет перезарядку; пойманный теряет свой хук. Игрок и боты — префабы `Prefabs/Characters/Pudge_Player`, `Pudge_Bot`; движение и поворот как у Pudge в Dota 2. Золото: 250 за убийство тому, чей хук утащил жертву; магазин (B) с Aether Lens (2275, +225 к дальности) |
+| ✅ Тесты | 9 PlayMode-тестов `Assets/_Project/Tests/PlayMode` (игрок хукает бота → яма → счёт → респавн; бот хукает игрока → смерть → респавн; хук не «зависает» после смерти владельца посреди броска; магазин: покупка Aether Lens и дальность хука 15.25 м; золото за убийство; прицел бота с упреждением и без; поворот по правилам Dota перед движением и кастом; пойманный теряет свой хук; промах; граница стороны) — проходят в batchmode |
 | ⏸ Звуки (отложено) | Слоты звуков хука привязаны по схеме Blueprint, клипов нет: звук в паках — **BINKA = Bink Audio 2** (RAD), ffmpeg его не декодирует (даёт шум). Wine из PortProton уже подхватывается `sounds.py`; не хватает только закрытого декодера RAD `binkadec.exe` (идёт с FModel) → `python3 Tools/AssetExtraction/sounds.py --binkadec <путь> --wine` |
 
 ---
@@ -194,7 +194,9 @@ PudgeWars/
 - ✅ Перезарядка хука 1 с (значение-заглушка, оригинальный `Hook_KD` не разобран); попадание обнуляет её (`resetCooldownOnHit`).
 - ✅ Боты: блуждают по своей стороне и кидают хук в ближайшего врага в радиусе: с вероятностью `leadChance` (0.5) — с упреждением по скорости цели, иначе в текущую позицию; ошибка ±7°, пауза 1.5–4 с. Пойманный персонаж теряет свой хук, его цель отпускается.
 - ✅ Звуковые слоты хука по схеме Blueprint; ⏸ сами клипы отложены до появления `binkadec.exe`.
-- ✅ Управление ПК: WASD + ЛКМ/Пробел (прицел курсором).
+- ✅ Управление ПК: WASD + ЛКМ/Пробел (прицел курсором); клик по UI хук не бросает.
+- ✅ Экономика (начало): `HeroInventory` (золото, 6 слотов), 250 золота за убийство (значение задано вручную, оригинальное `Add_Gold_Kill` не разобрано), `ItemDef` (ScriptableObject), магазин uGUI по B: Aether Lens — 2275, +225 к дальности (хук 13 → 15.25 м), не стакается.
+- ✅ Попадание хука проверяется по всему пути за кадр (при просадке FPS хук не пролетает сквозь цель).
 - ☐ Настоящая карта (меш + коллизии + NavMesh по зонам команд), двухстиковое мобильное управление, кулдаун в UI, маркер цели (`Target_M`), отскок хука от стен, Cinemachine, сложность ботов.
 
 ### Этап 2 — сеть (3–4 недели)
@@ -232,6 +234,8 @@ Assets/_Project/
     Arena/Materials/             ✅ материалы тестовой арены и цепи
   Audio/Pudge/                   ⏸ WAV после декодирования BINKA (<Папка>_<Имя>.wav)
   Prefabs/Characters/            ✅ Pudge_Player, Pudge_Bot
+  ScriptableObjects/Items/       ✅ AetherLens
+  Art/UI/Items/                  ✅ иконки предметов
   Scenes/Arena.unity             ✅ тестовая арена (первая в Build Settings)
   Scripts/Gameplay/              ✅ сборка PudgeWars.Gameplay: Arena, Hookable, HookAbility, PudgeMotor,
                                     PudgeAnimation, PlayerInputController, BotBrain, TopDownCamera, ScoreHud
@@ -246,7 +250,7 @@ Tools/AssetExtraction/           ✅ экстрактор, генератор .u
 Assets/_Project/
   Prefabs/        Projectiles, UI
   Scenes/         Boot, MainMenu, Lobby
-  ScriptableObjects/  HeroDef, HookDef, AbilityDef, ItemDef, MatchRules
+  ScriptableObjects/  HeroDef, HookDef, AbilityDef, остальные ItemDef, MatchRules
   Scripts/
     Core/         конфиги, сохранения, сервисы
     Net/          NetworkManager, Discovery, Lobby, LagCompensation
