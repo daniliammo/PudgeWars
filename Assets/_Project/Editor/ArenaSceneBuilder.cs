@@ -228,6 +228,7 @@ namespace PudgeWars.EditorTools
             var scaler = canvasGo.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
+            canvasGo.AddComponent<GraphicRaycaster>(); // without it the EventSystem sees no UI under the mouse
             var font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var score = Label(canvasGo.transform, "Score", font, 56, new Vector2(40f, -30f), TextAnchor.UpperLeft);

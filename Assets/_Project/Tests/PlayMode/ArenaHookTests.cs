@@ -3,9 +3,12 @@ using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using PudgeWars.Gameplay;
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 
 namespace PudgeWars.Tests
 {
@@ -258,6 +261,33 @@ namespace PudgeWars.Tests
                 yield return null;
             }
             Assert.That(maxDist, Is.InRange(hook.EffectiveRange - 0.1f, hook.EffectiveRange + 0.6f));
+        }
+
+        [UnityTest]
+        public IEnumerator ShopButtonsReceivePointerClicks()
+        {
+            var shop = Object.FindFirstObjectByType<ShopUI>();
+            Assert.IsNotNull(EventSystem.current, "no EventSystem");
+            yield return null;
+            AssertPointerHits(shop.toggleButton);
+            shop.Toggle();
+            yield return null;
+            AssertPointerHits(shop.rows[0].buyButton);
+            AssertPointerHits(shop.closeButton);
+        }
+
+        /// <summary>What the EventSystem does for a mouse click: raycast at the button's centre and hit it first.</summary>
+        static void AssertPointerHits(Button button)
+        {
+            var corners = new Vector3[4];
+            ((RectTransform)button.transform).GetWorldCorners(corners); // screen pixels for an overlay canvas
+            var data = new PointerEventData(EventSystem.current) { position = (corners[0] + corners[2]) * 0.5f };
+            var hits = new List<RaycastResult>();
+            EventSystem.current.RaycastAll(data, hits);
+            Assert.IsNotEmpty(hits, $"pointer does not reach '{button.name}' (no raycaster?)");
+            var top = hits[0].gameObject.transform;
+            Assert.IsTrue(top == button.transform || top.IsChildOf(button.transform), $"'{button.name}' is covered by '{top.name}'");
+            Assert.IsNotNull(ExecuteEvents.GetEventHandler<IPointerClickHandler>(hits[0].gameObject), "hit object does not handle clicks");
         }
 
         [UnityTest]
