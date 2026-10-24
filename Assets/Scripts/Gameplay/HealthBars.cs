@@ -29,6 +29,7 @@ namespace PudgeWars.Gameplay
         class Bar
         {
             public RectTransform root, fill;
+            public Image fillImage;
             public Text name;
         }
 
@@ -74,6 +75,7 @@ namespace PudgeWars.Gameplay
                     continue;
                 }
                 bar.name.text = hero.Nickname;
+                bar.fillImage.color = hero.team == LocalPlayer.Team ? playerColor : enemyColor; // teams may change in a network game
                 bar.fill.anchorMax = new Vector2(hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f, 1f);
                 Place(hero, bar);
             }
@@ -107,7 +109,7 @@ namespace PudgeWars.Gameplay
             fill.anchorMin = Vector2.zero;
             fill.anchorMax = Vector2.one;
             fill.pivot = new Vector2(0f, 0.5f);
-            Img(fill, hero.team == LocalPlayer.Team ? playerColor : enemyColor);
+            var fillImage = Img(fill, hero.team == LocalPlayer.Team ? playerColor : enemyColor);
 
             // gloss on the upper half of the fill, as on Dota's bars
             var gloss = Rect(fill, "Gloss", Vector2.zero);
@@ -137,7 +139,7 @@ namespace PudgeWars.Gameplay
             outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
             outline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            return new Bar { root = root, fill = fill, name = name };
+            return new Bar { root = root, fill = fill, fillImage = fillImage, name = name };
         }
 
         static RectTransform Rect(Transform parent, string name, Vector2 sizeDelta)
@@ -148,11 +150,12 @@ namespace PudgeWars.Gameplay
             return rt;
         }
 
-        static void Img(RectTransform rt, Color color)
+        static Image Img(RectTransform rt, Color color)
         {
             var image = rt.gameObject.AddComponent<Image>();
             image.color = color;
             image.raycastTarget = false;
+            return image;
         }
     }
 }

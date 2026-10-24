@@ -20,6 +20,9 @@ namespace PudgeWars.Gameplay
         [Tooltip("Collision radius for hook hits, metres (capsule radius 61 cm in the original).")]
         public float radius = 0.6f;
         public float gravity = 20f;
+        [Tooltip("Team marker under the feet: allies of the local player (and the player) in this colour.")]
+        public Color allyMarkerColor = new(0.2f, 0.9f, 0.3f);
+        public Color enemyMarkerColor = new(0.95f, 0.15f, 0.1f);
 
         public string Nickname => string.IsNullOrEmpty(nickname) ? name : nickname;
         public float Health { get; private set; }
@@ -44,6 +47,10 @@ namespace PudgeWars.Gameplay
         PudgeAnimation anim;
         Renderer[] renderers;
         bool remoteHooked;
+        Renderer marker;
+        MaterialPropertyBlock markerColor;
+        bool? markerAlly;
+        static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
         void Awake()
         {
@@ -56,6 +63,8 @@ namespace PudgeWars.Gameplay
                 r => (ownHook == null || !ownHook.Owns(r.transform)) && (aim == null || !r.transform.IsChildOf(aim.transform)));
             lastPosition = transform.position;
             Health = maxHealth;
+            var markerTransform = transform.Find("TeamMarker");
+            if (markerTransform != null) marker = markerTransform.GetComponent<Renderer>();
         }
 
         void OnEnable() => all.Add(this);
@@ -114,10 +123,26 @@ namespace PudgeWars.Gameplay
 
         void LateUpdate()
         {
+            ColorMarker();
             var p = transform.position;
             var v = (p - lastPosition) / Mathf.Max(Time.deltaTime, 1e-5f);
             PlanarVelocity = new Vector3(v.x, 0f, v.z);
             lastPosition = p;
+        }
+
+        /// <summary>
+        /// The marker shows the side relative to the local player: green for its team, red for the enemy (the
+        /// prefab's own colour only says player or bot). Recoloured when the teams change (network game).
+        /// </summary>
+        void ColorMarker()
+        {
+            bool ally = team == LocalPlayer.Team;
+            if (marker == null || markerAlly == ally) return;
+            markerAlly = ally;
+            markerColor ??= new MaterialPropertyBlock();
+            marker.GetPropertyBlock(markerColor);
+            markerColor.SetColor(BaseColor, ally ? allyMarkerColor : enemyMarkerColor);
+            marker.SetPropertyBlock(markerColor);
         }
 
         void Die()
