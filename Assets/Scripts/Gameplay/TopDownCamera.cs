@@ -156,15 +156,18 @@ namespace PudgeWars.Gameplay
                 rotation = heading * Quaternion.Euler(pitch, 0f, 0f);
                 return;
             }
-            var focus = target.position + lookAhead;
-            var arm = offset;
-            if ((Mode == View.EnemySide) != (LocalPlayer.Team == Team.Bots))
+            // the own view stands behind the own side and looks across the pit at the enemy: for the far team
+            // (z > 0) the camera arm and the look-ahead are turned around
+            var turn = Quaternion.Euler(0f, LocalPlayer.Team == Team.Bots ? 180f : 0f, 0f);
+            var focus = target.position + turn * lookAhead;
+            var arm = turn * offset;
+            if (Mode == View.EnemySide)
             {
                 // the own view mirrored across the middle of the pit: the player is where the enemies are
                 // in the own view, the enemies are in front of the camera
                 float mid = Arena.Instance != null ? Arena.Instance.transform.position.z : 0f;
                 focus.z = 2f * mid - focus.z;
-                arm = Quaternion.Euler(0f, 180f, 0f) * offset;
+                arm = Quaternion.Euler(0f, 180f, 0f) * arm;
             }
             position = focus + arm;
             rotation = Quaternion.LookRotation(-arm);
