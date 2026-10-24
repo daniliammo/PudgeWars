@@ -409,20 +409,65 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator CaughtCharacterLosesItsOwnHook()
+        public IEnumerator CaughtCharacterLosesHookInWindupButNotInFlight()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
-            bot.transform.position = new Vector3(10f, 0f, 12f);
-            Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));
-            yield return new WaitForSeconds(hook.castDelay + 0.2f);
-            Assert.IsTrue(hook.IsBusy);
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            for (int i = 0; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
+            var bot = bots[0];
+            var aim = player.transform.position + player.transform.forward * 10f;
 
+            // still winding up: the hook breaks off
+            Assert.IsTrue(hook.TryCast(aim));
+            yield return null;
+            Assert.IsTrue(hook.IsBusy && !hook.HeadVisible);
             player.AttachTo(bot.GetComponent<HookAbility>());
-            Assert.IsFalse(hook.IsBusy, "own hook must break off when the owner is caught");
-            Assert.IsFalse(hook.hookHead.gameObject.activeSelf);
+            Assert.IsFalse(hook.IsBusy, "a hook not yet thrown must break off when the owner is caught");
             player.Release();
             Assert.IsTrue(player.IsControllable);
+
+            // already flying: the hook flies on, and a miss vanishes at full range
+            yield return new WaitUntil(() => hook.IsReady);
+            Assert.IsTrue(hook.TryCast(aim));
+            yield return new WaitForSeconds(hook.castDelay + 0.2f);
+            Assert.IsTrue(hook.IsFlying);
+            player.AttachTo(bot.GetComponent<HookAbility>());
+            Assert.IsTrue(hook.IsFlying && hook.HeadVisible, "a hook in flight must fly on when the owner is caught");
+            float t = 0f;
+            while (hook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsFalse(hook.IsBusy, "a missed hook of a caught owner did not vanish");
+            Assert.IsFalse(hook.HeadVisible);
+            player.Release();
+        }
+
+        [UnityTest]
+        public IEnumerator HookFlyingWhenTheOwnerIsCaughtDragsItsCatchIntoThePit()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var victim = bots[0];   // the player's hook reaches it after the player is caught
+            var hunter = bots[1];   // catches the player first
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -arena.pitHalfDepth - 1f), Quaternion.identity);
+            victim.transform.position = new Vector3(0f, 0f, 8.5f);
+            hunter.transform.position = new Vector3(3f, 0f, arena.pitHalfDepth + 1f);
+            var toPlayer = player.transform.position - hunter.transform.position;
+            hunter.transform.rotation = Quaternion.LookRotation(new Vector3(toPlayer.x, 0f, toPlayer.z));
+            var hunterHook = hunter.GetComponent<HookAbility>();
             yield return null;
+
+            bool playerCaught = false, victimCaught = false;
+            hunterHook.TargetCaught += h => playerCaught |= h == player;
+            hook.TargetCaught += h => victimCaught |= h == victim;
+            Assert.IsTrue(hook.TryCast(victim.transform.position));
+            Assert.IsTrue(hunterHook.TryCast(player.transform.position));
+
+            float t = 0f;
+            while ((arena.Deaths == 0 || arena.Score == 0) && t < 6f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(playerCaught, "the hunter did not catch the player");
+            Assert.IsTrue(victimCaught, "the player's hook did not fly on to the victim");
+            Assert.AreEqual(1, arena.Deaths, "the player did not die");
+            Assert.AreEqual(1, arena.Score, "the victim was not dragged into the pit");
+            Assert.IsFalse(victim.IsAlive);
+            Assert.AreEqual(arena.killGold, player.GetComponent<HeroInventory>().Gold, "the dragged kill belongs to the player");
         }
 
         [UnityTest]

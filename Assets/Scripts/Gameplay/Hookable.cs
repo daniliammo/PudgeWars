@@ -167,6 +167,8 @@ namespace PudgeWars.Gameplay
             LastHookedBy = null;
             IsAlive = true;
             Health = maxHealth;
+            // a chain still hanging from the dead hero (its hook flew on or held a target) breaks at respawn
+            if (ownHook != null) ownHook.Cancel();
             SetVisible(true);
             anim?.PlayAction(PudgeAnimation.Spawn, 1.2f, 0f);
             Respawned?.Invoke(this);

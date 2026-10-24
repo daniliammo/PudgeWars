@@ -241,12 +241,15 @@ namespace PudgeWars.Gameplay
                 TargetCaught?.Invoke(target);
                 Play(sounds.impact);
                 Play(Pick(sounds.hitVoice));
-                state = State.Returning;
+                // the owner was caught while the hook flew: the catch hangs on a taut chain behind the owner
+                if (OwnerCaught) BeginTether();
+                else state = State.Returning;
             }
             else if (traveled >= EffectiveRange)
             {
                 Play(Pick(sounds.missVoice));
-                state = State.Returning;
+                if (OwnerCaught) Cancel(); // nobody to reel an empty hook in
+                else state = State.Returning;
             }
             if (state == State.Returning) Play(sounds.retract);
         }
@@ -304,22 +307,29 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// The owner was caught or started falling. A hook that is already pulling a target stays on it as a
-        /// taut chain (the target is dragged after the owner, into the pit if the owner falls); otherwise the
-        /// hook breaks off.
+        /// taut chain (the target is dragged after the owner, into the pit if the owner falls); a hook in flight
+        /// flies on and whatever it catches hangs on that chain; a hook not yet thrown breaks off.
         /// </summary>
         public void OwnerLostControl()
         {
-            if (state == State.Tethered) return;
+            if (state is State.Tethered or State.Flying) return;
             if (state == State.Returning && target != null)
             {
-                var d = target.transform.position - transform.position;
-                d.y = 0f;
-                ropeLength = d.magnitude;
-                timer = tetherTimeout;
-                state = State.Tethered;
+                BeginTether();
                 return;
             }
             Cancel();
+        }
+
+        bool OwnerCaught => self != null && !self.IsControllable;
+
+        void BeginTether()
+        {
+            var d = target.transform.position - transform.position;
+            d.y = 0f;
+            ropeLength = d.magnitude;
+            timer = tetherTimeout;
+            state = State.Tethered;
         }
 
         void Tether()
