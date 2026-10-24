@@ -3,6 +3,8 @@
     "rootNamespace": "PudgeWars.Tests",
     "references": [
         "PudgeWars.Gameplay",
+        "PudgeWars.Net",
+        "Mirror",
         "UnityEngine.UI",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"

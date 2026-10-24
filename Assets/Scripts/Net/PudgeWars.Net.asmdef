@@ -1,0 +1,21 @@
+{
+    "name": "PudgeWars.Net",
+    "rootNamespace": "PudgeWars.Net",
+    "references": [
+        "PudgeWars.Gameplay",
+        "Mirror",
+        "Mirror.Components",
+        "Mirror.Transports",
+        "kcp2k",
+        "Unity.InputSystem"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
