@@ -1,0 +1,72 @@
+using System;
+using System.Collections;
+using UnityEngine;
+
+namespace PudgeWars.Gameplay
+{
+    public enum Team { Player, Bots }
+
+    /// <summary>
+    /// Test arena: two sides separated by a pit along the X axis (z = 0).
+    /// The player side is z &lt; 0, the bot side is z &gt; 0. Keeps the score and respawns the dead.
+    /// </summary>
+    public class Arena : MonoBehaviour
+    {
+        public static Arena Instance { get; private set; }
+
+        [Tooltip("Half of the arena width along X, metres.")]
+        public float halfWidth = 14f;
+        [Tooltip("Half of the pit depth along Z: |z| < pitHalfDepth is over the pit.")]
+        public float pitHalfDepth = 3f;
+        [Tooltip("Depth of each side from the pit edge to the back wall, metres.")]
+        public float sideDepth = 11f;
+        [Tooltip("A falling character dies below this height.")]
+        public float killHeight = -4f;
+        public float respawnDelay = 2.5f;
+
+        /// <summary>Bots killed by the player.</summary>
+        public int Score { get; private set; }
+        /// <summary>Times the player was killed.</summary>
+        public int Deaths { get; private set; }
+        public event Action<int, int> ScoreChanged;
+
+        void Awake() => Instance = this;
+
+        void OnDestroy()
+        {
+            if (Instance == this) Instance = null;
+        }
+
+        public bool IsOverPit(Vector3 p) => Mathf.Abs(p.z) < pitHalfDepth && Mathf.Abs(p.x) < halfWidth;
+
+        public Vector3 ClampToSide(Vector3 p, Team team, float radius)
+        {
+            p.x = Mathf.Clamp(p.x, -halfWidth + radius, halfWidth - radius);
+            float near = pitHalfDepth + radius, far = pitHalfDepth + sideDepth - radius;
+            p.z = team == Team.Player ? Mathf.Clamp(p.z, -far, -near) : Mathf.Clamp(p.z, near, far);
+            return p;
+        }
+
+        public Vector3 RandomPointOnSide(Team team, float margin)
+        {
+            float x = UnityEngine.Random.Range(-halfWidth + margin, halfWidth - margin);
+            float z = UnityEngine.Random.Range(pitHalfDepth + margin, pitHalfDepth + sideDepth - margin);
+            return new Vector3(x, 0f, team == Team.Player ? -z : z);
+        }
+
+        public void ReportDeath(Hookable victim)
+        {
+            if (victim.team == Team.Bots) Score++;
+            else Deaths++;
+            ScoreChanged?.Invoke(Score, Deaths);
+            StartCoroutine(Respawn(victim));
+        }
+
+        IEnumerator Respawn(Hookable who)
+        {
+            yield return new WaitForSeconds(respawnDelay);
+            var facing = who.team == Team.Bots ? Vector3.back : Vector3.forward;
+            who.Respawn(RandomPointOnSide(who.team, 1.5f), Quaternion.LookRotation(facing));
+        }
+    }
+}
