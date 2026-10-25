@@ -1286,6 +1286,48 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator PhoneCameraButtonSwitchesViewsAndAFingerTurnsFirstPerson()
+        {
+            var touch = Object.FindAnyObjectByType<TouchControls>();
+            var follow = Camera.main.GetComponent<TopDownCamera>();
+            touch.showOnDesktop = true; // the phone controls, driven by the mouse
+            yield return null;
+            yield return null;
+            var button = touch.CameraButton;
+            Assert.IsTrue(button.gameObject.activeSelf, "no camera button with the phone controls");
+            var corner = (RectTransform)button.transform;
+            Assert.AreEqual(new Vector2(0f, 1f), corner.anchorMin, "the camera button belongs in the top-left corner");
+            Assert.IsNotNull(button.image.sprite, "the camera icon did not load");
+            Assert.IsFalse(touch.LookZone.gameObject.activeSelf, "the look zone is only for first person");
+
+            button.onClick.Invoke();
+            Assert.AreEqual(TopDownCamera.View.EnemySide, follow.Mode);
+            button.onClick.Invoke();
+            Assert.AreEqual(TopDownCamera.View.FirstPerson, follow.Mode);
+            Assert.IsFalse(follow.WantsCursorCaptured, "a phone has no cursor to lock");
+            yield return null;
+            Assert.IsTrue(touch.LookZone.gameObject.activeSelf, "no look zone in first person");
+            Assert.AreEqual(0, touch.LookZone.transform.GetSiblingIndex(), "the look zone must lie under the sticks");
+
+            // a third finger dragging over the empty screen turns the view (90° to the right here)
+            Assert.Less(Vector3.Distance(Vector3.forward, follow.MoveForward), 1e-3f);
+            var finger = new PointerEventData(EventSystem.current) { pointerId = 7 };
+            touch.LookZone.OnPointerDown(finger);
+            finger.delta = new Vector2(90f / follow.touchSensitivity * Screen.height / 1080f, 0f);
+            touch.LookZone.OnDrag(finger);
+            yield return null;
+            touch.LookZone.OnPointerUp(finger);
+            Assert.Less(Vector3.Distance(Vector3.right, follow.MoveForward), 1e-3f, "the finger did not turn the view");
+            Assert.IsTrue(follow.crosshair.activeSelf);
+
+            button.onClick.Invoke();
+            Assert.AreEqual(TopDownCamera.View.OwnSide, follow.Mode);
+            yield return null;
+            Assert.IsFalse(touch.LookZone.gameObject.activeSelf, "the look zone outlived first person");
+            touch.showOnDesktop = false;
+        }
+
+        [UnityTest]
         public IEnumerator BotsBuyItemsWithTheirGold()
         {
             var bot = Hookable.All.First(h => h.team == Team.Bots);

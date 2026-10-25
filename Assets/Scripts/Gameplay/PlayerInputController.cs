@@ -15,6 +15,9 @@ namespace PudgeWars.Gameplay
     /// On a phone (<see cref="TouchControls"/>) the left stick runs at full speed; a finger on the right stick picks
     /// the hook and aims it, letting go throws it at full range; a tap without dragging throws it straight ahead,
     /// dragging back to the centre before letting go cancels. A tap on a hero inspects it like a click.
+    /// In first person on a phone three fingers play: the left stick runs relative to the look, the right stick aims
+    /// the hook relative to it (a tap throws at the crosshair), and a finger dragging over the empty screen turns the
+    /// view (TopDownCamera); the camera button in the top-left corner switches the views.
     /// </summary>
     public class PlayerInputController : MonoBehaviour
     {
@@ -152,7 +155,9 @@ namespace PudgeWars.Gameplay
         /// <summary>Where the hook stick points on the ground: along the stick seen from the camera, or ahead when centred.</summary>
         Vector3 StickAimPoint(Vector2 stick)
         {
-            var dir = stick == Vector2.zero ? transform.forward : CameraRelative(stick.normalized);
+            // a tap throws ahead: at the crosshair in first person, where the hero faces in the top views
+            var ahead = follow != null && follow.IsFirstPerson ? follow.MoveForward : transform.forward;
+            var dir = stick == Vector2.zero ? ahead : CameraRelative(stick.normalized);
             return transform.position + dir * hook.EffectiveRange;
         }
 

@@ -10,6 +10,8 @@ namespace PudgeWars.Gameplay
     /// shooter controls (mouse look with a locked cursor and a crosshair; the cursor is freed while the shop is open).
     /// The cursor is captured on entering first person and released on leaving it; when something else frees it
     /// (Escape in the editor, another window), a click or the window regaining focus captures it again.
+    /// With the phone controls on (<see cref="TouchControls"/>) the views switch by their camera button and in
+    /// first person a finger dragging over the empty screen turns the view instead of the mouse.
     /// Follows the local player's hero (<see cref="LocalPlayer"/>); for a hero of the far team the views are mirrored,
     /// so the own side is always at the bottom of the screen.
     /// </summary>
@@ -32,13 +34,17 @@ namespace PudgeWars.Gameplay
         [Tooltip("Initial look down from the horizon, degrees.")] public float firstPersonPitch = 12f;
         public Vector2 pitchLimits = new(-60f, 80f);
         [Tooltip("Degrees per pixel of mouse movement.")] public float mouseSensitivity = 0.12f;
+        [Tooltip("Degrees per pixel of a finger turning the view, on a 1080 px high screen (scaled to others).")]
+        public float touchSensitivity = 0.18f;
         public float firstPersonFov = 75f;
         [Tooltip("Shown only in first person.")] public GameObject crosshair;
 
         public View Mode { get; private set; }
         public bool IsFirstPerson => Mode == View.FirstPerson;
         /// <summary>Mouse look is on: first person with the shop closed (the cursor should be locked).</summary>
-        public bool WantsCursorCaptured => IsFirstPerson && !CursorNeeded;
+        public bool WantsCursorCaptured => IsFirstPerson && !CursorNeeded && !TouchLook;
+        /// <summary>The phone controls are on: the view turns with a finger (TouchControls), there is no cursor to lock.</summary>
+        static bool TouchLook => TouchControls.Active != null;
         /// <summary>The shop or an overlay window is open: the cursor must be free.</summary>
         bool CursorNeeded => (shop != null && shop.IsOpen) || OverlayInput.Captured;
         /// <summary>The cursor is locked for mouse look.</summary>
@@ -88,6 +94,14 @@ namespace PudgeWars.Gameplay
             if (kb != null && kb.vKey.wasPressedThisFrame && !OverlayInput.Captured) NextView();
             if (!IsFirstPerson) return;
 
+            if (TouchLook)
+            {
+                if (CursorCaptured) UnlockCursor();
+                AddLook(TouchControls.Active.TakeLook() * (touchSensitivity * 1080f / Mathf.Max(Screen.height, 1)));
+                if (crosshair != null) crosshair.SetActive(!CursorNeeded);
+                return;
+            }
+
             var mouse = Mouse.current;
             bool shopOpen = CursorNeeded;
             if (shopOpen) UnlockCursor();
@@ -136,7 +150,7 @@ namespace PudgeWars.Gameplay
                 yaw = Quaternion.LookRotation(Flat(target.forward)).eulerAngles.y;
                 pitch = firstPersonPitch;
             }
-            if (IsFirstPerson) CaptureCursor();
+            if (IsFirstPerson && !TouchLook) CaptureCursor();
             else UnlockCursor();
             if (crosshair != null) crosshair.SetActive(IsFirstPerson);
             SnapToTarget();
