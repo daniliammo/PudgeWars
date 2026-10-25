@@ -17,6 +17,13 @@ LAYERS = {
     'Dire_Ground': ('dire_ground/sand_cracked001_color_psd_1017aede.png', (84, 74, 64), 1.0),
     'Dire_Patches': ('dire_ground/dirt_cracked_patchy_00_psd_3956639e.png', (96, 82, 70), 0.9),
     'Path_Sand': ('path/sand_path009_color_psd_a290f30d.png', (150, 134, 100), 0.8),
+    # Dire's paths: a rocky slab path in the menu, darker sand along the pit's rim on Dire's side of the arena
+    'Dire_Path_Stone': ('dire_path/stone_path007_tintable_psd_6b1a56e8.png', (112, 104, 96), 1.0),
+    'Dire_Path_Sand': ('dire_path/sand_path009_color_psd_324cc500.png', (118, 104, 86), 0.8),
+}
+# the few normal maps that are not blank in the export, copied as <layer>_normal.png
+NORMALS = {
+    'Dire_Path_Stone': 'dire_path/stone_path007_normal_psd_48fab4c3.png',
 }
 
 
@@ -36,6 +43,8 @@ def main():
         out = tint(os.path.join(src_dir, src), colour, contrast)
         out.save(os.path.join(out_dir, name + '.png'))
         print(name, [round(m) for m in ImageStat.Stat(out).mean])
+    for name, src in NORMALS.items():
+        Image.open(os.path.join(src_dir, src)).convert('RGB').save(os.path.join(out_dir, name + '_normal.png'))
 
 
 if __name__ == '__main__':
