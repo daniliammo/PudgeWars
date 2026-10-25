@@ -37,6 +37,13 @@ namespace PudgeWars.Gameplay
         public Vector2 pullOutReaction = new(0.3f, 0.55f);
         [Tooltip("A bot that gets no closer to its stop for this long (another hero is in the way) picks a new one, seconds.")]
         public float stuckTime = 0.75f;
+        [Tooltip("Difficulty multiplier (1 = the values above): divides the aiming error, the time between throws and the reactions, multiplies the rescue chance.")]
+        [Min(0.05f)] public float difficulty = 1f;
+
+        float Harder(float value) => value * difficulty;
+        float Easier(float value) => value / Mathf.Max(0.05f, difficulty);
+        float RandomEasier(Vector2 range) => Easier(Random.Range(range.x, range.y));
+        float RescueChance => Mathf.Clamp01(Harder(rescueChance));
 
         PudgeMotor motor;
         Hookable self;
@@ -65,7 +72,7 @@ namespace PudgeWars.Gameplay
         {
             destination = transform.position;
             pause = Random.Range(pauseRange.x, pauseRange.y);
-            nextThrowAt = Time.time + Random.Range(throwInterval.x, throwInterval.y);
+            nextThrowAt = Time.time + RandomEasier(throwInterval);
         }
 
         void OnDisable() => motor.SetMoveInput(Vector3.zero);
@@ -94,10 +101,10 @@ namespace PudgeWars.Gameplay
             foreach (var target in targets)
             {
                 var aim = AimOffset(target, Random.value < leadChance);
-                aim = Quaternion.Euler(0f, Random.Range(-aimError, aimError), 0f) * aim;
+                aim = Quaternion.Euler(0f, Easier(Random.Range(-aimError, aimError)), 0f) * aim;
                 if (!PathClear(aim, target)) continue;
 
-                nextThrowAt = Time.time + Random.Range(throwInterval.x, throwInterval.y);
+                nextThrowAt = Time.time + RandomEasier(throwInterval);
                 motor.SetMoveInput(Vector3.zero);
                 return hook.TryCast(transform.position + aim);
             }
@@ -121,8 +128,8 @@ namespace PudgeWars.Gameplay
             if (ally.HookedBy != rescueFrom)
             {
                 rescueFrom = ally.HookedBy;
-                rescueWanted = Random.value < rescueChance;
-                rescueAt = Time.time + Random.Range(rescueReaction.x, rescueReaction.y);
+                rescueWanted = Random.value < RescueChance;
+                rescueAt = Time.time + RandomEasier(rescueReaction);
             }
             if (!rescueWanted) return false;
             waiting = true;
@@ -164,8 +171,8 @@ namespace PudgeWars.Gameplay
             if (enemyHook != pullOutFrom)
             {
                 pullOutFrom = enemyHook;
-                pullOutWanted = Random.value < rescueChance;
-                pullOutAt = Time.time + Random.Range(pullOutReaction.x, pullOutReaction.y);
+                pullOutWanted = Random.value < RescueChance;
+                pullOutAt = Time.time + RandomEasier(pullOutReaction);
             }
             if (!pullOutWanted) return false;
             waiting = true;
