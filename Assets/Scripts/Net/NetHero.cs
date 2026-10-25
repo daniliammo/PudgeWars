@@ -8,7 +8,7 @@ namespace PudgeWars.Net
 {
     /// <summary>
     /// Network side of a hero. The server simulates the hero with the usual gameplay components and publishes what
-    /// clients need to show it: team and nickname, alive / falling / caught, gold and items, the hook's head and
+    /// clients need to show it: team and nickname, alive / falling / caught, kill streak, gold and items, the hook's head and
     /// cooldown, animations and gold popups (the position goes with NetworkTransform). The owning client sends its
     /// input instead of moving the hero itself: movement direction, hook casts and purchases.
     /// </summary>
@@ -24,6 +24,7 @@ namespace PudgeWars.Net
         [SyncVar(hook = nameof(OnTeamChanged))] Team team;
         [SyncVar(hook = nameof(OnNicknameChanged))] string nickname;
         [SyncVar] byte heroFlags = AliveFlag;
+        [SyncVar] int killStreak;
         [SyncVar(hook = nameof(OnGoldChanged))] int gold;
         [SyncVar(hook = nameof(OnItemsChanged))] string items = "";
         [SyncVar] string animState;
@@ -120,6 +121,7 @@ namespace PudgeWars.Net
         void Publish()
         {
             heroFlags = (byte)((hookable.IsAlive ? AliveFlag : 0) | (hookable.IsFalling ? FallingFlag : 0) | (hookable.IsHooked ? HookedFlag : 0));
+            killStreak = Arena.Instance != null ? Arena.Instance.Streaks.Streak(hookable) : 0;
             if (hook == null) return;
             hookFlags = (byte)((hook.IsBusy ? BusyFlag : 0) | (hook.HeadVisible ? VisibleFlag : 0) | (hook.IsFlying ? FlyingFlag : 0));
             if (hook.HeadVisible)
@@ -213,6 +215,7 @@ namespace PudgeWars.Net
         void Show()
         {
             hookable.ApplyRemoteState((heroFlags & AliveFlag) != 0, (heroFlags & FallingFlag) != 0, (heroFlags & HookedFlag) != 0);
+            if (Arena.Instance != null) Arena.Instance.ApplyRemoteStreak(hookable, killStreak);
             if (hook != null)
                 hook.ApplyRemoteState((hookFlags & BusyFlag) != 0, (float)(hookReadyAt - NetworkTime.time),
                     (hookFlags & VisibleFlag) != 0, (hookFlags & FlyingFlag) != 0, hookHead, hookDirection);

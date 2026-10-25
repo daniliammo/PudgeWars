@@ -81,6 +81,7 @@ namespace PudgeWars.Gameplay
 
         readonly int[] kills = new int[2], deaths = new int[2], rescues = new int[2];
         readonly Dictionary<Hookable, int> remoteRampages = new();
+        readonly Dictionary<Hookable, int> remoteStreaks = new();
         float nextPassiveGold;
 
         void Awake()
@@ -174,6 +175,7 @@ namespace PudgeWars.Gameplay
             Array.Clear(deaths, 0, deaths.Length);
             Array.Clear(rescues, 0, rescues.Length);
             remoteRampages.Clear();
+            remoteStreaks.Clear();
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
             ScoreChanged?.Invoke(Score, Deaths);
         }
@@ -181,6 +183,13 @@ namespace PudgeWars.Gameplay
         /// <summary>Rampages in a row of the hero's current multi-kill (as the server counted them on a client).</summary>
         public int RampageCount(Hookable hero) =>
             remoteRampages.TryGetValue(hero, out var n) ? n : Streaks.RampageCount(hero);
+
+        /// <summary>Kills in a row without dying (as the server counted them on a client).</summary>
+        public int StreakOf(Hookable hero) =>
+            remoteStreaks.TryGetValue(hero, out var n) ? n : Streaks.Streak(hero);
+
+        /// <summary>Network client: the hero's kill streak the server keeps.</summary>
+        public void ApplyRemoteStreak(Hookable hero, int streak) => remoteStreaks[hero] = streak;
 
         /// <summary>Network client: the score the server keeps.</summary>
         public void ApplyRemoteScore(int playerKills, int botsKills, int playerDeaths, int botsDeaths, int playerRescues = 0, int botsRescues = 0)

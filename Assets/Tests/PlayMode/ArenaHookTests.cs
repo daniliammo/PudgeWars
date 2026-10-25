@@ -1035,6 +1035,9 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(hero.Level.ToString(), level.text, "the level circle shows the hero's level");
                 Assert.AreEqual(bars.levelTextColor, level.color, "the level digit is light gold");
                 Assert.Less(level.transform.parent.localPosition.y, name.transform.localPosition.y, "the level sits below the name");
+                var streak = bars.StreakLabel(hero);
+                Assert.IsFalse(streak.gameObject.activeSelf, "no kills yet — no streak mark");
+                Assert.Less(streak.transform.localPosition.x, level.transform.parent.localPosition.x, "the streak sits left of the level");
                 Assert.AreEqual(1f, fill.anchorMax.x, 1e-4f, "a live hero is at full health");
                 Assert.AreEqual(hero.team == Team.Player ? bars.playerColor : bars.enemyColor, fill.GetComponent<Image>().color);
                 Assert.AreEqual(Mathf.CeilToInt(hero.maxHealth / bars.segmentHealth) - 1, root.GetComponentsInChildren<Transform>().Count(t => t.name == "Notch"));
@@ -1059,6 +1062,16 @@ namespace PudgeWars.Tests
             Assert.IsTrue(bars.Of(bot).root.gameObject.activeSelf);
             Assert.AreEqual(1f, bars.Of(bot).fill.anchorMax.x, 1e-4f);
             Assert.AreEqual($"{Mathf.CeilToInt(bot.maxHealth)}/{Mathf.CeilToInt(bot.maxHealth)}", bars.HealthLabel(bot).text);
+
+            // kills in a row show as "×N" next to the level; a death clears it
+            arena.Streaks.RegisterKill(bot, Time.time);
+            arena.Streaks.RegisterKill(bot, Time.time);
+            yield return null;
+            Assert.IsTrue(bars.StreakLabel(bot).gameObject.activeSelf, "the streak mark is not shown");
+            Assert.AreEqual("×2", bars.StreakLabel(bot).text);
+            arena.Streaks.RegisterDeath(bot);
+            yield return null;
+            Assert.IsFalse(bars.StreakLabel(bot).gameObject.activeSelf, "the streak mark outlived the death");
         }
 
         [UnityTest]
