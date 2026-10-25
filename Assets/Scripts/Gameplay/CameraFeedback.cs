@@ -8,8 +8,9 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// What the local player feels through the camera (<see cref="TopDownCamera"/>, which adds this if the scene has
     /// none): a shake when the own hero is caught by a hook, when the own hook catches someone and on death; on death
-    /// red floods in from the screen's sides and the picture loses most of its colour, until the hero is back, which
-    /// sounds the revive clip (Resources/Audio/revive) — only here, for the own hero: every player hears their own.
+    /// red floods in from the screen's sides and the picture loses most of its colour, until the hero is back; the
+    /// revive clip (Resources/Audio/revive) starts a second before that (counted from the death with the arena's
+    /// respawn delay) — only here, for the own hero: every player hears their own.
     /// The red is a screen overlay; the colour goes with URP's Color Adjustments, and the camera's post-processing is
     /// on only while that runs (it costs a full-screen pass on phones). Works on a network client too: the state is
     /// read from the hero, and the own hook's catches come from the server (<see cref="HookAbility.ApplyRemoteCatch"/>).
@@ -33,6 +34,7 @@ namespace PudgeWars.Gameplay
         [Tooltip("Seconds everything takes to come back after the respawn.")] public float recover = 0.5f;
         [Tooltip("Played when the own hero comes back; Resources/Audio/revive if empty.")] public AudioClip reviveSound;
         [Range(0f, 1f)] public float reviveVolume = 0.8f;
+        [Tooltip("The revive sound starts this many seconds before the hero is back.")] public float reviveLead = 1f;
 
         TopDownCamera follow;
         Camera cam;
@@ -41,6 +43,7 @@ namespace PudgeWars.Gameplay
         bool wasHooked, wasAlive = true;
         float deadFor = -1f;  // seconds since death, -1 while alive
         float fade;           // 1 = the death look in full, eased back to 0 after the respawn
+        bool revivePlayed;    // the revive sound of this death has started
         Image blood;
         RectTransform bloodRect;
         Volume grey;
@@ -89,6 +92,7 @@ namespace PudgeWars.Gameplay
             wasHooked = hero != null && hero.IsHooked;
             wasAlive = hero == null || hero.IsAlive;
             deadFor = wasAlive ? -1f : 0f;
+            revivePlayed = false;
         }
 
         void OnOwnHookCaught(Hookable target)
@@ -111,6 +115,8 @@ namespace PudgeWars.Gameplay
 
             bool dead = deadFor >= 0f;
             if (dead) deadFor += Time.deltaTime;
+            float respawnDelay = Arena.Instance != null ? Arena.Instance.respawnDelay : 0f;
+            if (dead && !revivePlayed && deadFor >= respawnDelay - reviveLead) PlayRevive();
             fade = dead ? 1f : Mathf.MoveTowards(fade, 0f, Time.deltaTime / Mathf.Max(recover, 0.01f));
             if (!dead && fade <= 0f)
             {
@@ -126,12 +132,19 @@ namespace PudgeWars.Gameplay
         void Died()
         {
             deadFor = 0f;
+            revivePlayed = false;
             if (follow != null) follow.Shake(deathShake);
         }
 
         void Revived()
         {
             deadFor = -1f;
+            if (!revivePlayed) PlayRevive(); // back sooner than the respawn delay said
+        }
+
+        void PlayRevive()
+        {
+            revivePlayed = true;
             if (reviveSound == null) return;
             if (audioSource == null)
             {

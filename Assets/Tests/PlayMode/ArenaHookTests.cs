@@ -1256,6 +1256,7 @@ namespace PudgeWars.Tests
             t = 0f;
             while (player.IsAlive && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.IsFalse(player.IsAlive);
+            float diedAt = Time.time;
             yield return null;
             Assert.Greater(follow.Trauma, 0.5f, "no shake on death");
             yield return new WaitForSeconds(feedback.greyIn + 0.2f);
@@ -1263,13 +1264,16 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1f, feedback.GreyWeight, 0.01f, "the picture did not lose its colour");
             Assert.IsTrue(feedback.PostProcessing);
             Capture("death_effects");
+            Assert.IsFalse(follow.TryGetComponent<AudioSource>(out var early) && early.isPlaying, "the revive sound started too early");
 
+            // the revive sound starts a second before the respawn
+            yield return new WaitUntil(() => Time.time - diedAt >= arena.respawnDelay - feedback.reviveLead + 0.15f);
+            Assert.IsFalse(player.IsAlive, "the player is back already");
+            Assert.IsNotNull(feedback.reviveSound, "no revive sound (Resources/Audio/revive)");
+            Assert.IsTrue(follow.TryGetComponent<AudioSource>(out var revive) && revive.isPlaying, "the revive sound did not start before the respawn");
             t = 0f;
             while (!player.IsAlive && t < arena.respawnDelay + 2f) { t += Time.deltaTime; yield return null; }
             Assert.IsTrue(player.IsAlive, "the player did not respawn");
-            yield return null;
-            Assert.IsNotNull(feedback.reviveSound, "no revive sound (Resources/Audio/revive)");
-            Assert.IsTrue(follow.TryGetComponent<AudioSource>(out var revive) && revive.isPlaying, "the revive sound did not play");
             yield return new WaitForSeconds(feedback.recover + 0.2f);
             Assert.AreEqual(0f, feedback.BloodAlpha, "the red stayed after the respawn");
             Assert.AreEqual(0f, feedback.GreyWeight, "the colour did not come back");
