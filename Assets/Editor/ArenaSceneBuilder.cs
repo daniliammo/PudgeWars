@@ -65,7 +65,7 @@ namespace PudgeWars.EditorTools
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);
-            AddToBuildSettings(ScenePath);
+            AddToBuildSettings(ScenePath, first: false);
             Debug.Log("[ArenaSceneBuilder] saved " + ScenePath);
         }
 
@@ -381,10 +381,12 @@ namespace PudgeWars.EditorTools
             return mat;
         }
 
-        static void AddToBuildSettings(string path)
+        /// <summary>The main menu opens the game (first); the arena comes right after it, or first without it.</summary>
+        internal static void AddToBuildSettings(string path, bool first)
         {
             var scenes = EditorBuildSettings.scenes.Where(s => s.path != path).ToList();
-            scenes.Insert(0, new EditorBuildSettingsScene(path, true));
+            int index = first ? 0 : scenes.FindIndex(s => s.path == MenuSceneBuilder.ScenePath) + 1;
+            scenes.Insert(index, new EditorBuildSettingsScene(path, true));
             EditorBuildSettings.scenes = scenes.ToArray();
         }
     }

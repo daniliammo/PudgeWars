@@ -22,11 +22,11 @@ namespace PudgeWars.EditorTools
     public static class LandscapeBuilder
     {
         const string TreeDir = "Assets/Art/Landscape/Trees";
-        const string TerrainDir = "Assets/Art/Landscape/Terrain";
+        internal const string TerrainDir = "Assets/Art/Landscape/Terrain";
         const string RootName = "Landscape";
-        static readonly string[] RadiantTrees = { "tree_oak_01", "tree_pine_01", "tree_oak_02", "tree_pine_02", "tree_oak_01b", "tree_pine_03b" };
-        static readonly string[] DireTrees = { "dire_tree004", "dire_tree007", "dire_tree004b", "dire_tree008" };
-        const string MangoTree = "mango_tree";
+        internal static readonly string[] RadiantTrees = { "tree_oak_01", "tree_pine_01", "tree_oak_02", "tree_pine_02", "tree_oak_01b", "tree_pine_03b" };
+        internal static readonly string[] DireTrees = { "dire_tree004", "dire_tree007", "dire_tree004b", "dire_tree008" };
+        internal const string MangoTree = "mango_tree";
         static readonly string[] TwoSidedMaterials = { "dire_tree007_moss" }; // doubleSided in the glTF
         const float LeafCutoff = 0.5f;
 
@@ -178,7 +178,7 @@ namespace PudgeWars.EditorTools
             return y;
         }
 
-        static TerrainLayer Layer(string name, float tile)
+        internal static TerrainLayer Layer(string name, float tile)
         {
             var texturePath = $"{TerrainDir}/{name}.png";
             var ti = (TextureImporter)AssetImporter.GetAtPath(texturePath);
@@ -208,7 +208,7 @@ namespace PudgeWars.EditorTools
             return layer;
         }
 
-        static Material TerrainMaterial()
+        internal static Material TerrainMaterial()
         {
             const string path = TerrainDir + "/Terrain.mat";
             var shader = Shader.Find("Universal Render Pipeline/Terrain/Lit");
@@ -250,7 +250,8 @@ namespace PudgeWars.EditorTools
             }
         }
 
-        static void Tree(string model, Vector2 at, float scale, Terrain terrain, Transform parent, System.Random rng)
+        /// <summary>A tree on the terrain; heroes walk around it unless it is only decor (the main menu).</summary>
+        internal static void Tree(string model, Vector2 at, float scale, Terrain terrain, Transform parent, System.Random rng, bool obstacle = true)
         {
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{TreeDir}/{model}.fbx");
             var go = (GameObject)PrefabUtility.InstantiatePrefab(asset, parent);
@@ -259,15 +260,15 @@ namespace PudgeWars.EditorTools
             // on top of the model's own root rotation and scale (the FBX's axis conversion may sit there)
             go.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, Range(rng, 0f, 360f), 0f) * asset.transform.localRotation);
             go.transform.localScale = asset.transform.localScale * scale;
-            go.AddComponent<Obstacle>().radius = TreeRadius;
+            if (obstacle) go.AddComponent<Obstacle>().radius = TreeRadius;
             foreach (var t in go.GetComponentsInChildren<Transform>())
                 GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.OccludeeStatic);
         }
 
-        static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);
+        internal static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);
 
         /// <summary>Import settings of the tree models and textures, and their URP materials (masked leaves).</summary>
-        static void SetupTreeAssets()
+        internal static void SetupTreeAssets()
         {
             var materials = new Dictionary<string, Material>();
             foreach (var colorPath in Directory.GetFiles($"{TreeDir}/Textures", "*_color.png"))
