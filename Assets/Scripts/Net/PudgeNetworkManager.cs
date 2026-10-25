@@ -10,20 +10,38 @@ using UnityEngine.SceneManagement;
 
 namespace PudgeWars.Net
 {
-    /// <summary>A client asks the server for its hero.</summary>
+    /// <summary>A client asks the server for a place in the game (a hero in the arena, a line in the lobby).</summary>
     public struct JoinMessage : NetworkMessage
     {
         public string nickname;
     }
 
+    /// <summary>A player of the game: their nickname and team.</summary>
+    public struct LobbyPlayer
+    {
+        public string nickname;
+        public Team team;
+    }
+
+    /// <summary>The server's lobby, sent to every client whenever it changes: who is in and the game's settings.</summary>
+    public struct LobbyMessage : NetworkMessage
+    {
+        public LobbyPlayer[] players;
+        public int teamSize;
+        public bool fillWithBots;
+        public float botDifficulty;
+    }
+
     /// <summary>
-    /// Mirror network manager of the arena, created at start-up (no scene setup needed): KCP over UDP, LAN discovery,
-    /// the <see cref="NetMenu"/>. Offline the arena plays as before; starting a host, a server or joining one swaps
-    /// the arena's own heroes for network ones: each player gets a hero on the team with fewer players, bots fill the
+    /// Mirror network manager, created at start-up (no scene setup needed): KCP over UDP, LAN discovery, the
+    /// <see cref="NetMenu"/>. A game started in the main menu opens a lobby there: players join it and see who is in
+    /// and the settings (<see cref="Lobby"/>), the host may still change them, and <see cref="StartMatch"/> takes
+    /// everyone to the arena. A game started in the arena itself (or joined later) goes on there at once: the arena's
+    /// own heroes give way to network ones. Each player gets a hero on the team with fewer players, bots fill the
     /// teams up to <see cref="teamSize"/>. The server simulates everything, clients send input and show the result
     /// (<see cref="Simulation.IsProxy"/>). Leaving the network game reloads the arena offline, or returns to the main
-    /// menu if the game was started from it (<see cref="LaunchInArena"/>).
-    /// A build started with -batchmode or -server runs a dedicated server (port: -port N, default 7777).
+    /// menu if the game was started from it.
+    /// A build started with -batchmode or -server runs a dedicated server in the arena (port: -port N, default 7777).
     /// </summary>
     public class PudgeNetworkManager : NetworkManager
     {
@@ -47,6 +65,11 @@ namespace PudgeWars.Net
         public KcpTransport Kcp => transport as KcpTransport;
         /// <summary>A game in the local network answered the search (<see cref="SearchLan"/>).</summary>
         public event Action<ServerResponse> ServerFound;
+        /// <summary>The lobby as the server last sent it (on a client, the host included); players are null before that.</summary>
+        public LobbyMessage Lobby { get; private set; }
+        public event Action LobbyChanged;
+        /// <summary>The server waits in the main menu's lobby: the match has not started.</summary>
+        public static bool InLobby => NetworkServer.active && !NetworkServer.isLoadingScene && Arena.Instance == null;
 
         /// <summary>
         /// LAN discovery, made when first needed: on its own it starts advertising in headless mode, which is how the
@@ -66,10 +89,18 @@ namespace PudgeWars.Net
             }
         }
 
+        /// <summary>A player as the server knows them, from their join message on; in the order they joined.</summary>
+        class Player
+        {
+            public NetworkConnectionToClient conn;
+            public string nickname;
+            public Team team;
+        }
+
         readonly List<NetHero> bots = new();
+        readonly List<Player> players = new();
         NetworkDiscovery discovery;
         bool reloadArena, returnToMenu;
-        Action pendingStart;
         int nextBotName;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -134,8 +165,13 @@ namespace PudgeWars.Net
             var args = Environment.GetCommandLineArgs();
             int portArg = Array.IndexOf(args, "-port");
             if (portArg >= 0 && portArg + 1 < args.Length && ushort.TryParse(args[portArg + 1], out var port)) Kcp.port = port;
-            // a player build in batch mode (or with -server) is a dedicated server; the editor never starts one by itself
-            if (args.Contains("-server") || (Application.isBatchMode && !Application.isEditor)) StartServer();
+            // a player build in batch mode (or with -server) is a dedicated server; the editor never starts one by itself.
+            // Nobody would start its match from the lobby: it goes to the arena at once
+            if (args.Contains("-server") || (Application.isBatchMode && !Application.isEditor))
+            {
+                StartServer();
+                if (InLobby) StartMatch();
+            }
         }
 
         // a dedicated server ticks at the send rate; the editor (tests run headless) keeps its frame rate
@@ -147,29 +183,20 @@ namespace PudgeWars.Net
         public override void Update()
         {
             base.Update();
-            if (pendingStart != null && Arena.Instance != null)
-            {
-                var start = pendingStart;
-                pendingStart = null;
-                start();
-            }
             if (!reloadArena || NetworkServer.active || NetworkClient.active) return;
             reloadArena = false;
             bool toMenu = returnToMenu && Application.CanStreamedLevelBeLoaded(MenuScene);
             returnToMenu = false;
+            // the lobby closed in the main menu: it simply shows the new game again
+            if (SceneManager.GetActiveScene().name == MenuScene) return;
             if (toMenu) SceneManager.LoadScene(MenuScene);
             else SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
-        /// <summary>
-        /// From the main menu: loads the arena and, once it is up, runs <paramref name="start"/> (host or join).
-        /// Leaving that game (or failing to connect) returns to the menu.
-        /// </summary>
-        public void LaunchInArena(Action start)
+        /// <summary>A game started (or joined) in the main menu returns there when it ends.</summary>
+        void RememberWhereStarted()
         {
-            returnToMenu = true;
-            pendingStart = start;
-            SceneManager.LoadScene(ArenaScene);
+            if (SceneManager.GetActiveScene().name == MenuScene) returnToMenu = true;
         }
 
         /// <summary>Joins a game by "host", "host:port" or a kcp:// address found in the local network.</summary>
@@ -197,12 +224,38 @@ namespace PudgeWars.Net
         public override void OnStartServer()
         {
             NetworkServer.RegisterHandler<JoinMessage>(OnJoin);
+            RememberWhereStarted();
+            players.Clear();
+            if (Arena.Instance != null)
+            {
+                // players joining later load the arena first (Mirror sends them the scene when they connect)
+                networkSceneName = SceneManager.GetActiveScene().name;
+                StartArenaGame();
+            }
+            try { Discovery.AdvertiseServer(); }
+            catch (Exception e) { Debug.LogWarning($"LAN discovery is off: {e.Message}"); }
+        }
+
+        /// <summary>From the lobby: every player goes to the arena, their heroes appear as they get there.</summary>
+        public void StartMatch()
+        {
+            if (!InLobby) return;
+            ServerChangeScene(ArenaScene);
+        }
+
+        public override void OnServerSceneChanged(string sceneName)
+        {
+            if (Arena.Instance != null) StartArenaGame();
+        }
+
+        /// <summary>The arena's own heroes leave, the match object and the bots come; the players' heroes come when ready.</summary>
+        void StartArenaGame()
+        {
             LeaveOfflineGame();
             var match = Build("Match", go => go.AddComponent<NetMatch>());
             NetworkServer.Spawn(match, MatchAssetId);
             FillWithBots();
-            try { Discovery.AdvertiseServer(); }
-            catch (Exception e) { Debug.LogWarning($"LAN discovery is off: {e.Message}"); }
+            foreach (var player in players) SpawnHero(player);
         }
 
         /// <summary>Asks the local network for games; answers come as <see cref="ServerFound"/>.</summary>
@@ -217,29 +270,58 @@ namespace PudgeWars.Net
         {
             StopSearch();
             bots.Clear();
+            players.Clear();
             reloadArena = true;
         }
 
         void OnJoin(NetworkConnectionToClient conn, JoinMessage msg)
         {
-            if (conn.identity != null) return;
-            var team = TeamForNewPlayer(conn);
             string nick = string.IsNullOrWhiteSpace(msg.nickname) ? $"Игрок {conn.connectionId}" : msg.nickname.Trim();
             if (nick.Length > 20) nick = nick.Substring(0, 20);
-            var hero = SpawnPoint(team, out var rotation, out var position) ? BuildHero(false, position, rotation) : null;
-            if (hero == null) return;
-            hero.GetComponent<NetHero>().Setup(team, nick);
-            NetworkServer.AddPlayerForConnection(conn, hero, PlayerAssetId);
+            var player = players.Find(p => p.conn == conn);
+            if (player == null)
+            {
+                player = new Player { conn = conn, team = TeamForNewPlayer(conn) };
+                players.Add(player);
+            }
+            player.nickname = nick;
+            if (InLobby) UpdateLobby();
+            else
+            {
+                SpawnHero(player);
+                FillWithBots();
+            }
+        }
+
+        public override void OnServerReady(NetworkConnectionToClient conn)
+        {
+            base.OnServerReady(conn);
+            var player = players.Find(p => p.conn == conn);
+            if (player == null) return;
+            SpawnHero(player);
             FillWithBots();
+        }
+
+        /// <summary>The player's hero, once they are in the arena (ready) and still have none.</summary>
+        void SpawnHero(Player player)
+        {
+            var conn = player.conn;
+            if (Arena.Instance == null || NetworkServer.isLoadingScene || !conn.isReady || conn.identity != null) return;
+            var hero = SpawnPoint(player.team, out var rotation, out var position) ? BuildHero(false, position, rotation) : null;
+            if (hero == null) return;
+            hero.GetComponent<NetHero>().Setup(player.team, player.nickname);
+            NetworkServer.AddPlayerForConnection(conn, hero, PlayerAssetId);
         }
 
         public override void OnServerDisconnect(NetworkConnectionToClient conn)
         {
+            players.RemoveAll(p => p.conn == conn);
             base.OnServerDisconnect(conn); // destroys the player's hero
-            FillWithBots();
+            if (InLobby) UpdateLobby();
+            else FillWithBots();
         }
 
-        static int Players(Team team) => NetHero.OnServer.Count(h => !h.isBot && h.Team == team);
+        int Players(Team team) => players.Count(p => p.team == team);
 
         /// <summary>
         /// The host plays for <see cref="hostTeam"/> (Dire by default), the others join the team with fewer players,
@@ -252,10 +334,33 @@ namespace PudgeWars.Net
             return Players(hostTeam) < Players(other) ? hostTeam : other;
         }
 
+        /// <summary>
+        /// In the lobby: the teams are dealt again in the order the players joined (the host's team or the settings
+        /// may have changed), and every client gets the lobby. The host calls it after changing the settings.
+        /// </summary>
+        public void UpdateLobby()
+        {
+            if (!InLobby) return;
+            var joined = players.ToList();
+            players.Clear();
+            foreach (var player in joined)
+            {
+                player.team = TeamForNewPlayer(player.conn);
+                players.Add(player);
+            }
+            NetworkServer.SendToAll(new LobbyMessage
+            {
+                players = players.Select(p => new LobbyPlayer { nickname = p.nickname, team = p.team }).ToArray(),
+                teamSize = teamSize,
+                fillWithBots = fillWithBots,
+                botDifficulty = botDifficulty,
+            });
+        }
+
         /// <summary>Keeps every team at <see cref="teamSize"/> heroes with bots (or removes the bots when off).</summary>
         public void FillWithBots()
         {
-            if (!NetworkServer.active) return;
+            if (!NetworkServer.active || Arena.Instance == null) return;
             bots.RemoveAll(b => b == null);
             foreach (var team in new[] { Team.Player, Team.Bots })
             {
@@ -299,9 +404,31 @@ namespace PudgeWars.Net
             NetworkClient.RegisterSpawnHandler(PlayerAssetId, msg => BuildHero(false, msg.position, msg.rotation), Unspawn);
             NetworkClient.RegisterSpawnHandler(BotAssetId, msg => BuildHero(true, msg.position, msg.rotation), Unspawn);
             NetworkClient.RegisterSpawnHandler(MatchAssetId, msg => Build("Match", go => go.AddComponent<NetMatch>()), Unspawn);
+            NetworkClient.RegisterHandler<LobbyMessage>(OnLobby);
             if (NetworkServer.active) return; // host: the server part has set everything up
+            RememberWhereStarted();
             Simulation.IsProxy = true;
             LeaveOfflineGame();
+        }
+
+        void OnLobby(LobbyMessage msg)
+        {
+            Lobby = msg;
+            LobbyChanged?.Invoke();
+            // joined a lobby from the arena (F2): the lobby is shown in the main menu
+            if (!NetworkServer.active && !NetworkClient.isLoadingScene && SceneManager.GetActiveScene().name != MenuScene
+                && Application.CanStreamedLevelBeLoaded(MenuScene))
+            {
+                returnToMenu = true;
+                SceneManager.LoadScene(MenuScene);
+            }
+        }
+
+        /// <summary>The server took this client to the arena (the match started, or it was on already).</summary>
+        public override void OnClientSceneChanged()
+        {
+            base.OnClientSceneChanged(); // ready
+            if (!NetworkServer.active) LeaveOfflineGame();
         }
 
         public override void OnClientConnect()
@@ -313,6 +440,8 @@ namespace PudgeWars.Net
         public override void OnStopClient()
         {
             Simulation.IsProxy = false;
+            Lobby = default;
+            LobbyChanged?.Invoke();
             reloadArena = true;
         }
 

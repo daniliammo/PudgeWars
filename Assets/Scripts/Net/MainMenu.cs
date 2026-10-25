@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Mirror;
 using Mirror.Discovery;
 using PudgeWars.Gameplay;
 using UnityEngine;
@@ -10,10 +11,13 @@ namespace PudgeWars.Net
 {
     /// <summary>
     /// Main menu over the Menu scene's landscape with Pudge in the middle: on the left the new game (nickname, team,
-    /// heroes per team, bots on free places, bot difficulty as one multiplier for every bot) and "Создать игру", on
+    /// heroes per team, bots on free places, bot difficulty as one multiplier for every bot) and "Создать лобби", on
     /// the right the graphics preset (applied at once, <see cref="GraphicsQuality"/>) and joining a game by address or
-    /// in the local network. The game itself runs in the arena (<see cref="PudgeNetworkManager.LaunchInArena"/>);
-    /// leaving it returns here. The settings are remembered with the same keys as the arena's <see cref="NetMenu"/>.
+    /// in the local network. A created or joined game waits in the lobby, which takes the new game's place: how many
+    /// players are in and who plays for which team (with the bots on the free places), the settings — the host may
+    /// still change them — and the host's "Начать игру", which takes everyone to the arena
+    /// (<see cref="PudgeNetworkManager.StartMatch"/>); a game already on takes a joining player there at once.
+    /// Leaving the game returns here. The settings are remembered with the same keys as the arena's <see cref="NetMenu"/>.
     /// The uGUI is built here at start-up under this canvas (its <see cref="HudFonts"/> picks the fonts).
     /// </summary>
     public class MainMenu : MonoBehaviour
@@ -32,6 +36,9 @@ namespace PudgeWars.Net
         public Color titleColor = new(1f, 0.82f, 0.25f);
 
         static readonly string[] TeamNames = { "Radiant", "Dire" }; // Team.Player, Team.Bots
+        static readonly string[] TeamColors = { "#7FD36B", "#E8584A" };
+
+        enum State { Idle, Connecting, Lobby }
 
         string nickname, address;
         Team team;
@@ -40,10 +47,14 @@ namespace PudgeWars.Net
         float difficulty;
 
         Text graphicsDescription, status;
-        RectTransform foundList;
+        RectTransform newGame, lobby, join, foundList;
         readonly Dictionary<string, ServerResponse> found = new();
-        bool foundChanged, searching;
+        bool foundChanged, searching, lobbyChanged;
         PudgeNetworkManager manager;
+        State shown;
+        string joining;  // the address being joined
+        bool connected;  // to it, at some point
+        bool leaving;    // by this player's own choice
 
         void Start()
         {
@@ -55,16 +66,28 @@ namespace PudgeWars.Net
             difficulty = Mathf.Clamp(PlayerPrefs.GetFloat(DifficultyKey, 1f), MinDifficulty, MaxDifficulty);
 
             manager = PudgeNetworkManager.Instance;
-            if (manager != null) manager.ServerFound += OnServerFound;
+            if (manager != null)
+            {
+                manager.ServerFound += OnServerFound;
+                manager.LobbyChanged += OnLobbyChanged;
+            }
             Build();
+            shown = Current();
+            ShowState();
         }
 
         void OnDestroy()
         {
             if (manager == null) return;
             manager.ServerFound -= OnServerFound;
+            manager.LobbyChanged -= OnLobbyChanged;
             if (searching) manager.StopSearch();
         }
+
+        void OnLobbyChanged() => lobbyChanged = true;
+
+        static State Current() =>
+            NetworkServer.active || NetworkClient.isConnected ? State.Lobby : NetworkClient.active ? State.Connecting : State.Idle;
 
         void OnServerFound(ServerResponse response)
         {
@@ -74,6 +97,19 @@ namespace PudgeWars.Net
 
         void Update()
         {
+            if (NetworkClient.isConnected) connected = true;
+            var state = Current();
+            if (state != shown)
+            {
+                // back from a game that ended here: say why, unless the player left it
+                if (state == State.Idle && joining != null && !leaving)
+                    status.text = connected ? "Хост закрыл лобби" : $"Не удалось подключиться к {joining}";
+                shown = state;
+                ShowState();
+            }
+            else if (lobbyChanged && shown != State.Idle) RebuildLobby();
+            lobbyChanged = false;
+
             if (!foundChanged) return;
             foundChanged = false;
             foreach (Transform old in foundList) Destroy(old.gameObject);
@@ -84,17 +120,34 @@ namespace PudgeWars.Net
 
         // actions /////////////////////////////////////////////////////////////
 
+        /// <summary>A host in this menu: its lobby opens here.</summary>
         void CreateGame()
         {
             if (manager == null) return;
             Remember();
             StopSearch();
             manager.nickname = nickname;
+            ApplySettings();
+            joining = null;
+            leaving = false;
+            status.text = "";
+            manager.StartHost();
+        }
+
+        void ApplySettings()
+        {
             manager.hostTeam = team;
             manager.teamSize = teamSize;
             manager.fillWithBots = bots;
             manager.botDifficulty = difficulty;
-            manager.LaunchInArena(manager.StartHost);
+        }
+
+        /// <summary>The host changed the settings in the lobby: the players see them at once.</summary>
+        void LobbySettingsChanged()
+        {
+            Remember();
+            ApplySettings();
+            manager.UpdateLobby();
         }
 
         void Join(string target)
@@ -103,7 +156,24 @@ namespace PudgeWars.Net
             Remember();
             StopSearch();
             manager.nickname = nickname;
-            manager.LaunchInArena(() => manager.Join(target));
+            joining = target.Trim();
+            connected = leaving = false;
+            status.text = "";
+            manager.Join(target);
+        }
+
+        void StartMatch()
+        {
+            if (manager != null) manager.StartMatch();
+        }
+
+        void Leave()
+        {
+            if (manager == null) return;
+            leaving = true;
+            if (NetworkServer.active && NetworkClient.active) manager.StopHost();
+            else if (NetworkServer.active) manager.StopServer();
+            else manager.StopClient();
         }
 
         void Search()
@@ -158,17 +228,14 @@ namespace PudgeWars.Net
             titleRt.anchoredPosition = new Vector2(0f, -36f);
             titleRt.sizeDelta = new Vector2(0f, 120f);
 
-            // left: the new game
-            var game = Panel(root, "NewGame", new Vector2(0f, 0.5f), new Vector2(40f, -30f));
-            Label(game, "Новая игра", 44, TextAnchor.MiddleLeft, 60f).color = titleColor;
-            Row(game, "Ник", row => Field(row, nickname, 20, v => nickname = v));
-            Row(game, "Команда", row => Stepper(row, () => TeamNames[(int)team], _ => team = team == Team.Player ? Team.Bots : Team.Player));
-            Row(game, "Героев в команде", row => Stepper(row, () => teamSize.ToString(), d => teamSize = Mathf.Clamp(teamSize + d, 1, MaxTeamSize)));
-            Row(game, "Боты на свободных местах", row => Stepper(row, () => bots ? "Да" : "Нет", _ => bots = !bots));
-            Row(game, "Сложность ботов", row => Stepper(row, () => $"×{difficulty:0.##}",
-                d => difficulty = Mathf.Clamp(Mathf.Round((difficulty + d * DifficultyStep) / DifficultyStep) * DifficultyStep, MinDifficulty, MaxDifficulty)));
-            Spacer(game, 8f);
-            Button(game, "Создать игру", buttonColor, 84f, CreateGame).fontSize = 40;
+            // left: the new game, and in its place the lobby once the game is created or joined
+            newGame = Panel(root, "NewGame", new Vector2(0f, 0.5f), new Vector2(40f, -30f));
+            Label(newGame, "Новая игра", 44, TextAnchor.MiddleLeft, 60f).color = titleColor;
+            Row(newGame, "Ник", row => Field(row, nickname, 20, v => nickname = v));
+            Settings(newGame, null);
+            Spacer(newGame, 8f);
+            Button(newGame, "Создать лобби", buttonColor, 84f, CreateGame).fontSize = 40;
+            lobby = Panel(root, "Lobby", new Vector2(0f, 0.5f), new Vector2(40f, -30f));
 
             // right: graphics, then joining
             var graphics = Panel(root, "Graphics", new Vector2(1f, 1f), new Vector2(-40f, -190f));
@@ -182,7 +249,7 @@ namespace PudgeWars.Net
             graphicsDescription = Label(graphics, GraphicsQuality.Describe(GraphicsQuality.Current), 24, TextAnchor.UpperLeft, 64f);
             graphicsDescription.color = new Color(0.8f, 0.82f, 0.85f);
 
-            var join = Panel(root, "Join", new Vector2(1f, 0f), new Vector2(-40f, 40f));
+            join = Panel(root, "Join", new Vector2(1f, 0f), new Vector2(-40f, 40f));
             Label(join, "Подключиться", 44, TextAnchor.MiddleLeft, 60f).color = titleColor;
             Row(join, "Адрес", row => Field(row, address, 64, v => address = v));
             var buttons = Horizontal(join, 64f);
@@ -199,6 +266,85 @@ namespace PudgeWars.Net
             quitRt.sizeDelta = new Vector2(220f, 60f);
 #endif
         }
+
+        /// <summary>The settings of the game; <paramref name="changed"/> is called after each change (the lobby's host).</summary>
+        void Settings(RectTransform panel, Action changed)
+        {
+            void Step(Action change)
+            {
+                change();
+                changed?.Invoke();
+            }
+            Row(panel, "Команда", row => Stepper(row, () => TeamNames[(int)team], _ => Step(() => team = team == Team.Player ? Team.Bots : Team.Player)));
+            Row(panel, "Героев в команде", row => Stepper(row, () => teamSize.ToString(), d => Step(() => teamSize = Mathf.Clamp(teamSize + d, 1, MaxTeamSize))));
+            Row(panel, "Боты на свободных местах", row => Stepper(row, () => bots ? "Да" : "Нет", _ => Step(() => bots = !bots)));
+            Row(panel, "Сложность ботов", row => Stepper(row, () => $"×{difficulty:0.##}", d => Step(() =>
+                difficulty = Mathf.Clamp(Mathf.Round((difficulty + d * DifficultyStep) / DifficultyStep) * DifficultyStep, MinDifficulty, MaxDifficulty))));
+        }
+
+        void ShowState()
+        {
+            newGame.gameObject.SetActive(shown == State.Idle);
+            join.gameObject.SetActive(shown == State.Idle);
+            lobby.gameObject.SetActive(shown != State.Idle);
+            if (shown != State.Idle) RebuildLobby();
+        }
+
+        /// <summary>The lobby panel anew from the lobby the server sent last.</summary>
+        void RebuildLobby()
+        {
+            foreach (Transform old in lobby)
+            {
+                old.gameObject.SetActive(false); // out of the layout now, destroyed at the end of the frame
+                Destroy(old.gameObject);
+            }
+            Label(lobby, "Лобби", 44, TextAnchor.MiddleLeft, 60f).color = titleColor;
+            bool host = NetworkServer.active;
+            var info = manager.Lobby;
+            if (info.players == null)
+            {
+                Label(lobby, host ? "Открываю лобби…" : $"Подключение к {joining}…", 28, TextAnchor.MiddleLeft, 44f);
+                Button(lobby, "Отмена", secondaryButtonColor, 64f, Leave);
+                return;
+            }
+
+            Label(lobby, $"Игроков в лобби: {info.players.Length} из {info.teamSize * 2}", 34, TextAnchor.MiddleLeft, 50f);
+            foreach (var side in new[] { Team.Player, Team.Bots })
+                Label(lobby, TeamLine(side, info), 26, TextAnchor.UpperLeft, 34f);
+            Spacer(lobby, 4f);
+            if (host) Settings(lobby, LobbySettingsChanged);
+            else
+            {
+                Row(lobby, "Героев в команде", row => Label(row, info.teamSize.ToString(), 28, TextAnchor.MiddleCenter));
+                Row(lobby, "Боты на свободных местах", row => Label(row, info.fillWithBots ? "Да" : "Нет", 28, TextAnchor.MiddleCenter));
+                Row(lobby, "Сложность ботов", row => Label(row, $"×{info.botDifficulty:0.##}", 28, TextAnchor.MiddleCenter));
+            }
+            Spacer(lobby, 8f);
+            if (host)
+            {
+                var hint = Label(lobby, $"Друзья подключаются по адресу {NetMenu.LocalAddresses()} (порт {manager.Kcp.port}/UDP)", 22, TextAnchor.UpperLeft, 30f);
+                hint.color = new Color(0.8f, 0.82f, 0.85f);
+                Button(lobby, "Начать игру", buttonColor, 84f, StartMatch).fontSize = 40;
+                Button(lobby, "Распустить лобби", secondaryButtonColor, 60f, Leave);
+            }
+            else
+            {
+                Label(lobby, "Ждём, когда хост начнёт игру…", 26, TextAnchor.MiddleLeft, 40f).color = new Color(0.8f, 0.82f, 0.85f);
+                Button(lobby, "Покинуть лобби", secondaryButtonColor, 60f, Leave);
+            }
+        }
+
+        /// <summary>"Radiant: Хост, Вася + 2 бота" in the team's colour.</summary>
+        static string TeamLine(Team side, LobbyMessage info)
+        {
+            var names = info.players.Where(p => p.team == side).Select(p => p.nickname).ToList();
+            int free = info.fillWithBots ? Mathf.Max(0, info.teamSize - names.Count) : 0;
+            string line = names.Count > 0 ? string.Join(", ", names) : "никого";
+            if (free > 0) line += $" + {free} {Bots(free)}";
+            return $"<color={TeamColors[(int)side]}>{TeamNames[(int)side]}</color>: {line}";
+        }
+
+        static string Bots(int n) => (n % 100 is >= 11 and <= 14) || n % 10 is 0 or >= 5 ? "ботов" : n % 10 == 1 ? "бот" : "бота";
 
         /// <summary>A dark panel stacking its children from the top, as tall as they are, 560 wide.</summary>
         RectTransform Panel(RectTransform parent, string name, Vector2 anchor, Vector2 position)

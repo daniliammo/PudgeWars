@@ -33,7 +33,7 @@ namespace PudgeWars.Net
         GUIStyle label, button, field, title, toggle;
         float styleScale;
         Font font;
-        string localAddresses;
+        static string localAddresses;
 
         void Awake()
         {
@@ -199,7 +199,7 @@ namespace PudgeWars.Net
         }
 
         /// <summary>This machine's IPv4 addresses in the local networks.</summary>
-        string LocalAddresses()
+        internal static string LocalAddresses()
         {
             if (localAddresses != null) return localAddresses;
             try
