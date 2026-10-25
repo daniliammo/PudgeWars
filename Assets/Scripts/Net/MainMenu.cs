@@ -246,6 +246,11 @@ namespace PudgeWars.Net
                 GraphicsQuality.Set((GraphicsPreset)(((int)GraphicsQuality.Current + d + count) % count));
                 graphicsDescription.text = GraphicsQuality.Describe(GraphicsQuality.Current);
             }));
+            Row(graphics, "Сглаживание", row => Checkbox(row, GraphicsQuality.Antialiasing, on =>
+            {
+                GraphicsQuality.SetAntialiasing(on);
+                graphicsDescription.text = GraphicsQuality.Describe(GraphicsQuality.Current);
+            }));
             graphicsDescription = Label(graphics, GraphicsQuality.Describe(GraphicsQuality.Current), 24, TextAnchor.UpperLeft, 64f);
             graphicsDescription.color = new Color(0.8f, 0.82f, 0.85f);
 
@@ -425,6 +430,33 @@ namespace PudgeWars.Net
             shown.GetComponent<LayoutElement>().flexibleWidth = 1f;
             Width(Button(box, ">", fieldColor, 56f, () => Click(1)).transform.parent.gameObject, 56f);
             return shown;
+        }
+
+        /// <summary>A square box with a check mark inside while on; the click flips it.</summary>
+        void Checkbox(RectTransform row, bool value, Action<bool> changed)
+        {
+            var holder = Rect(row, "Checkbox");
+            var box = Rect(holder, "Box");
+            box.anchorMin = box.anchorMax = new Vector2(0f, 0.5f);
+            box.pivot = new Vector2(0f, 0.5f);
+            box.sizeDelta = new Vector2(48f, 48f);
+            var image = box.gameObject.AddComponent<Image>();
+            image.color = fieldColor;
+            var mark = Rect(box, "Mark");
+            mark.anchorMin = Vector2.zero;
+            mark.anchorMax = Vector2.one;
+            mark.offsetMin = new Vector2(10f, 10f);
+            mark.offsetMax = new Vector2(-10f, -10f);
+            mark.gameObject.AddComponent<Image>().color = titleColor;
+            mark.gameObject.SetActive(value);
+            var button = box.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.onClick.AddListener(() =>
+            {
+                value = !value;
+                mark.gameObject.SetActive(value);
+                changed(value);
+            });
         }
 
         void Field(RectTransform row, string value, int limit, Action<string> changed)

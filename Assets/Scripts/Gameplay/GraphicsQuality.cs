@@ -17,10 +17,14 @@ namespace PudgeWars.Gameplay
     public static class GraphicsQuality
     {
         const string PresetKey = "graphics.preset";
+        const string AntialiasingKey = "graphics.antialiasing";
 
         public static readonly string[] Names = { "Низкая", "Средняя", "Высокая", "Ультра" };
 
         public static GraphicsPreset Current { get; private set; }
+
+        /// <summary>Off turns the preset's MSAA off; remembered apart from the preset.</summary>
+        public static bool Antialiasing { get; private set; } = true;
 
         /// <summary>Phones start on Medium, computers on High.</summary>
         public static GraphicsPreset Default => Application.isMobilePlatform ? GraphicsPreset.Medium : GraphicsPreset.High;
@@ -69,7 +73,7 @@ namespace PudgeWars.Gameplay
         {
             var s = For(preset);
             string shadows = !s.shadows ? "без теней" : s.softShadows ? "мягкие тени" : "жёсткие тени";
-            string aa = s.msaa > 1 ? $"сглаживание {s.msaa}×" : "без сглаживания";
+            string aa = s.msaa > 1 && Antialiasing ? $"сглаживание {s.msaa}×" : "без сглаживания";
             string textures = s.textureMipLimit > 0 ? "текстуры вполовину" : "полные текстуры";
             return $"Разрешение {Mathf.RoundToInt(s.renderScale * 100f)} %, {shadows}, {aa}, {textures}";
         }
@@ -94,6 +98,7 @@ namespace PudgeWars.Gameplay
             Application.quitting -= Restore;
             Application.quitting += Restore;
 #endif
+            Antialiasing = PlayerPrefs.GetInt(AntialiasingKey, 1) != 0;
             int saved = PlayerPrefs.GetInt(PresetKey, (int)Default);
             Apply((GraphicsPreset)Mathf.Clamp(saved, 0, Names.Length - 1));
         }
@@ -106,6 +111,15 @@ namespace PudgeWars.Gameplay
             Apply(preset);
         }
 
+        /// <summary>Turns antialiasing on or off over the current preset and remembers it.</summary>
+        public static void SetAntialiasing(bool on)
+        {
+            PlayerPrefs.SetInt(AntialiasingKey, on ? 1 : 0);
+            PlayerPrefs.Save();
+            Antialiasing = on;
+            Apply(Current);
+        }
+
         static void Apply(GraphicsPreset preset)
         {
             Current = preset;
@@ -114,7 +128,7 @@ namespace PudgeWars.Gameplay
             if (pipeline != null)
             {
                 pipeline.renderScale = s.renderScale;
-                pipeline.msaaSampleCount = s.msaa;
+                pipeline.msaaSampleCount = Antialiasing ? s.msaa : 1;
                 pipeline.shadowDistance = s.shadowDistance;
                 pipeline.mainLightShadowmapResolution = s.shadowResolution;
                 pipeline.shadowCascadeCount = s.cascades;
