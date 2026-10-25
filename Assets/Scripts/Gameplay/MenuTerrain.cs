@@ -19,8 +19,8 @@ namespace PudgeWars.Gameplay
         const int AlphamapResolution = 512;     // 0.31 m: the path keeps its edges
         const int GrassResolution = 256;        // detail cells: 0.625 m
         const float ClearingRadius = 7f;        // flat around Pudge
-        const int TreeCount = 90;
-        const float TreeSpacing = 3.2f, TreeNear = 6f, TreeFar = 70f;
+        const int TreeCount = 200;
+        const float TreeSpacing = 2.6f, TreeNear = 6f, TreeFar = 75f;
         const float GrassNear = 2.5f, GrassFar = 45f, GrassPerCell = 2.2f;
 
         public static Vector3 Origin => new(-Width / 2f, Bottom, Front - Length);
