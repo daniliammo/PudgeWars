@@ -36,3 +36,4 @@ crashlytics-build.properties
 Tools/**/bin/
 Tools/**/obj/
 __pycache__/
+/.utmp
