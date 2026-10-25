@@ -8,8 +8,8 @@ namespace PudgeWars.Gameplay
     /// Health bars over the heroes in the manner of Dota 2: a black frame with the health fill (green for the
     /// local player's team, red for enemies), a light gloss on its upper half, thin notches every <see cref="segmentHealth"/>,
     /// "current / max" health in white with a black outline over the bar, the hero's name above ("Бот …" for bots)
-    /// and its level in a dark circle with a light gold digit at the bar's left end, just below the name, with the kill
-    /// streak ("×3", kills in a row without dying) in orange to the left of the circle. Follows each hero on screen (never leaving it at the top, where the far
+    /// and its level in a dark circle with a light gold digit at the bar's left end, just below the name, with the
+    /// multi-kill ("×3", kills within the multi-kill window, from Double Kill on) in orange to the left of the circle. Follows each hero on screen (never leaving it at the top, where the far
     /// heroes stand) and hides while it is dead or behind the camera.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -34,10 +34,10 @@ namespace PudgeWars.Gameplay
         public Color levelTextColor = new(1f, 0.9f, 0.6f);
         public Color levelCircleColor = new(0.08f, 0.08f, 0.1f, 0.95f);
         public Color levelRimColor = new(0.85f, 0.68f, 0.3f);
-        [Tooltip("{0} = kills in a row without dying; hidden while there are none.")]
-        public string streakFormat = "×{0}";
-        public int streakFontSize = 20;
-        public Color streakTextColor = new(1f, 0.55f, 0.15f);
+        [Tooltip("{0} = kills of the current multi-kill; shown from a Double Kill on, while its window lasts.")]
+        public string multiKillFormat = "×{0}";
+        public int multiKillFontSize = 20;
+        public Color multiKillTextColor = new(1f, 0.55f, 0.15f);
         [Tooltip("Bars of heroes at the far edge of the view are held this far below the top of the screen, canvas units.")]
         public float topMargin = 40f;
 
@@ -45,8 +45,8 @@ namespace PudgeWars.Gameplay
         {
             public RectTransform root, fill;
             public Image fillImage;
-            public Text name, health, level, streak;
-            public int shownHealth = -1, shownMax = -1, shownLevel = -1, shownStreak = -1;
+            public Text name, health, level, multiKill;
+            public int shownHealth = -1, shownMax = -1, shownLevel = -1, shownMultiKill = -1;
         }
 
         readonly Dictionary<Hookable, Bar> bars = new();
@@ -83,8 +83,8 @@ namespace PudgeWars.Gameplay
         /// <summary>The level digit in the circle on a hero's bar (null if it has none yet).</summary>
         public Text LevelLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.level : null;
 
-        /// <summary>The kill streak next to the level circle (null if the hero has no bar yet; inactive at zero).</summary>
-        public Text StreakLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.streak : null;
+        /// <summary>The multi-kill next to the level circle (null if the hero has no bar yet; inactive below a Double Kill).</summary>
+        public Text MultiKillLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.multiKill : null;
 
         void LateUpdate()
         {
@@ -104,7 +104,7 @@ namespace PudgeWars.Gameplay
                 bar.fill.anchorMax = new Vector2(hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f, 1f);
                 ShowHealth(hero, bar);
                 ShowLevel(hero, bar);
-                ShowStreak(hero, bar);
+                ShowMultiKill(hero, bar);
                 Place(hero, bar);
             }
             foreach (var hero in gone)
@@ -131,13 +131,13 @@ namespace PudgeWars.Gameplay
             bar.level.text = hero.Level.ToString();
         }
 
-        void ShowStreak(Hookable hero, Bar bar)
+        void ShowMultiKill(Hookable hero, Bar bar)
         {
-            int streak = Arena.Instance != null ? Arena.Instance.StreakOf(hero) : 0;
-            if (streak == bar.shownStreak) return;
-            bar.shownStreak = streak;
-            bar.streak.text = string.Format(streakFormat, streak);
-            bar.streak.gameObject.SetActive(streak > 0);
+            int kills = Arena.Instance != null ? Arena.Instance.MultiKillOf(hero) : 0;
+            if (kills == bar.shownMultiKill) return;
+            bar.shownMultiKill = kills;
+            bar.multiKill.text = string.Format(multiKillFormat, kills);
+            bar.multiKill.gameObject.SetActive(kills >= 2);
         }
 
         void Place(Hookable hero, Bar bar)
@@ -228,27 +228,27 @@ namespace PudgeWars.Gameplay
             levelOutline.effectColor = Color.black;
             levelOutline.effectDistance = new Vector2(1f, -1f);
 
-            // kill streak: orange "×N" right-aligned against the level circle's left side
-            var streakRt = Rect(root, "Streak", new Vector2(80f, levelSize));
-            streakRt.pivot = new Vector2(1f, 0.5f);
-            streakRt.anchoredPosition = new Vector2(circle.anchoredPosition.x - levelSize / 2f - 3f, 0f);
-            var streak = streakRt.gameObject.AddComponent<Text>();
-            streak.font = font;
-            streak.fontSize = streakFontSize;
-            streak.fontStyle = FontStyle.Bold;
-            streak.alignment = TextAnchor.MiddleRight;
-            streak.color = streakTextColor;
-            streak.raycastTarget = false;
-            streak.horizontalOverflow = HorizontalWrapMode.Overflow;
-            streak.verticalOverflow = VerticalWrapMode.Overflow;
-            var streakOutline = streakRt.gameObject.AddComponent<Outline>();
-            streakOutline.effectColor = Color.black;
-            streakOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            // multi-kill: orange "×N" right-aligned against the level circle's left side
+            var multiKillRt = Rect(root, "MultiKill", new Vector2(80f, levelSize));
+            multiKillRt.pivot = new Vector2(1f, 0.5f);
+            multiKillRt.anchoredPosition = new Vector2(circle.anchoredPosition.x - levelSize / 2f - 3f, 0f);
+            var multiKill = multiKillRt.gameObject.AddComponent<Text>();
+            multiKill.font = font;
+            multiKill.fontSize = multiKillFontSize;
+            multiKill.fontStyle = FontStyle.Bold;
+            multiKill.alignment = TextAnchor.MiddleRight;
+            multiKill.color = multiKillTextColor;
+            multiKill.raycastTarget = false;
+            multiKill.horizontalOverflow = HorizontalWrapMode.Overflow;
+            multiKill.verticalOverflow = VerticalWrapMode.Overflow;
+            var multiKillOutline = multiKillRt.gameObject.AddComponent<Outline>();
+            multiKillOutline.effectColor = Color.black;
+            multiKillOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            var bar = new Bar { root = root, fill = fill, fillImage = fillImage, name = name, health = health, level = level, streak = streak };
+            var bar = new Bar { root = root, fill = fill, fillImage = fillImage, name = name, health = health, level = level, multiKill = multiKill };
             ShowHealth(hero, bar);
             ShowLevel(hero, bar);
-            ShowStreak(hero, bar);
+            ShowMultiKill(hero, bar);
             return bar;
         }
 
