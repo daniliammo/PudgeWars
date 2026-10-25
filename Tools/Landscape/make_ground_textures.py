@@ -30,8 +30,8 @@ def seamless(img):
 def dire(a):
     lum = a @ np.array([0.299, 0.587, 0.114], dtype=np.float32)
     grey = np.repeat(lum[..., None], 3, axis=2)
-    a = grey * 0.8 + a * 0.2  # most of the green is gone
-    a = a * np.array([1.05, 0.86, 0.72], dtype=np.float32) * 0.62  # ashy brown, darker
+    a = grey * 0.85 + a * 0.15  # most of the green is gone
+    a = a * np.array([1.0, 0.9, 0.8], dtype=np.float32) * 0.78  # dry ash with a little brown (darker reads as wet mud)
     return a
 
 

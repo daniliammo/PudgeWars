@@ -35,7 +35,12 @@ namespace PudgeWars.EditorTools
         const int HeightmapResolution = 257;
         const float TerrainBottom = -7f, TerrainHeight = 24f;
         const float PitDepth = 6f;     // below the falling heroes' kill height (Arena.killHeight)
-        const float PitLip = 0.75f;    // the pit walls drop over this much, metres
+        // the pit walls go down over this much, rounded at the rim and at the bottom: a ravine, not a cut; a hero
+        // walking off the edge (the slowest way in) still falls in front of them, not through them
+        const float PitSlope = 1.8f;
+        const float PitEndSlope = 0.75f; // the ends at the side hills are steeper: heroes can fall in right there
+        const float PitRimJitter = 0.15f; // the rim wanders this much into the pit, never out of it (Arena.IsOverPit)
+        const float PitLedges = 0.35f;   // bumps on the walls, metres
         const float CliffHeight = 7f;  // the hills rise this high within the first CliffRun metres: too steep to climb
         const float CliffRun = 3f;
         const float RidgeHeight = 6f;  // and then this much more toward the terrain's edge
@@ -114,7 +119,7 @@ namespace PudgeWars.EditorTools
                 float u = (x + 0.5f) / aRes, v = (z + 0.5f) / aRes;
                 float wx = -half + u * TerrainSize, wz = -half + v * TerrainSize;
                 float y = data.GetInterpolatedHeight(u, v) + TerrainBottom;
-                float abyss = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.5f, -4f, y));
+                float abyss = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-2.5f, -5.5f, y));
                 float rock = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(32f, 48f, data.GetSteepness(u, v)));
                 float ragged = (Mathf.PerlinNoise(border.x + wx * 0.15f, border.y + wz * 0.15f) - 0.5f) * 5f;
                 float dire = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.5f, 1.5f, wz + ragged));
@@ -155,8 +160,13 @@ namespace PudgeWars.EditorTools
             float dx = Mathf.Max(0f, Mathf.Abs(x) - arena.halfWidth), dz = Mathf.Max(0f, Mathf.Abs(z) - depth);
             if (dx <= 0f && dz <= 0f)
             {
-                float inward = arena.pitHalfDepth - Mathf.Abs(z); // the pit ends where the side hills begin
-                return inward > 0f && Mathf.Abs(x) < arena.halfWidth ? -PitDepth * Mathf.SmoothStep(0f, 1f, inward / PitLip) : 0f;
+                // how far into the pit, measured in wall widths (the pit ends where the side hills begin)
+                float rim = Mathf.PerlinNoise(bumps.x + x * 0.45f, bumps.y + Mathf.Sign(z) * 7f) * PitRimJitter;
+                float s = Mathf.Min((arena.pitHalfDepth - Mathf.Abs(z) - rim) / PitSlope, (arena.halfWidth - Mathf.Abs(x)) / PitEndSlope);
+                if (s <= 0f) return 0f;
+                s = Mathf.Clamp01(s);
+                float ledges = (Mathf.PerlinNoise(hills.x + x * 0.5f, hills.y + z * 0.5f) - 0.5f) * 2f * PitLedges * Mathf.Sin(s * Mathf.PI) * s; // none at the rim
+                return Mathf.Min(0f, -PitDepth * Mathf.SmoothStep(0f, 1f, s) + ledges);
             }
             float d = Mathf.Sqrt(dx * dx + dz * dz);
             float y = CliffHeight * Mathf.SmoothStep(0f, 1f, d / CliffRun)
@@ -191,6 +201,8 @@ namespace PudgeWars.EditorTools
             layer.diffuseTexture = texture;
             layer.tileSize = new Vector2(tile, tile);
             layer.metallic = 0f;
+            // matte: by default the smoothness comes from the texture's alpha, which is 1 in these images (wet look)
+            layer.smoothnessSource = TerrainLayerSmoothnessSource.ConstantOnly;
             layer.smoothness = 0f;
             EditorUtility.SetDirty(layer);
             return layer;
