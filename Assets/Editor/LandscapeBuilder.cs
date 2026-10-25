@@ -13,7 +13,8 @@ namespace PudgeWars.EditorTools
     /// The test arena's ground as one terrain: the two sides on flat ground (Radiant grass on the player's side,
     /// Dire's scorched ground on the bots' side), the pit cut into it, steep hills instead of walls all around
     /// (rock on the slopes, black in the depth of the pit), and a few of Dota 2's standard trees inside the arena
-    /// along its side edges: Radiant oaks and pines on the player's side, Dire trees on the bots' side, one mango tree.
+    /// along its side edges: Radiant oaks and pines on the player's side, Dire trees on the bots' side, one mango tree;
+    /// Dota's green grass on Radiant's ground (terrain details).
     /// The trees are the terrain's own (its tree prototypes and instances, <see cref="SetTrees"/>), not scene objects;
     /// heroes walk around them, hooks fly through them, and they can be cut down with Dota's stumps and falling tops
     /// (<see cref="TerrainTrees"/>).
@@ -71,6 +72,13 @@ namespace PudgeWars.EditorTools
         // behind the back edges the hills stay under this slope (rise per metre, plus a steeper one sideways): the
         // cameras stand above them and look over them at the heroes at the back edge
         const float BackSlope = 1.3f, BackSideSlope = 2.5f;
+
+        // grass on Radiant's ground (the player's side and its hills), in patches; thin where heroes fight, so that the
+        // heroes, their markers and the hooks stay in plain view
+        const int GrassResolution = 128;  // detail cells: 0.5 m
+        const float GrassPerCell = 0.45f; // clumps in a cell in the thick of a patch, outside the arena
+        const float GrassInArena = 0.5f;  // of that inside it
+        const float GrassDistance = 80f;
 
         const float TreeInset = 1.3f;  // trees stand this far inside the side edges
         const int TreesPerEdge = 3;
@@ -156,6 +164,7 @@ namespace PudgeWars.EditorTools
                 alpha[z, x, 3] = abyss;
             }
             data.SetAlphamaps(0, 0, alpha);
+            PlaceGrass(arena, data, alpha);
 
             const string dataPath = TerrainDir + "/ArenaTerrain.asset";
             AssetDatabase.DeleteAsset(dataPath);
@@ -173,8 +182,39 @@ namespace PudgeWars.EditorTools
             terrain.basemapDistance = 100f;
             terrain.shadowCastingMode = ShadowCastingMode.On; // the pit walls and the hills shade what lies below them
             terrain.treeDistance = 120f;
+            terrain.detailObjectDistance = GrassDistance;
             go.AddComponent<TerrainTrees>().radius = TreeRadius;
             return terrain;
+        }
+
+        /// <summary>
+        /// Green grass clumps as the terrain's details where Radiant's grass covers the ground (not on Dire's scorched
+        /// ground, the rock or in the pit), in patches. Its own random numbers: the trees stay where they were.
+        /// </summary>
+        static void PlaceGrass(Arena arena, TerrainData data, float[,,] alpha)
+        {
+            var rng = new System.Random(Seed + 1);
+            var prototypes = GrassPrototypes(Grass);
+            data.detailPrototypes = prototypes;
+            data.SetDetailScatterMode(DetailScatterMode.InstanceCountMode);
+            data.SetDetailResolution(GrassResolution, 32);
+            var layers = prototypes.Select(_ => new int[GrassResolution, GrassResolution]).ToArray();
+            var patches = new Vector2(rng.Next(1000), rng.Next(1000));
+            int aRes = alpha.GetLength(0);
+            float half = TerrainSize / 2f;
+            for (int z = 0; z < GrassResolution; z++)
+            for (int x = 0; x < GrassResolution; x++)
+            {
+                float u = (x + 0.5f) / GrassResolution, v = (z + 0.5f) / GrassResolution;
+                float radiant = alpha[(int)(v * aRes), (int)(u * aRes), 0];
+                if (radiant < 0.6f) continue;
+                float wx = -half + u * TerrainSize, wz = -half + v * TerrainSize;
+                float patch = Mathf.InverseLerp(0.4f, 0.75f, Mathf.PerlinNoise(patches.x + wx * 0.15f, patches.y + wz * 0.15f));
+                bool inArena = Mathf.Abs(wx) < arena.halfWidth && Mathf.Abs(wz) < arena.pitHalfDepth + arena.sideDepth;
+                int count = Mathf.FloorToInt(patch * radiant * GrassPerCell * (inArena ? GrassInArena : 1f) + (float)rng.NextDouble());
+                for (int i = 0; i < count; i++) layers[rng.Next(layers.Length)][z, x]++;
+            }
+            for (int i = 0; i < layers.Length; i++) data.SetDetailLayer(0, 0, i, layers[i]);
         }
 
         /// <summary>

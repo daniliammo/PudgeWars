@@ -36,6 +36,18 @@ namespace PudgeWars.Tests
             var tree = terrain.transform.position + Vector3.Scale(data.GetTreeInstance(0).position, data.size);
             Assert.IsTrue(Obstacle.Blocks(new Vector3(tree.x + 0.3f, 0f, tree.z), 0.5f), "a hero fits into a tree's trunk");
             Assert.IsFalse(Obstacle.Blocks(new Vector3(tree.x + 3f, 0f, tree.z), 0.5f));
+            // grass on Radiant's side (z < 0), none on Dire's scorched ground
+            int res = data.detailResolution, radiant = 0, dire = 0;
+            for (int i = 0; i < data.detailPrototypes.Length; i++)
+            {
+                var layer = data.GetDetailLayer(0, 0, res, res, i);
+                for (int z = 0; z < res; z++)
+                for (int x = 0; x < res; x++)
+                    if (z < res / 2) radiant += layer[z, x];
+                    else dire += layer[z, x];
+            }
+            Assert.Greater(radiant, 100, "no grass on Radiant's side: Pudge Wars → Build Test Arena");
+            Assert.Less(dire, radiant / 10, "grass on Dire's scorched ground");
         }
 
         [UnityTest]
