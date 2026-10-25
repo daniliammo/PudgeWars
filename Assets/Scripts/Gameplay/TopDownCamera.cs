@@ -13,7 +13,8 @@ namespace PudgeWars.Gameplay
     /// With the phone controls on (<see cref="TouchControls"/>) the views switch by their camera button and in
     /// first person a finger dragging over the empty screen turns the view instead of the mouse.
     /// Follows the local player's hero (<see cref="LocalPlayer"/>); for a hero of the far team the views are mirrored,
-    /// so the own side is always at the bottom of the screen.
+    /// so the own side is always at the bottom of the screen. <see cref="Shake"/> jolts the view (a hook's hit, see
+    /// <see cref="CameraFeedback"/>, which this camera brings along).
     /// </summary>
     [DefaultExecutionOrder(-10)] // before PlayerInputController: a click that recaptures the cursor is not a cast
     public class TopDownCamera : MonoBehaviour
@@ -39,6 +40,13 @@ namespace PudgeWars.Gameplay
         public float firstPersonFov = 75f;
         [Tooltip("Shown only in first person.")] public GameObject crosshair;
 
+        [Header("Shake")]
+        [Tooltip("Sideways and vertical jolt at full shake, metres (half of it in first person).")]
+        public float shakeDistance = 0.35f;
+        [Tooltip("Roll, pitch and yaw jolt at full shake, degrees.")] public float shakeAngle = 2.2f;
+        [Tooltip("How fast the shake wobbles, per second.")] public float shakeFrequency = 18f;
+        [Tooltip("Shake lost per second: a full shake dies down in 1 / this seconds.")] public float shakeRecovery = 1.5f;
+
         public View Mode { get; private set; }
         public bool IsFirstPerson => Mode == View.FirstPerson;
         /// <summary>Mouse look is on: first person with the shop closed (the cursor should be locked).</summary>
@@ -51,6 +59,8 @@ namespace PudgeWars.Gameplay
         public bool CursorCaptured => Cursor.lockState == CursorLockMode.Locked;
         /// <summary>This frame's left click only recaptured the cursor and must not act in the game.</summary>
         public bool ClickConsumed { get; private set; }
+        /// <summary>Shake left, 0..1; the jolt goes with its square, so it starts hard and fades out softly.</summary>
+        public float Trauma { get; private set; }
 
         /// <summary>Horizontal direction WASD's "forward" maps to: the screen's up in the top views, the look
         /// direction in first person.</summary>
@@ -61,12 +71,16 @@ namespace PudgeWars.Gameplay
         float baseFov, yaw, pitch;
         bool shopWasOpen;
         Vector3 velocity;
+        Vector3 basePosition; // the followed position without the shake
+        float shakeTime;
 
         void Awake()
         {
             cam = GetComponent<Camera>();
             baseFov = cam != null ? cam.fieldOfView : 60f;
             if (crosshair != null) crosshair.SetActive(false);
+            basePosition = transform.position;
+            if (!TryGetComponent<CameraFeedback>(out _)) gameObject.AddComponent<CameraFeedback>();
         }
 
         void Start()
@@ -133,11 +147,34 @@ namespace PudgeWars.Gameplay
         {
             if (target == null) return;
             Pose(out var position, out var rotation);
-            transform.position = IsFirstPerson
+            basePosition = IsFirstPerson
                 ? position
-                : Vector3.SmoothDamp(transform.position, position, ref velocity, smoothTime);
-            transform.rotation = rotation;
+                : Vector3.SmoothDamp(basePosition, position, ref velocity, smoothTime);
+            transform.SetPositionAndRotation(basePosition, rotation);
+            ApplyShake();
         }
+
+        /// <summary>Adds a jolt, 0..1 (a hit on the own hero about 0.7, the own hook's catch about 0.45); jolts add up.</summary>
+        public void Shake(float amount) => Trauma = Mathf.Clamp01(Trauma + amount);
+
+        /// <summary>
+        /// Shifts and tilts the view by smooth noise (each axis its own), scaled by the square of the trauma left,
+        /// which runs down at a steady rate: a sharp jolt that settles, not a periodic rattle.
+        /// </summary>
+        void ApplyShake()
+        {
+            if (Trauma <= 0f) return;
+            Trauma = Mathf.Max(0f, Trauma - shakeRecovery * Time.deltaTime);
+            shakeTime += Time.deltaTime * shakeFrequency;
+            float s = Trauma * Trauma;
+            float distance = shakeDistance * (IsFirstPerson ? 0.5f : 1f) * s, angle = shakeAngle * s;
+            var offset = new Vector3(ShakeNoise(0), ShakeNoise(1), 0f) * distance;
+            transform.SetPositionAndRotation(
+                transform.position + transform.rotation * offset,
+                transform.rotation * Quaternion.Euler(ShakeNoise(2) * angle * 0.5f, ShakeNoise(3) * angle * 0.5f, ShakeNoise(4) * angle));
+        }
+
+        float ShakeNoise(int axis) => Mathf.PerlinNoise(axis * 31.7f, shakeTime) * 2f - 1f;
 
         public void NextView() => SetView((View)(((int)Mode + 1) % 3));
 
@@ -161,6 +198,7 @@ namespace PudgeWars.Gameplay
             if (target == null) return;
             Pose(out var position, out var rotation);
             transform.SetPositionAndRotation(position, rotation);
+            basePosition = position;
             velocity = Vector3.zero;
         }
 

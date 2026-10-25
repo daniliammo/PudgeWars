@@ -1184,6 +1184,58 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HookHitsShakeTheCameraAndDeathTurnsThePictureRedAndGrey()
+        {
+            var follow = Object.FindAnyObjectByType<TopDownCamera>();
+            var feedback = follow.GetComponent<CameraFeedback>();
+            Assert.IsNotNull(feedback, "the camera has no feedback effects");
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(10f, 0f, 12f);
+            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+            yield return null;
+            Assert.AreEqual(0f, follow.Trauma);
+
+            // the own hook's catch jolts the view, and the jolt dies down
+            bool caught = false;
+            hook.TargetCaught += _ => caught = true;
+            Assert.IsTrue(hook.TryCast(bot.transform.position));
+            float t = 0f;
+            while (!caught && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(caught, "the hook missed the bot");
+            Assert.Greater(follow.Trauma, 0.2f, "no shake on the own hook's catch");
+            t = 0f;
+            while ((follow.Trauma > 0f || hook.IsBusy) && t < 4f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(0f, follow.Trauma, "the shake did not die down");
+
+            // the own hero caught: a harder jolt
+            player.AttachTo(bot.GetComponent<HookAbility>());
+            yield return null;
+            Assert.Greater(follow.Trauma, 0.4f, "no shake when the player is caught");
+            player.Release();
+
+            // death: red from the sides and most of the colour gone, until the respawn
+            Assert.AreEqual(0f, feedback.BloodAlpha);
+            Assert.IsFalse(feedback.PostProcessing, "post-processing must stay off while alive");
+            player.StartFalling(Vector3.zero);
+            t = 0f;
+            while (player.IsAlive && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsFalse(player.IsAlive);
+            yield return new WaitForSeconds(feedback.greyIn + 0.2f);
+            Assert.Greater(feedback.BloodAlpha, 0.3f, "no red at the sides after death");
+            Assert.AreEqual(1f, feedback.GreyWeight, 0.01f, "the picture did not lose its colour");
+            Assert.IsTrue(feedback.PostProcessing);
+            Capture("death_effects");
+
+            t = 0f;
+            while (!player.IsAlive && t < arena.respawnDelay + 2f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(player.IsAlive, "the player did not respawn");
+            yield return new WaitForSeconds(feedback.recover + 0.2f);
+            Assert.AreEqual(0f, feedback.BloodAlpha, "the red stayed after the respawn");
+            Assert.AreEqual(0f, feedback.GreyWeight, "the colour did not come back");
+            Assert.IsFalse(feedback.PostProcessing, "post-processing stayed on after the respawn");
+        }
+
+        [UnityTest]
         public IEnumerator AbilityBarShowsHookCooldownAndAimLines()
         {
             var input = player.GetComponent<PlayerInputController>();
