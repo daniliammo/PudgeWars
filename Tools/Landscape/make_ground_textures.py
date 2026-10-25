@@ -6,6 +6,9 @@
 # Grass_Radiant.png: a square from the left grass strip, made seamless (blended with a copy shifted by half a
 # tile, which has its seams in the middle, where the original is kept).
 # Ground_Dire.png: the same grass graded to Dire's scorched, ashy ground (desaturated, browner, darker).
+# Cliff.png: rock for the steep hills and the pit walls: periodic fractal noise (tileable by construction) with ridged
+# cracks, grey-brown; the terrain projects it from above, so on a cliff it stretches into vertical streaks.
+# Abyss.png: the same rock, nearly black, for the depth of the pit.
 import sys
 import numpy as np
 from PIL import Image
@@ -32,12 +35,36 @@ def dire(a):
     return a
 
 
+def periodic_noise(rng, size, falloff):
+    """Noise with a 1/f^falloff spectrum: periodic, so the texture tiles without seams. Normalised to 0..1."""
+    f = np.fft.fftfreq(size)
+    r = np.sqrt(f[:, None] ** 2 + f[None, :] ** 2)
+    r[0, 0] = 1.0
+    spectrum = (rng.standard_normal((size, size)) + 1j * rng.standard_normal((size, size))) / r ** falloff
+    spectrum[0, 0] = 0
+    n = np.real(np.fft.ifft2(spectrum))
+    return (n - n.min()) / (n.max() - n.min())
+
+
+def cliff(rng):
+    base = periodic_noise(rng, SIZE, 1.1)
+    detail = periodic_noise(rng, SIZE, 0.6)
+    cracks = 1.0 - np.abs(periodic_noise(rng, SIZE, 1.4) * 2.0 - 1.0)  # ridges along the noise's mid-level
+    cracks = np.clip((cracks - 0.9) / 0.1, 0.0, 1.0) ** 2
+    shade = 0.55 + 0.35 * base + 0.15 * detail - 0.35 * cracks
+    colour = np.array([112, 100, 88], dtype=np.float32)
+    return shade[..., None] * colour
+
+
 def main():
     src, out = sys.argv[1:3]
     grass = Image.open(src).convert('RGB').crop(CROP).resize((SIZE, SIZE), Image.LANCZOS)
     radiant = seamless(grass)
     Image.fromarray(np.clip(radiant, 0, 255).astype(np.uint8)).save(f'{out}/Grass_Radiant.png')
     Image.fromarray(np.clip(dire(radiant), 0, 255).astype(np.uint8)).save(f'{out}/Ground_Dire.png')
+    rock = cliff(np.random.default_rng(1300))
+    Image.fromarray(np.clip(rock, 0, 255).astype(np.uint8)).save(f'{out}/Cliff.png')
+    Image.fromarray(np.clip(rock * 0.22, 0, 255).astype(np.uint8)).save(f'{out}/Abyss.png')
 
 
 main()
