@@ -139,8 +139,12 @@ namespace PudgeWars.Gameplay
                 SeriesEnded?.Invoke(victim, SeriesEnd.Killed, killer);
             if (killer != null)
             {
-                int gold = KillGold(victim) + (seriesBroken ? StreakBreakBonus(victim, streak, rampages) : 0);
-                if (killer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(gold);
+                // the bonus for breaking a series comes as its own "+N", after the kill reward
+                if (killer.TryGetComponent<HeroInventory>(out var wallet))
+                {
+                    wallet.AddGold(KillGold(victim));
+                    if (seriesBroken) wallet.AddGold(StreakBreakBonus(victim, streak, rampages));
+                }
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
                     KillAnnounced?.Invoke(killer, announcement);
             }

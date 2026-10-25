@@ -8,7 +8,8 @@ namespace PudgeWars.Gameplay
     /// HUD popups for gold rewards in the manner of Dota's bounty: "+N монет" pops up over the hero who got the
     /// gold, floats up slowing down and dissolves, while a few coins (the original's Gold icon) jump out of the
     /// hero, spin and fall, steadily fading. Follows the hero on screen, so it works in every
-    /// camera view. The coin sound plays only for the local player's own reward (kill or rescue), not for others'.
+    /// camera view. Rewards coming together for one hero (a kill and the bonus for breaking a series) stack: the
+    /// later popup starts above the earlier one. The coin sound plays only for the local player's own reward (kill or rescue), not for others'.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class GoldPopups : MonoBehaviour
@@ -19,6 +20,10 @@ namespace PudgeWars.Gameplay
         public int fontSize = 40;
         [Tooltip("Height above the hero's feet the popup is anchored to, metres.")] public float anchorHeight = 3.9f;
         public float lifetime = 2f;
+        [Tooltip("A popup for a hero whose previous one is younger than this stacks above it, seconds.")]
+        public float stackWindow = 0.6f;
+        [Tooltip("How far above the previous popup a stacked one starts, canvas units.")]
+        public float stackStep = 56f;
         [Tooltip("Text rise over the lifetime, canvas units.")] public float rise = 110f;
         [Tooltip("Share of the lifetime after which the text starts to dissolve.")] [Range(0f, 1f)] public float textFadeFrom = 0.5f;
         [Tooltip("Coin picture (Shop_Game/Gold of the original); a coin drawn at runtime if empty.")]
@@ -49,6 +54,7 @@ namespace PudgeWars.Gameplay
             public Text label;
             public readonly List<Coin> coins = new();
             public float age;
+            public float stackOffset;
         }
 
         readonly List<Popup> popups = new();
@@ -98,7 +104,7 @@ namespace PudgeWars.Gameplay
             var root = new GameObject("GoldPopup", typeof(RectTransform)).GetComponent<RectTransform>();
             root.SetParent(rect, false);
             root.sizeDelta = Vector2.zero;
-            var popup = new Popup { hero = hero, root = root };
+            var popup = new Popup { hero = hero, root = root, stackOffset = StackOffset(hero) };
 
             for (int i = 0; i < coinCount; i++)
             {
@@ -191,6 +197,24 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>Above the newest popup of the same hero if that one has only just appeared.</summary>
+        float StackOffset(Transform hero)
+        {
+            float offset = 0f;
+            foreach (var p in popups)
+                if (p.hero == hero && p.age < stackWindow) offset = Mathf.Max(offset, p.stackOffset + stackStep);
+            return offset;
+        }
+
+        /// <summary>Vertical start of each popup now shown, canvas units above its hero's anchor (stacking).</summary>
+        public IEnumerable<float> StackOffsets
+        {
+            get
+            {
+                foreach (var p in popups) yield return p.stackOffset;
+            }
+        }
+
         void Place(Popup p)
         {
             var cam = Camera.main;
@@ -201,7 +225,7 @@ namespace PudgeWars.Gameplay
             if (!visible) return;
             var uiCam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(rect, screen, uiCam, out var local))
-                p.root.anchoredPosition = local;
+                p.root.anchoredPosition = local + new Vector2(0f, p.stackOffset);
         }
 
         /// <summary>A gold coin drawn once at runtime: rim, face and a highlight.</summary>

@@ -95,6 +95,13 @@ namespace PudgeWars.Tests
             int expected = arena.KillGold(bot) + arena.KillGold(bot) / 2 + 3 * 5;
             Assert.AreEqual(133 + 66 + 15, expected);
             Assert.AreEqual(expected, player.GetComponent<HeroInventory>().Gold, "no bonus for breaking the series");
+
+            // two popups: the kill reward and, above it, the bonus
+            var popups = Object.FindAnyObjectByType<GoldPopups>();
+            var amounts = popups.GetComponentsInChildren<Text>(true).Where(t => t.name == "Amount").Select(t => t.text).ToList();
+            CollectionAssert.AreEqual(new[] { "+133 монет", "+81 монет" }, amounts, "the series bonus must come as its own popup");
+            var offsets = popups.StackOffsets.ToList();
+            Assert.Greater(offsets[1], offsets[0], "the bonus popup must stack above the kill reward");
         }
 
         [UnityTest]
@@ -115,6 +122,7 @@ namespace PudgeWars.Tests
             arena.Streaks.RegisterKill(bot, Time.time); // a single kill is no series yet
             yield return PlayerKillsBot(bot);
             Assert.AreEqual(arena.KillGold(bot), player.GetComponent<HeroInventory>().Gold);
+            Assert.AreEqual(1, Object.FindAnyObjectByType<GoldPopups>().ActiveCount, "no bonus popup without a series");
         }
 
         [UnityTest]
