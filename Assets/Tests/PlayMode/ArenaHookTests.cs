@@ -793,6 +793,47 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator OwnerFreedFromATautChainPullsItsCatchOn()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var victim = bots[0];   // caught by the player
+            var ally = bots[1];     // hooks the player home meanwhile
+            ally.team = Team.Player;
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -arena.pitHalfDepth - 1f), Quaternion.identity);
+            victim.transform.position = new Vector3(0f, 0f, 8.5f);
+            ally.transform.SetPositionAndRotation(new Vector3(0f, 0f, -6f), Quaternion.identity);
+            hook.pullSpeed = 2f; // slow pull: the victim is still far from the pit when the player is let go
+            hook.tetherTimeout = 30f; // only the player getting free may end the taut chain here
+            yield return null;
+
+            bool caught = false;
+            hook.TargetCaught += h => caught |= h == victim;
+            Assert.IsTrue(hook.TryCast(victim.transform.position));
+            float t = 0f;
+            while (!caught && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(caught, "player's hook missed the victim");
+
+            var allyHook = ally.GetComponent<HookAbility>();
+            Assert.IsTrue(allyHook.TryCast(player.transform.position));
+            t = 0f;
+            while (!player.IsHooked && t < 2f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(allyHook, player.HookedBy, "the ally's hook did not catch the player");
+            Assert.IsTrue(hook.IsTethered, "the caught player's hook must keep its catch on a taut chain");
+
+            t = 0f;
+            while (player.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(player.IsControllable, "the ally did not let the player go");
+            Assert.IsTrue(victim.IsHooked && !victim.IsFalling, "the victim must still be on the player's hook");
+
+            t = 0f;
+            while (arena.Score == 0 && t < 5f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(1, arena.Score, "the freed player did not pull the victim on into the pit");
+            Assert.AreEqual(arena.KillGold(victim), player.GetComponent<HeroInventory>().Gold, "the kill belongs to the player");
+            Assert.IsFalse(hook.IsTethered);
+        }
+
+        [UnityTest]
         public IEnumerator HeroTurnsAtDotaRateBeforeMovingAndCasting()
         {
             var motor = player.GetComponent<PudgeMotor>();

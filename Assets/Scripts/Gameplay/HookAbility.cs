@@ -338,8 +338,9 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// The owner was caught or started falling. A hook that is already pulling a target stays on it as a
-        /// taut chain (the target is dragged after the owner, into the pit if the owner falls); a hook in flight
-        /// flies on and whatever it catches hangs on that chain; a hook not yet thrown breaks off.
+        /// taut chain (the target is dragged after the owner, into the pit if the owner falls) until the owner is free
+        /// again and pulls it on; a hook in flight flies on and whatever it catches hangs on that chain; a hook not yet
+        /// thrown breaks off.
         /// </summary>
         public void OwnerLostControl()
         {
@@ -372,7 +373,19 @@ namespace PudgeWars.Gameplay
         void Tether()
         {
             timer -= Time.deltaTime;
-            if (target == null || !target.IsHooked || timer <= 0f || OwnerFallsFromRescue)
+            if (target == null || !target.IsHooked || OwnerFallsFromRescue)
+            {
+                Cancel();
+                return;
+            }
+            // the owner is free again (a teammate's hook delivered it, the chain that held it broke): the hook pulls
+            // its catch on the usual way instead of keeping both of them in place
+            if (!OwnerCaught)
+            {
+                state = State.Returning;
+                return;
+            }
+            if (timer <= 0f)
             {
                 Cancel();
                 return;
