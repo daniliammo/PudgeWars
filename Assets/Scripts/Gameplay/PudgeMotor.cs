@@ -128,7 +128,7 @@ namespace PudgeWars.Gameplay
                     pos = PushOut(pos, from, other.transform.position, other.radius);
                 }
                 foreach (var obstacle in Obstacle.All)
-                    pos = PushOut(pos, from, obstacle.transform.position, obstacle.radius);
+                    pos = PushOut(pos, from, obstacle.center, obstacle.radius);
             }
             return pos;
         }

@@ -14,7 +14,8 @@ namespace PudgeWars.EditorTools
     /// Dire's scorched ground on the bots' side), the pit cut into it, steep hills instead of walls all around
     /// (rock on the slopes, black in the depth of the pit), and a few of Dota 2's standard trees inside the arena
     /// along its side edges: Radiant oaks and pines on the player's side, Dire trees on the bots' side, one mango tree.
-    /// Heroes walk around the trees (<see cref="Obstacle"/>); hooks fly through them.
+    /// The trees are the terrain's own (its tree prototypes and instances, <see cref="SetTrees"/>), not scene objects;
+    /// heroes walk around them (<see cref="TerrainTreeObstacles"/>), hooks fly through them.
     /// Trees come from Tools/Landscape/build_trees.py, the ground textures from make_ground_textures.py. Rebuilt as a
     /// whole (the "Landscape" object and the terrain asset) by its menu item and by Build Test Arena; the old box
     /// geometry of the arena (ground blocks, walls, pit) is removed.
@@ -22,6 +23,7 @@ namespace PudgeWars.EditorTools
     public static class LandscapeBuilder
     {
         const string TreeDir = "Assets/Art/Landscape/Trees";
+        const string TreePrefabDir = TreeDir + "/Prefabs";
         internal const string TerrainDir = "Assets/Art/Landscape/Terrain";
         const string RootName = "Landscape";
         internal static readonly string[] RadiantTrees = { "tree_oak_01", "tree_pine_01", "tree_oak_02", "tree_pine_02", "tree_oak_01b", "tree_pine_03b" };
@@ -29,6 +31,7 @@ namespace PudgeWars.EditorTools
         internal const string MangoTree = "mango_tree";
         static readonly string[] TwoSidedMaterials = { "dire_tree007_moss" }; // doubleSided in the glTF
         const float LeafCutoff = 0.5f;
+        const float TreeCullHeight = 0.01f; // of the screen: a terrain tree smaller than this is not drawn
 
         // 64 m with a 257 heightmap: 0.25 m cells, their edges on the pit's and the sides' whole metres
         const float TerrainSize = 64f;
@@ -77,7 +80,7 @@ namespace PudgeWars.EditorTools
             var root = new GameObject(RootName).transform;
             var rng = new System.Random(Seed);
             var terrain = BuildTerrain(arena, root, rng);
-            PlaceTrees(arena, terrain, root, rng);
+            PlaceTrees(arena, terrain, rng);
             AssetDatabase.SaveAssets();
             Debug.Log("[LandscapeBuilder] landscape built");
         }
@@ -146,7 +149,8 @@ namespace PudgeWars.EditorTools
             terrain.heightmapPixelError = 3f;
             terrain.basemapDistance = 100f;
             terrain.shadowCastingMode = ShadowCastingMode.On; // the pit walls and the hills shade what lies below them
-            terrain.drawTreesAndFoliage = false;
+            terrain.treeDistance = 120f;
+            go.AddComponent<TerrainTreeObstacles>().radius = TreeRadius;
             return terrain;
         }
 
@@ -229,10 +233,9 @@ namespace PudgeWars.EditorTools
         /// A few trees along both side edges of each side, clear of the pit; the mango tree in the middle of the
         /// player side's left edge.
         /// </summary>
-        static void PlaceTrees(Arena arena, Terrain terrain, Transform parent, System.Random rng)
+        static void PlaceTrees(Arena arena, Terrain terrain, System.Random rng)
         {
-            var root = new GameObject("Trees").transform;
-            root.SetParent(parent, false);
+            var trees = new List<TreeSpot>();
             float zNear = arena.pitHalfDepth + 2.8f, zFar = arena.pitHalfDepth + arena.sideDepth - TreeInset;
             foreach (var side in new[] { -1f, 1f })
             {
@@ -245,24 +248,114 @@ namespace PudgeWars.EditorTools
                         float x = edge * (arena.halfWidth - TreeInset + Range(rng, -0.25f, 0.25f));
                         bool mango = side < 0f && edge < 0f && i == TreesPerEdge / 2;
                         var model = mango ? MangoTree : kinds[n++ % kinds.Length];
-                        Tree(model, new Vector2(x, side * z), mango ? 1f : Range(rng, 0.85f, 1.1f), terrain, root, rng);
+                        trees.Add(new TreeSpot(model, new Vector2(x, side * z), mango ? 1f : Range(rng, 0.85f, 1.1f), rng));
                     }
+            }
+            SetTrees(terrain, trees);
+        }
+
+        /// <summary>A tree to plant on the terrain: model, world position on the ground plane, scale, random turn.</summary>
+        internal readonly struct TreeSpot
+        {
+            public readonly string model;
+            public readonly Vector2 at;
+            public readonly float scale, turn;
+
+            public TreeSpot(string model, Vector2 at, float scale, System.Random rng)
+            {
+                this.model = model;
+                this.at = at;
+                this.scale = scale;
+                turn = Range(rng, 0f, 2f * Mathf.PI);
             }
         }
 
-        /// <summary>A tree on the terrain; heroes walk around it unless it is only decor (the main menu).</summary>
-        internal static void Tree(string model, Vector2 at, float scale, Terrain terrain, Transform parent, System.Random rng, bool obstacle = true)
+        /// <summary>
+        /// The trees as the terrain's own: a prototype for each model (<see cref="TreePrefab"/>) and an instance for
+        /// each tree, on the ground of the heightmap. The terrain draws them itself.
+        /// </summary>
+        internal static void SetTrees(Terrain terrain, IReadOnlyList<TreeSpot> trees)
         {
+            var data = terrain.terrainData;
+            var models = trees.Select(t => t.model).Distinct().ToList();
+            data.treePrototypes = models.Select(m => new TreePrototype { prefab = TreePrefab(m) }).ToArray();
+            var origin = terrain.transform.position;
+            data.SetTreeInstances(trees.Select(t => new TreeInstance
+            {
+                prototypeIndex = models.IndexOf(t.model),
+                position = new Vector3((t.at.x - origin.x) / data.size.x, 0f, (t.at.y - origin.z) / data.size.z),
+                widthScale = t.scale,
+                heightScale = t.scale,
+                rotation = t.turn,
+                color = Color.white,
+                lightmapColor = Color.white,
+            }).ToArray(), snapToHeightmap: true);
+            terrain.drawTreesAndFoliage = true;
+            EditorUtility.SetDirty(data);
+        }
+
+        /// <summary>
+        /// The terrain's tree prefab of a model (Trees/Prefabs): its meshes baked into one, with the FBX root's axis
+        /// conversion, rotation and scale, one submesh per material, under an LOD group (a terrain tree turns and
+        /// culls by it).
+        /// </summary>
+        static GameObject TreePrefab(string model)
+        {
+            Directory.CreateDirectory(TreePrefabDir);
             var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{TreeDir}/{model}.fbx");
-            var go = (GameObject)PrefabUtility.InstantiatePrefab(asset, parent);
-            var position = new Vector3(at.x, 0f, at.y);
-            position.y = terrain.SampleHeight(position) + terrain.transform.position.y;
-            // on top of the model's own root rotation and scale (the FBX's axis conversion may sit there)
-            go.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, Range(rng, 0f, 360f), 0f) * asset.transform.localRotation);
-            go.transform.localScale = asset.transform.localScale * scale;
-            if (obstacle) go.AddComponent<Obstacle>().radius = TreeRadius;
-            foreach (var t in go.GetComponentsInChildren<Transform>())
-                GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.OccludeeStatic);
+            var parts = new Dictionary<Material, List<CombineInstance>>();
+            int vertices = 0;
+            foreach (var filter in asset.GetComponentsInChildren<MeshFilter>())
+            {
+                var mesh = filter.sharedMesh;
+                if (mesh == null || !filter.TryGetComponent<MeshRenderer>(out var source) || source.sharedMaterials.Length == 0) continue;
+                var materials = source.sharedMaterials;
+                var toRoot = Matrix4x4.Translate(-asset.transform.position) * filter.transform.localToWorldMatrix;
+                vertices += mesh.vertexCount;
+                for (int i = 0; i < mesh.subMeshCount; i++)
+                {
+                    var material = materials[Mathf.Min(i, materials.Length - 1)];
+                    if (material == null) continue;
+                    if (!parts.TryGetValue(material, out var list)) parts[material] = list = new List<CombineInstance>();
+                    list.Add(new CombineInstance { mesh = mesh, subMeshIndex = i, transform = toRoot });
+                }
+            }
+            var format = vertices > ushort.MaxValue ? IndexFormat.UInt32 : IndexFormat.UInt16;
+            var byMaterial = parts.Values.Select(list =>
+            {
+                var part = new Mesh { indexFormat = format };
+                part.CombineMeshes(list.ToArray(), mergeSubMeshes: true, useMatrices: true);
+                return part;
+            }).ToList();
+            var baked = new Mesh { name = model, indexFormat = format };
+            baked.CombineMeshes(byMaterial.Select(m => new CombineInstance { mesh = m, transform = Matrix4x4.identity }).ToArray(), mergeSubMeshes: false, useMatrices: false);
+            baked.RecalculateBounds();
+            foreach (var part in byMaterial) Object.DestroyImmediate(part);
+
+            // the mesh asset is overwritten in place: the prefab and the terrains keep their references
+            var meshPath = $"{TreePrefabDir}/{model}_mesh.asset";
+            var stored = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
+            if (stored == null) AssetDatabase.CreateAsset(baked, meshPath);
+            else
+            {
+                EditorUtility.CopySerialized(baked, stored);
+                Object.DestroyImmediate(baked);
+                baked = stored;
+            }
+
+            var go = new GameObject(model);
+            var lod0 = new GameObject("LOD0");
+            lod0.transform.SetParent(go.transform, false);
+            lod0.AddComponent<MeshFilter>().sharedMesh = baked;
+            var renderer = lod0.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = parts.Keys.ToArray();
+            renderer.shadowCastingMode = ShadowCastingMode.On;
+            var lods = go.AddComponent<LODGroup>();
+            lods.SetLODs(new[] { new LOD(TreeCullHeight, new Renderer[] { renderer }) });
+            lods.RecalculateBounds();
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{TreePrefabDir}/{model}.prefab");
+            Object.DestroyImmediate(go);
+            return prefab;
         }
 
         internal static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);
@@ -299,7 +392,7 @@ namespace PudgeWars.EditorTools
                 mi.importLights = false;
                 mi.animationType = ModelImporterAnimationType.None;
                 mi.addCollider = false;
-                mi.isReadable = false;
+                mi.isReadable = true; // baked into the terrain's tree prefabs (TreePrefab); the FBX itself is not in the build
                 mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
                 // the FBX material slots are named after the Dota materials, as the textures are
                 foreach (var slot in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Material>().Select(m => m.name).ToList())
@@ -355,6 +448,7 @@ namespace PudgeWars.EditorTools
             mat.SetFloat("_EnvironmentReflections", 0f);
             mat.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
             mat.SetFloat("_Cull", TwoSidedMaterials.Contains(name) ? 0f : 2f);
+            mat.enableInstancing = true; // the terrain draws its trees instanced
             EditorUtility.SetDirty(mat);
             return mat;
         }
