@@ -315,10 +315,14 @@ namespace PudgeWars.Tests
             // tug of war: the enemy pulls at half speed and drags the rescuer after the ally
             var allyFrom = ally.transform.position;
             var playerFrom = player.transform.position;
+            float Chain() => Vector3.Distance(player.transform.position, ally.transform.position);
+            float chain = Chain();
             yield return new WaitForSeconds(0.5f);
             float pulled = Vector3.Distance(allyFrom, ally.transform.position);
             Assert.AreEqual(enemyHook.pullSpeed / 3f * 0.5f, pulled, 0.15f, "the held ally is not pulled three times slower");
-            Assert.Greater(Vector3.Distance(playerFrom, player.transform.position), 0.2f, "the rescuer is not dragged after the ally");
+            // the ally goes off at an angle to the chain: the rescuer follows by less than the ally's way, on a taut chain
+            Assert.Greater(Vector3.Distance(playerFrom, player.transform.position), 0.1f, "the rescuer is not dragged after the ally");
+            Assert.AreEqual(chain, Chain(), 0.1f, "the chain does not stay taut");
             Assert.AreEqual(0, arena.RescuesOf(Team.Player), "holding is not a rescue yet");
 
             // the enemy's hook lets go (its owner was caught): the rescuer pulls the ally home
@@ -691,6 +695,41 @@ namespace PudgeWars.Tests
             }
             motor.SetMoveInput(Vector3.zero);
             Assert.Greater(player.transform.position.z, bot.transform.position.z, "the player did not slide past the bot");
+        }
+
+        [UnityTest]
+        public IEnumerator OverlappingAlliesDriftApartAndDoNotSinkIntoEachOtherAtThePitEdge()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
+            var (a, b) = (bots[0], bots[1]);
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
+            float touch = a.radius + b.radius;
+            float Gap()
+            {
+                var d = a.transform.position - b.transform.position;
+                return new Vector3(d.x, 0f, d.z).magnitude;
+            }
+
+            // one on top of the other (a respawn, an ally let go): they drift apart
+            a.transform.position = b.transform.position = new Vector3(2f, 0f, 9f);
+            yield return new WaitForSeconds(1f);
+            Assert.GreaterOrEqual(Gap(), touch - 0.05f, "allies on top of each other stay inside each other");
+
+            // one stands at the pit edge, the other walks along the edge into it: it stops, it does not sink in
+            float edge = arena.pitHalfDepth + a.GetComponent<PudgeMotor>().pitGap;
+            b.transform.position = new Vector3(0f, 0f, edge);
+            a.transform.SetPositionAndRotation(new Vector3(-touch, 0f, edge + 0.2f), Quaternion.LookRotation(new Vector3(1f, 0f, -1f)));
+            var motor = a.GetComponent<PudgeMotor>();
+            motor.SetMoveInput(new Vector3(1f, 0f, -1f).normalized);
+            float least = Gap();
+            for (float t = 0f; t < 1.5f; t += Time.deltaTime)
+            {
+                yield return null;
+                least = Mathf.Min(least, Gap());
+            }
+            motor.SetMoveInput(Vector3.zero);
+            Assert.GreaterOrEqual(least, touch - 0.05f, "pressed against the edge, the bot sank into its ally");
         }
 
         [UnityTest]
