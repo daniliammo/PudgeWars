@@ -10,8 +10,8 @@ namespace PudgeWars.Net
     /// Network side of a hero. The server simulates the hero with the usual gameplay components and publishes what
     /// clients need to show it: team and nickname, alive / falling / caught, multi-kill count, its own kills / deaths /
     /// rescues, gold and items, the hook's head and cooldown, animations and gold popups (the position goes with
-    /// NetworkTransform). The owning client sends its input instead of moving the hero itself: movement direction,
-    /// hook casts and purchases.
+    /// NetworkTransform), and the hook's catches. The owning client sends its input instead of moving the hero itself:
+    /// movement direction, hook casts and purchases.
     /// </summary>
     public class NetHero : NetworkBehaviour
     {
@@ -88,6 +88,7 @@ namespace PudgeWars.Net
             }
             if (anim != null) anim.Played += OnAnimationPlayed;
             hookable.Respawned += OnRespawned;
+            if (hook != null) hook.TargetCaught += OnTargetCaught;
             PublishInventory();
         }
 
@@ -101,6 +102,7 @@ namespace PudgeWars.Net
             }
             if (anim != null) anim.Played -= OnAnimationPlayed;
             hookable.Respawned -= OnRespawned;
+            if (hook != null) hook.TargetCaught -= OnTargetCaught;
         }
 
         void PublishInventory()
@@ -113,6 +115,14 @@ namespace PudgeWars.Net
         {
             animState = state;
             RpcPlayAnimation(state, fade, lockSeconds);
+        }
+
+        void OnTargetCaught(Hookable target) => RpcTargetCaught(target != null ? target.gameObject : null);
+
+        [ClientRpc]
+        void RpcTargetCaught(GameObject target)
+        {
+            if (!isServer && hook != null) hook.ApplyRemoteCatch(target != null ? target.GetComponent<Hookable>() : null);
         }
 
         // without this the clients would see the hero slide out of the pit to its spawn point

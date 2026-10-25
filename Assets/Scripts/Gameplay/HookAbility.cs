@@ -636,6 +636,9 @@ namespace PudgeWars.Gameplay
             return best;
         }
 
+        /// <summary>Network client: the server's hook caught <paramref name="target"/> (for the camera's shake).</summary>
+        public void ApplyRemoteCatch(Hookable target) => TargetCaught?.Invoke(target);
+
         /// <summary>Network client: the hook's state on the server.</summary>
         /// <param name="cooldownLeft">Seconds until ready, counted from now (ignored while busy).</param>
         public void ApplyRemoteState(bool busy, float cooldownLeft, bool visible, bool flying, Vector3 head, Vector3 headDirection)
