@@ -37,6 +37,7 @@ namespace PudgeWars.Gameplay
             public AnisotropicFiltering anisotropic;
             public float lodBias;
             public float terrainPixelError;
+            public float grassDensity; // of the terrain's details
         }
 
         static Settings For(GraphicsPreset preset) => preset switch
@@ -44,22 +45,22 @@ namespace PudgeWars.Gameplay
             GraphicsPreset.Low => new Settings
             {
                 renderScale = 0.65f, msaa = 1, shadows = false, shadowDistance = 0f, shadowResolution = 512, cascades = 1,
-                hdr = false, textureMipLimit = 1, anisotropic = AnisotropicFiltering.Disable, lodBias = 0.7f, terrainPixelError = 8f,
+                hdr = false, textureMipLimit = 1, anisotropic = AnisotropicFiltering.Disable, lodBias = 0.7f, terrainPixelError = 8f, grassDensity = 0.3f,
             },
             GraphicsPreset.Medium => new Settings
             {
                 renderScale = 0.85f, msaa = 1, shadows = true, shadowDistance = 35f, shadowResolution = 1024, cascades = 1,
-                hdr = true, anisotropic = AnisotropicFiltering.Enable, lodBias = 1f, terrainPixelError = 5f,
+                hdr = true, anisotropic = AnisotropicFiltering.Enable, lodBias = 1f, terrainPixelError = 5f, grassDensity = 0.6f,
             },
             GraphicsPreset.High => new Settings
             {
                 renderScale = 1f, msaa = 2, shadows = true, softShadows = true, shadowDistance = 50f, shadowResolution = 2048, cascades = 2,
-                hdr = true, anisotropic = AnisotropicFiltering.Enable, lodBias = 1.5f, terrainPixelError = 3f,
+                hdr = true, anisotropic = AnisotropicFiltering.Enable, lodBias = 1.5f, terrainPixelError = 3f, grassDensity = 0.85f,
             },
             _ => new Settings
             {
                 renderScale = 1f, msaa = 4, shadows = true, softShadows = true, shadowDistance = 70f, shadowResolution = 4096, cascades = 4,
-                hdr = true, anisotropic = AnisotropicFiltering.ForceEnable, lodBias = 2f, terrainPixelError = 1f,
+                hdr = true, anisotropic = AnisotropicFiltering.ForceEnable, lodBias = 2f, terrainPixelError = 1f, grassDensity = 1f,
             },
         };
 
@@ -143,7 +144,7 @@ namespace PudgeWars.Gameplay
 
         static void OnSceneLoaded(Scene scene, LoadSceneMode mode) => ApplyToScene();
 
-        /// <summary>The sun's shadows and the terrain's detail in the loaded scenes.</summary>
+        /// <summary>The sun's shadows, the terrain's detail and how thick its grass is in the loaded scenes.</summary>
         static void ApplyToScene()
         {
             var s = For(Current);
@@ -151,7 +152,10 @@ namespace PudgeWars.Gameplay
                 if (light.type == LightType.Directional)
                     light.shadows = !s.shadows ? LightShadows.None : s.softShadows ? LightShadows.Soft : LightShadows.Hard;
             foreach (var terrain in Terrain.activeTerrains)
+            {
                 terrain.heightmapPixelError = s.terrainPixelError;
+                terrain.detailObjectDensity = s.grassDensity;
+            }
         }
 
 #if UNITY_EDITOR

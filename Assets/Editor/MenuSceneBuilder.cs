@@ -41,6 +41,12 @@ namespace PudgeWars.EditorTools
         const float TreeNear = 6f, TreeFar = 70f;
         const int Seed = 2600;
 
+        // Radiant's grass: terrain details in patches, none right at Pudge's feet or in front of him, thinning out
+        // toward the hills (the terrain stops drawing it beyond GrassDistance anyway)
+        const int GrassResolution = 256; // detail cells over the terrain: 0.625 m
+        const float GrassNear = 2.5f, GrassFar = 45f, GrassDistance = 60f;
+        const float GrassPerCell = 2.2f; // clumps in a cell in the thick of a patch
+
         const float CameraFov = 35f;
         const float PudgeScreenShare = 0.55f; // of the screen height
 
@@ -58,6 +64,7 @@ namespace PudgeWars.EditorTools
             var terrain = BuildTerrain(root.transform, radiant);
             PlaceTrees(terrain, radiant, MenuSide.Radiant);
             PlaceTrees(terrain, dire, MenuSide.Dire);
+            PlaceGrass(radiant); // Dire's scorched ground has none
             var sun = BuildLighting();
 
             var landscape = root.AddComponent<MenuLandscape>();
@@ -146,6 +153,7 @@ namespace PudgeWars.EditorTools
             terrain.basemapDistance = 150f;
             terrain.shadowCastingMode = ShadowCastingMode.On;
             terrain.treeDistance = 200f;
+            terrain.detailObjectDistance = GrassDistance;
             return terrain;
         }
 
@@ -197,6 +205,33 @@ namespace PudgeWars.EditorTools
             terrain.terrainData = data;
             LandscapeBuilder.SetTrees(terrain, trees);
             terrain.terrainData = shown;
+        }
+
+        /// <summary>Radiant's green grass clumps as the terrain's details, in patches (Perlin noise), off the slopes.</summary>
+        static void PlaceGrass(TerrainData data)
+        {
+            var rng = new System.Random(Seed);
+            var prototypes = LandscapeBuilder.GrassPrototypes(LandscapeBuilder.Grass);
+            data.detailPrototypes = prototypes;
+            data.SetDetailScatterMode(DetailScatterMode.InstanceCountMode);
+            data.SetDetailResolution(GrassResolution, 32);
+            var layers = prototypes.Select(_ => new int[GrassResolution, GrassResolution]).ToArray();
+            var patches = new Vector2(rng.Next(1000), rng.Next(1000));
+            var origin = Origin;
+            for (int z = 0; z < GrassResolution; z++)
+            for (int x = 0; x < GrassResolution; x++)
+            {
+                float u = (x + 0.5f) / GrassResolution, v = (z + 0.5f) / GrassResolution;
+                var at = new Vector2(origin.x + u * TerrainWidth, origin.z + v * TerrainLength);
+                float d = at.magnitude;
+                if (d < GrassNear || d > GrassFar || at.y > 3f || data.GetSteepness(u, v) > 28f) continue;
+                float patch = Mathf.InverseLerp(0.35f, 0.75f, Mathf.PerlinNoise(patches.x + at.x * 0.08f, patches.y + at.y * 0.08f));
+                float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(GrassFar * 0.6f, GrassFar, d));
+                int count = Mathf.FloorToInt(patch * fade * GrassPerCell + (float)rng.NextDouble());
+                for (int i = 0; i < count; i++) layers[rng.Next(layers.Length)][z, x]++;
+            }
+            for (int i = 0; i < layers.Length; i++) data.SetDetailLayer(0, 0, i, layers[i]);
+            EditorUtility.SetDirty(data);
         }
 
         /// <summary>The sun and the fog; their colours, the ambient light and the sky come with the side's look.</summary>

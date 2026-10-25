@@ -24,7 +24,7 @@ namespace PudgeWars.EditorTools
     public static class LandscapeBuilder
     {
         const string TreeDir = "Assets/Art/Landscape/Trees";
-        const string TreePrefabDir = TreeDir + "/Prefabs";
+        const string GrassDir = "Assets/Art/Landscape/Grass";
         internal const string TerrainDir = "Assets/Art/Landscape/Terrain";
         const string RootName = "Landscape";
         // the arena keeps Dota's standard map trees; the main menu's Radiant forest has all of Radiant's
@@ -43,6 +43,10 @@ namespace PudgeWars.EditorTools
         };
         internal static readonly string[] DireTrees = { "dire_tree004", "dire_tree007", "dire_tree004b", "dire_tree008" };
         internal const string MangoTree = "mango_tree";
+        // Dota's grass clumps (Tools/Landscape/build_grass.py): green, and the tintable ones tinted with frost
+        internal static readonly string[] Grass = { "grass_clump_00a", "grass_clump_00b", "grass_clump_00d", "grass_clump_00e", "grass_clump_00f" };
+        internal static readonly string[] WinterGrass =
+            { "grass_clump_winter_b", "grass_clump_winter_c", "grass_clump_winter_d", "grass_clump_winter_e", "grass_clump_winter_f" };
         static readonly string[] TwoSidedMaterials = { "dire_tree007_moss" }; // doubleSided in the glTF
         static readonly string[] OpaqueMaterials = { "tree_oak_03", "tree_desert002", "tree_gnarly001", "tree_cine_02_low" }; // the rest are masked
         // the parts of a tree that can be cut down (Tools/Landscape/build_trees.py): what stays, what falls
@@ -326,22 +330,52 @@ namespace PudgeWars.EditorTools
         /// </summary>
         static GameObject TreePrefab(string model)
         {
-            var (mesh, materials) = Bake(model);
+            var (mesh, materials) = Bake(TreeDir, model);
             var go = new GameObject(model);
             var lods = go.AddComponent<LODGroup>();
             lods.SetLODs(new[] { new LOD(TreeCullHeight, new Renderer[] { MeshChild(go, "LOD0", mesh, materials) }) });
             lods.RecalculateBounds();
-            return SavePrefab(go, model);
+            return SavePrefab(go, TreeDir, model);
         }
 
         /// <summary>A part of a cut tree (its stump or falling top) as a plain prefab; null if the model has none.</summary>
         static GameObject PartPrefab(string part)
         {
             if (AssetDatabase.LoadAssetAtPath<GameObject>($"{TreeDir}/{part}.fbx") == null) return null;
-            var (mesh, materials) = Bake(part);
+            var (mesh, materials) = Bake(TreeDir, part);
             var go = new GameObject(part);
             MeshChild(go, "Mesh", mesh, materials);
-            return SavePrefab(go, part);
+            return SavePrefab(go, TreeDir, part);
+        }
+
+        /// <summary>
+        /// The terrain's detail prototypes of grass clumps (Grass/Prefabs: the baked mesh on the prefab's root, as a
+        /// detail mesh wants it), drawn instanced with their own materials, a little bigger or smaller at random.
+        /// </summary>
+        internal static DetailPrototype[] GrassPrototypes(IEnumerable<string> models)
+        {
+            SetupModels(GrassDir, models);
+            return models.Select(model =>
+            {
+                var (mesh, materials) = Bake(GrassDir, model);
+                var go = new GameObject(model);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var renderer = go.AddComponent<MeshRenderer>();
+                renderer.sharedMaterials = materials;
+                renderer.shadowCastingMode = ShadowCastingMode.Off;
+                var grass = new DetailPrototype
+                {
+                    prototype = SavePrefab(go, GrassDir, model),
+                    usePrototypeMesh = true,
+                    useInstancing = true,
+                    renderMode = DetailRenderMode.VertexLit,
+                    minWidth = 0.8f, maxWidth = 1.25f, minHeight = 0.8f, maxHeight = 1.3f,
+                    noiseSpread = 0.4f,
+                    healthyColor = Color.white, dryColor = new Color(0.9f, 0.9f, 0.8f),
+                };
+                if (!grass.Validate(out var error)) Debug.LogError($"[LandscapeBuilder] {model}: {error}");
+                return grass;
+            }).ToArray();
         }
 
         static Renderer MeshChild(GameObject parent, string name, Mesh mesh, Material[] materials)
@@ -355,21 +389,21 @@ namespace PudgeWars.EditorTools
             return renderer;
         }
 
-        static GameObject SavePrefab(GameObject go, string name)
+        static GameObject SavePrefab(GameObject go, string dir, string name)
         {
-            var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{TreePrefabDir}/{name}.prefab");
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, $"{dir}/Prefabs/{name}.prefab");
             Object.DestroyImmediate(go);
             return prefab;
         }
 
         /// <summary>
-        /// A model's meshes baked into one (Trees/Prefabs/&lt;model&gt;_mesh), with the FBX root's axis conversion,
+        /// A model's meshes baked into one (&lt;dir&gt;/Prefabs/&lt;model&gt;_mesh), with the FBX root's axis conversion,
         /// rotation and scale, one submesh per material; the mesh asset is overwritten in place.
         /// </summary>
-        static (Mesh mesh, Material[] materials) Bake(string model)
+        static (Mesh mesh, Material[] materials) Bake(string dir, string model)
         {
-            Directory.CreateDirectory(TreePrefabDir);
-            var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{TreeDir}/{model}.fbx");
+            Directory.CreateDirectory($"{dir}/Prefabs");
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{dir}/{model}.fbx");
             var parts = new Dictionary<Material, List<CombineInstance>>();
             int vertices = 0;
             foreach (var filter in asset.GetComponentsInChildren<MeshFilter>())
@@ -400,7 +434,7 @@ namespace PudgeWars.EditorTools
             foreach (var part in byMaterial) Object.DestroyImmediate(part);
 
             // overwritten in place: the prefabs and the terrains keep their references
-            var meshPath = $"{TreePrefabDir}/{model}_mesh.asset";
+            var meshPath = $"{dir}/Prefabs/{model}_mesh.asset";
             var stored = AssetDatabase.LoadAssetAtPath<Mesh>(meshPath);
             if (stored == null) AssetDatabase.CreateAsset(baked, meshPath);
             else
@@ -415,24 +449,28 @@ namespace PudgeWars.EditorTools
         internal static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);
 
         /// <summary>Import settings of the tree models and textures, and their URP materials (masked leaves).</summary>
-        internal static void SetupTreeAssets()
+        internal static void SetupTreeAssets() =>
+            SetupModels(TreeDir, RadiantTrees.Concat(SnowTrees).Concat(DireTrees).Append(MangoTree)
+                .SelectMany(m => new[] { m, m + StumpSuffix, m + FallingSuffix }));
+
+        /// <summary>Import settings of the models in <paramref name="dir"/> and their textures, and their URP materials.</summary>
+        static void SetupModels(string dir, IEnumerable<string> models)
         {
             var materials = new Dictionary<string, Material>();
-            foreach (var colorPath in Directory.GetFiles($"{TreeDir}/Textures", "*_color.png"))
+            foreach (var colorPath in Directory.GetFiles($"{dir}/Textures", "*_color.png"))
             {
                 var file = Path.GetFileName(colorPath);
                 var name = file.Substring(0, file.Length - "_color.png".Length);
                 var color = TreeTexture(colorPath.Replace('\\', '/'), normal: false);
-                var normal = TreeTexture($"{TreeDir}/Textures/{name}_normal.png", normal: true);
-                materials[name] = TreeMaterial(name, color, normal);
+                var normal = TreeTexture($"{dir}/Textures/{name}_normal.png", normal: true);
+                // grass clumps are flat cards, seen from both sides
+                materials[name] = TreeMaterial(dir, name, color, normal, twoSided: dir == GrassDir || TwoSidedMaterials.Contains(name));
             }
             AssetDatabase.SaveAssets();
 
-            var models = RadiantTrees.Concat(SnowTrees).Concat(DireTrees).Append(MangoTree)
-                .SelectMany(m => new[] { m, m + StumpSuffix, m + FallingSuffix });
             foreach (var model in models)
             {
-                var path = $"{TreeDir}/{model}.fbx";
+                var path = $"{dir}/{model}.fbx";
                 if (!File.Exists(path)) continue; // a tree Dota cannot cut down has no stump or falling top
                 var mi = (ModelImporter)AssetImporter.GetAtPath(path);
                 mi.globalScale = 1f;
@@ -449,7 +487,7 @@ namespace PudgeWars.EditorTools
                 mi.importLights = false;
                 mi.animationType = ModelImporterAnimationType.None;
                 mi.addCollider = false;
-                mi.isReadable = true; // baked into the terrain's tree prefabs (TreePrefab); the FBX itself is not in the build
+                mi.isReadable = true; // baked into the terrain's prefabs (Bake); the FBX itself is not in the build
                 mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
                 // the FBX material slots are named after the Dota materials, as the textures are
                 foreach (var slot in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Material>().Select(m => m.name).ToList())
@@ -477,10 +515,10 @@ namespace PudgeWars.EditorTools
             return texture;
         }
 
-        static Material TreeMaterial(string name, Texture2D color, Texture2D normal)
+        static Material TreeMaterial(string dir, string name, Texture2D color, Texture2D normal, bool twoSided)
         {
-            Directory.CreateDirectory($"{TreeDir}/Materials");
-            var path = $"{TreeDir}/Materials/{name}.mat";
+            Directory.CreateDirectory($"{dir}/Materials");
+            var path = $"{dir}/Materials/{name}.mat";
             var shader = Shader.Find("Universal Render Pipeline/Lit");
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat == null)
@@ -514,7 +552,7 @@ namespace PudgeWars.EditorTools
             mat.EnableKeyword("_SPECULARHIGHLIGHTS_OFF");
             mat.SetFloat("_EnvironmentReflections", 0f);
             mat.EnableKeyword("_ENVIRONMENTREFLECTIONS_OFF");
-            mat.SetFloat("_Cull", TwoSidedMaterials.Contains(name) ? 0f : 2f);
+            mat.SetFloat("_Cull", twoSided ? 0f : 2f);
             mat.enableInstancing = true; // the terrain draws its trees instanced
             EditorUtility.SetDirty(mat);
             return mat;
