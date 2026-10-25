@@ -134,16 +134,20 @@ namespace PudgeWars.Gameplay
             if (!rescueWanted) return false;
             waiting = true;
             if (Time.time < rescueAt || hook == null || !hook.IsReady) return false;
-            // the enemy's hook drags the ally straight to its owner (the measured velocity jumps on the catch frame)
-            var pull = ally.HookedBy.Owner.transform.position - ally.transform.position;
+            // the enemy's hook drags the ally straight to its owner (the measured velocity jumps on the catch frame),
+            // held at its head: on the catch frame the ally still stands where it was caught, a step away from it
+            var enemyHook = ally.HookedBy;
+            var dragged = enemyHook.HeadVisible ? enemyHook.hookHead.position : ally.transform.position;
+            dragged.y = ally.transform.position.y;
+            var pull = enemyHook.Owner.transform.position - dragged;
             pull.y = 0f;
-            var velocity = pull.normalized * ally.HookedBy.pullSpeed;
-            if (!Intercept(ally, velocity, out var aim)) return false;
+            var velocity = pull.normalized * enemyHook.pullSpeed;
+            if (!Intercept(dragged, ally.radius, velocity, out var aim, out _)) return false;
             // the head catches the ally this far before its centre, at most at full range
             if (aim.magnitude > (hook.EffectiveRange + hook.hitRadius + ally.radius) * rangeFraction) return false;
             // too late: the ally is over the pit (or already past it) by the time the hook gets there
             var meet = transform.position + aim;
-            if (arena.IsOverPit(meet) || Mathf.Sign(meet.z) != Mathf.Sign(ally.transform.position.z)) return false;
+            if (arena.IsOverPit(meet) || Mathf.Sign(meet.z) != Mathf.Sign(dragged.z)) return false;
             if (!PathClear(aim, ally)) return false;
 
             rescueWanted = false; // one try per catch
@@ -233,14 +237,18 @@ namespace PudgeWars.Gameplay
         public bool Intercept(Hookable target, Vector3 v, out Vector3 aim) => Intercept(target, v, out aim, out _);
 
         /// <param name="catchTime">Seconds from now until the head catches the target (the turn and wind-up included).</param>
-        public bool Intercept(Hookable target, Vector3 v, out Vector3 aim, out float catchTime)
+        public bool Intercept(Hookable target, Vector3 v, out Vector3 aim, out float catchTime) =>
+            Intercept(target.transform.position, target.radius, v, out aim, out catchTime);
+
+        /// <summary>The same for a hero of <paramref name="radius"/> at <paramref name="position"/> now.</summary>
+        public bool Intercept(Vector3 position, float radius, Vector3 v, out Vector3 aim, out float catchTime)
         {
             catchTime = float.PositiveInfinity;
-            var to = target.transform.position - transform.position;
+            var to = position - transform.position;
             to.y = 0f;
             float delay = (motor != null ? motor.TimeToFace(to) : 0f) + hook.castDelay;
             var start = to + v * delay;
-            float reach = hook.hitRadius + target.radius + hook.LaunchOffset;
+            float reach = hook.hitRadius + radius + hook.LaunchOffset;
             float s = hook.flySpeed;
             if (start.sqrMagnitude <= reach * reach)
             {
