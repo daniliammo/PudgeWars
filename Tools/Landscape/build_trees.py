@@ -140,4 +140,5 @@ def main():
             convert(name + '_falling', falling, out_dir, src)
 
 
-main()
+if __name__ == '__main__':
+    main()
