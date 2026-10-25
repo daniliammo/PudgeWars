@@ -446,6 +446,23 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HeldHeroLeavingTheGameBreaksTheRescuersChain()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            yield return SetUpTugOfWar(ally, enemy, hook, player, _ => { });
+
+            Object.Destroy(ally.gameObject); // a disconnect, or a bot taken out for a joining player
+            yield return null;
+            yield return null;
+            Assert.IsFalse(hook.IsBusy, "the rescuer is stuck holding a hero that left the game");
+            Assert.IsFalse(hook.HeadVisible);
+            Assert.IsTrue(player.GetComponent<PudgeMotor>().CanMove, "the rescuer cannot move");
+        }
+
+        [UnityTest]
         public IEnumerator RescuedPlayerSeesWhoSavedHimAndTheTeamCountsIt()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();

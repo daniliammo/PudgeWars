@@ -533,6 +533,11 @@ namespace PudgeWars.Gameplay
 
         void Hold()
         {
+            if (held == null) // left the game (a disconnect, a bot taken out for a joining player): the chain breaks
+            {
+                Cancel();
+                return;
+            }
             var enemyHook = held.HookedBy;
             if (!held.IsAlive || held.IsFalling || enemyHook == null)
             {
@@ -578,9 +583,8 @@ namespace PudgeWars.Gameplay
 
         void ReleaseHeld()
         {
-            if (held == null) return;
-            if (held.HeldBy == this) held.HeldBy = null;
-            held = null;
+            if (held != null && held.HeldBy == this) held.HeldBy = null;
+            held = null; // also a hero that left the game
         }
 
         /// <summary>First hero (enemy, or ally with hitsAllies) whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
