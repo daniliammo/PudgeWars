@@ -1,6 +1,9 @@
 using System.Text;
 using Unity.Profiling;
 using UnityEngine;
+#if UNITY_ANDROID && !UNITY_EDITOR
+using UnityEngine.Android;
+#endif
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 
@@ -9,7 +12,7 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// FPS counter in the top-left corner plus an extended debug panel toggled by F11 (graphics API, GPU,
     /// draw calls, vertices, triangles, memory, frame timings). Spawns itself on startup in the editor and in
-    /// builds, and caps the frame rate at the display's refresh rate.
+    /// builds, and caps the frame rate at the display's refresh rate (on Android first switching to the fastest mode).
     /// </summary>
     public class FrameStatsOverlay : MonoBehaviour
     {
@@ -40,6 +43,9 @@ namespace PudgeWars.Gameplay
             go.AddComponent<FrameStatsOverlay>();
         }
 
+        /// <summary>Rate of the display mode requested from Android; zero if none was requested.</summary>
+        static float requestedRefreshRate;
+
         /// <summary>
         /// Display refresh rate: the compositor's value when known (the editor always reports 60 Hz). On mobile the
         /// highest supported mode — phones keep the display at 60 Hz until the app asks for more via targetFrameRate.
@@ -48,6 +54,7 @@ namespace PudgeWars.Gameplay
         {
             get
             {
+                if (requestedRefreshRate > 0f) return requestedRefreshRate;
                 if (DisplayScaling.NativeRefreshRate > 0f) return DisplayScaling.NativeRefreshRate;
                 float hz = (float)Screen.currentResolution.refreshRateRatio.value;
 #if (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
@@ -60,12 +67,69 @@ namespace PudgeWars.Gameplay
         /// <summary>Frame cap = display refresh rate; VSync off so the cap is what limits the frame rate.</summary>
         public static int ApplyFrameCap()
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            requestedRefreshRate = RequestFastestDisplayMode();
+#endif
             int hz = Mathf.RoundToInt(RefreshRate);
             if (hz <= 0) hz = 60;
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = hz;
             return hz;
         }
+
+#if UNITY_ANDROID && !UNITY_EDITOR
+        /// <summary>
+        /// Android runs an app at 60 Hz until its window asks for a faster display mode (90/120 Hz screens). Picks the
+        /// highest-rate mode at the current resolution, requests it via WindowManager.LayoutParams and returns its
+        /// rate; zero on failure.
+        /// </summary>
+        static float RequestFastestDisplayMode()
+        {
+            try
+            {
+                var activity = AndroidApplication.currentActivity;
+                using var windowManager = activity.Call<AndroidJavaObject>("getWindowManager");
+                using var display = windowManager.Call<AndroidJavaObject>("getDefaultDisplay");
+                using var current = display.Call<AndroidJavaObject>("getMode");
+                int width = current.Call<int>("getPhysicalWidth"), height = current.Call<int>("getPhysicalHeight");
+                int bestId = current.Call<int>("getModeId");
+                float bestHz = current.Call<float>("getRefreshRate");
+                foreach (var mode in display.Call<AndroidJavaObject[]>("getSupportedModes"))
+                {
+                    using (mode)
+                    {
+                        float hz = mode.Call<float>("getRefreshRate");
+                        if (hz <= bestHz || mode.Call<int>("getPhysicalWidth") != width || mode.Call<int>("getPhysicalHeight") != height) continue;
+                        bestHz = hz;
+                        bestId = mode.Call<int>("getModeId");
+                    }
+                }
+
+                AndroidApplication.InvokeOnUIThread(() =>
+                {
+                    try
+                    {
+                        using var window = AndroidApplication.currentActivity.Call<AndroidJavaObject>("getWindow");
+                        using var attributes = window.Call<AndroidJavaObject>("getAttributes");
+                        attributes.Set("preferredDisplayModeId", bestId);
+                        attributes.Set("preferredRefreshRate", bestHz);
+                        window.Call("setAttributes", attributes);
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogWarning($"[FrameStatsOverlay] display mode request failed: {e.Message}");
+                    }
+                });
+                Debug.Log($"[FrameStatsOverlay] display {width}x{height}, requesting {bestHz:0.##} Hz (mode {bestId})");
+                return bestHz;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[FrameStatsOverlay] display modes unavailable: {e.Message}");
+                return 0f;
+            }
+        }
+#endif
 
         void OnEnable()
         {
