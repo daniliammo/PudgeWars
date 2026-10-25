@@ -11,6 +11,12 @@ namespace PudgeWars.Gameplay
     /// </summary>
     public enum Team { Player, Bots }
 
+    /// <summary>A hero's own score: kills, deaths and rescues (У/С/С as in the corner of the HUD).</summary>
+    public struct HeroScore
+    {
+        public int kills, deaths, rescues;
+    }
+
     /// <summary>
     /// Test arena: two sides separated by a pit along the X axis (z = 0).
     /// The player side is z &lt; 0, the bot side is z &gt; 0 (in a network game these are simply the two teams).
@@ -57,6 +63,8 @@ namespace PudgeWars.Gameplay
         public int DeathsOf(Team team) => deaths[(int)team];
         /// <summary>Allies a team's hooks pulled out of enemy hooks.</summary>
         public int RescuesOf(Team team) => rescues[(int)team];
+        /// <summary>A hero's own kills, deaths and rescues (У/С/С), as the server counted them on a client.</summary>
+        public HeroScore ScoreOf(Hookable hero) => hero != null && heroScores.TryGetValue(hero, out var s) ? s : default;
         /// <summary>Gold for killing a hero: 125 + its level × 8, so 133 at level 1.</summary>
         public int KillGold(Hookable victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
         /// <summary>
@@ -82,6 +90,7 @@ namespace PudgeWars.Gameplay
         readonly int[] kills = new int[2], deaths = new int[2], rescues = new int[2];
         readonly Dictionary<Hookable, int> remoteRampages = new();
         readonly Dictionary<Hookable, int> remoteMultiKills = new();
+        readonly Dictionary<Hookable, HeroScore> heroScores = new();
         float nextPassiveGold;
 
         void Awake()
@@ -156,7 +165,16 @@ namespace PudgeWars.Gameplay
                     KillAnnounced?.Invoke(killer, announcement);
             }
             deaths[(int)victim.team]++;
-            if (killer != null) kills[(int)killer.team]++; // a hero that fell in by itself is nobody's kill
+            var victimScore = ScoreOf(victim);
+            victimScore.deaths++;
+            heroScores[victim] = victimScore;
+            if (killer != null) // a hero that fell in by itself is nobody's kill
+            {
+                kills[(int)killer.team]++;
+                var killerScore = ScoreOf(killer);
+                killerScore.kills++;
+                heroScores[killer] = killerScore;
+            }
             ScoreChanged?.Invoke(Score, Deaths);
             StartCoroutine(Respawn(victim));
         }
@@ -168,6 +186,9 @@ namespace PudgeWars.Gameplay
         public void ReportRescue(Hookable rescued, Hookable rescuer)
         {
             rescues[(int)rescuer.team]++;
+            var rescuerScore = ScoreOf(rescuer);
+            rescuerScore.rescues++;
+            heroScores[rescuer] = rescuerScore;
             if (rescuer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(KillGold(rescued) / 2);
             Rescued?.Invoke(rescued, rescuer);
             ScoreChanged?.Invoke(Score, Deaths);
@@ -182,6 +203,7 @@ namespace PudgeWars.Gameplay
             Array.Clear(rescues, 0, rescues.Length);
             remoteRampages.Clear();
             remoteMultiKills.Clear();
+            heroScores.Clear();
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
             ScoreChanged?.Invoke(Score, Deaths);
         }
@@ -193,6 +215,9 @@ namespace PudgeWars.Gameplay
         /// <summary>Kills of the hero's current multi-kill, 0 once its window ran out (as the server counted them on a client).</summary>
         public int MultiKillOf(Hookable hero) =>
             remoteMultiKills.TryGetValue(hero, out var n) ? n : Streaks.MultiKillCount(hero);
+
+        /// <summary>Network client: a hero's kills, deaths and rescues the server keeps.</summary>
+        public void ApplyRemoteHeroScore(Hookable hero, HeroScore score) => heroScores[hero] = score;
 
         /// <summary>Network client: the hero's multi-kill count the server keeps.</summary>
         public void ApplyRemoteMultiKill(Hookable hero, int kills) => remoteMultiKills[hero] = kills;

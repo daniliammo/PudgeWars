@@ -57,6 +57,9 @@ namespace PudgeWars.Tests
             Assert.IsTrue(dropped, "bot was not released over the pit");
             Assert.AreEqual(1, arena.Score);
             Assert.IsFalse(bot.IsAlive);
+            Assert.AreEqual(1, arena.ScoreOf(player).kills, "the kill is not in the player's own score");
+            Assert.AreEqual(1, arena.ScoreOf(bot).deaths, "the death is not in the bot's own score");
+            Assert.AreEqual(0, arena.ScoreOf(player).deaths);
             Assert.AreEqual(arena.KillGold(bot), player.GetComponent<HeroInventory>().Gold, "no gold for the kill");
             Assert.AreEqual(133, arena.KillGold(bot), "a level-1 kill is worth 125 + 1 × 8");
 
@@ -320,6 +323,8 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0, arena.Deaths);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the rescue was not counted");
             Assert.AreEqual(0, arena.RescuesOf(Team.Bots));
+            Assert.AreEqual(1, arena.ScoreOf(player).rescues, "the rescue is not in the rescuer's own score");
+            Assert.AreEqual(0, arena.ScoreOf(ally).rescues);
             Assert.AreEqual(arena.KillGold(ally) / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
             Assert.AreEqual(0, ally.GetComponent<HeroInventory>().Gold, "the rescued hero gets nothing");
         }
@@ -1416,7 +1421,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(lens.icon, shop.slots[0].sprite, "the bar does not show the clicked hero's items");
             Assert.IsTrue(shop.statsPanel.gameObject.activeSelf, "no stats of the inspected hero");
             var stats = shop.statsPanel.GetComponentsInChildren<Text>().Select(t => t.text).ToList();
-            CollectionAssert.IsSubsetOf(new[] { "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);
+            CollectionAssert.IsSubsetOf(new[] { "У/С/С", "0/0/0", "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);
             StringAssert.Contains("+275", stats[stats.IndexOf("Дальность хука") + 1], "the lens's bonus to the hook range is not shown");
             StringAssert.StartsWith("1300", stats[stats.IndexOf("Дальность хука") + 1]);
             botWallet.AddGold(50, popup: false);

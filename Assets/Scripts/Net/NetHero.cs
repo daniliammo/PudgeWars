@@ -8,9 +8,10 @@ namespace PudgeWars.Net
 {
     /// <summary>
     /// Network side of a hero. The server simulates the hero with the usual gameplay components and publishes what
-    /// clients need to show it: team and nickname, alive / falling / caught, multi-kill count, gold and items, the hook's head and
-    /// cooldown, animations and gold popups (the position goes with NetworkTransform). The owning client sends its
-    /// input instead of moving the hero itself: movement direction, hook casts and purchases.
+    /// clients need to show it: team and nickname, alive / falling / caught, multi-kill count, its own kills / deaths /
+    /// rescues, gold and items, the hook's head and cooldown, animations and gold popups (the position goes with
+    /// NetworkTransform). The owning client sends its input instead of moving the hero itself: movement direction,
+    /// hook casts and purchases.
     /// </summary>
     public class NetHero : NetworkBehaviour
     {
@@ -25,6 +26,9 @@ namespace PudgeWars.Net
         [SyncVar(hook = nameof(OnNicknameChanged))] string nickname;
         [SyncVar] byte heroFlags = AliveFlag;
         [SyncVar] int multiKill;
+        [SyncVar] int kills;
+        [SyncVar] int deaths;
+        [SyncVar] int rescues;
         [SyncVar(hook = nameof(OnGoldChanged))] int gold;
         [SyncVar(hook = nameof(OnItemsChanged))] string items = "";
         [SyncVar] string animState;
@@ -122,6 +126,10 @@ namespace PudgeWars.Net
         {
             heroFlags = (byte)((hookable.IsAlive ? AliveFlag : 0) | (hookable.IsFalling ? FallingFlag : 0) | (hookable.IsHooked ? HookedFlag : 0));
             multiKill = Arena.Instance != null ? Arena.Instance.Streaks.MultiKillCount(hookable) : 0;
+            var score = Arena.Instance != null ? Arena.Instance.ScoreOf(hookable) : default;
+            kills = score.kills;
+            deaths = score.deaths;
+            rescues = score.rescues;
             if (hook == null) return;
             hookFlags = (byte)((hook.IsBusy ? BusyFlag : 0) | (hook.HeadVisible ? VisibleFlag : 0) | (hook.IsFlying ? FlyingFlag : 0));
             if (hook.HeadVisible)
@@ -215,7 +223,11 @@ namespace PudgeWars.Net
         void Show()
         {
             hookable.ApplyRemoteState((heroFlags & AliveFlag) != 0, (heroFlags & FallingFlag) != 0, (heroFlags & HookedFlag) != 0);
-            if (Arena.Instance != null) Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);
+            if (Arena.Instance != null)
+            {
+                Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);
+                Arena.Instance.ApplyRemoteHeroScore(hookable, new HeroScore { kills = kills, deaths = deaths, rescues = rescues });
+            }
             if (hook != null)
                 hook.ApplyRemoteState((hookFlags & BusyFlag) != 0, (float)(hookReadyAt - NetworkTime.time),
                     (hookFlags & VisibleFlag) != 0, (hookFlags & FlyingFlag) != 0, hookHead, hookDirection);
