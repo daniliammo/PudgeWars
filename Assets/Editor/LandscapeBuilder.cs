@@ -66,7 +66,9 @@ namespace PudgeWars.EditorTools
                 return;
             }
             Build(arena);
+            // saved at once: another builder opening a new scene would drop the change without asking
             EditorSceneManager.MarkSceneDirty(arena.gameObject.scene);
+            EditorSceneManager.SaveScene(arena.gameObject.scene);
         }
 
         public static void Build(Arena arena)

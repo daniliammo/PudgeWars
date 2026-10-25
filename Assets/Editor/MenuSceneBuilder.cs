@@ -47,6 +47,7 @@ namespace PudgeWars.EditorTools
         [MenuItem("Pudge Wars/Build Main Menu")]
         public static void Build()
         {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return; // the open scene's changes are not lost
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             LandscapeBuilder.SetupTreeAssets();

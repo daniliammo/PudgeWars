@@ -35,6 +35,7 @@ namespace PudgeWars.EditorTools
         [MenuItem("Pudge Wars/Build Test Arena")]
         public static void Build()
         {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return; // the open scene's changes are not lost
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             var arenaGo = new GameObject("Arena");
