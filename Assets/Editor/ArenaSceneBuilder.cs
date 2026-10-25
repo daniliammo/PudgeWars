@@ -39,9 +39,8 @@ namespace PudgeWars.EditorTools
 
             var arenaGo = new GameObject("Arena");
             var arena = arenaGo.AddComponent<Arena>();
-            BuildGeometry(arena, arenaGo.transform);
+            LandscapeBuilder.Build(arena); // the ground with the pit, the hills around and the trees
             BuildLighting();
-            LandscapeBuilder.Build(arena);
 
             var cam = new GameObject("Main Camera") { tag = "MainCamera" };
             var camera = cam.AddComponent<Camera>();
@@ -68,30 +67,6 @@ namespace PudgeWars.EditorTools
             EditorSceneManager.SaveScene(scene, ScenePath);
             AddToBuildSettings(ScenePath);
             Debug.Log("[ArenaSceneBuilder] saved " + ScenePath);
-        }
-
-        static void BuildGeometry(Arena arena, Transform parent)
-        {
-            float hw = arena.halfWidth, pit = arena.pitHalfDepth, side = arena.sideDepth;
-            var ground = Mat("Ground", new Color(0.30f, 0.38f, 0.22f));
-            var cliff = Mat("PitWall", new Color(0.22f, 0.17f, 0.13f));
-            var abyss = Mat("PitFloor", new Color(0.03f, 0.02f, 0.02f));
-            var border = Mat("Border", new Color(0.35f, 0.33f, 0.30f));
-
-            foreach (var sign in new[] { -1f, 1f })
-            {
-                var name = sign < 0 ? "Ground_Player" : "Ground_Bots";
-                // thick blocks: their inner faces are the pit walls
-                Box(name, parent, new Vector3(0f, -3f, sign * (pit + side / 2f)), new Vector3(2f * hw, 6f, side), ground);
-                Box(name + "_BackWall", parent, new Vector3(0f, 0.3f, sign * (pit + side + 0.25f)), new Vector3(2f * hw + 1f, 0.6f, 0.5f), border);
-                Box(name + "_LeftWall", parent, new Vector3(-hw - 0.25f, 0.3f, sign * (pit + side / 2f)), new Vector3(0.5f, 0.6f, side), border);
-                Box(name + "_RightWall", parent, new Vector3(hw + 0.25f, 0.3f, sign * (pit + side / 2f)), new Vector3(0.5f, 0.6f, side), border);
-                Box("Pit_EndWall_" + (sign < 0 ? "L" : "R"), parent, new Vector3(sign * (hw + 0.25f), -3f, 0f), new Vector3(0.5f, 6.6f, 2f * pit), cliff);
-            }
-            Box("Pit_Floor", parent, new Vector3(0f, -6.5f, 0f), new Vector3(2f * hw, 1f, 2f * pit), abyss);
-            // thin slabs in front of the pit faces of the ground blocks give the pit walls their own colour
-            Box("Pit_Wall_Player", parent, new Vector3(0f, -3f, -pit + 0.02f), new Vector3(2f * hw, 6f, 0.04f), cliff);
-            Box("Pit_Wall_Bots", parent, new Vector3(0f, -3f, pit - 0.02f), new Vector3(2f * hw, 6f, 0.04f), cliff);
         }
 
         static void BuildLighting()
@@ -362,23 +337,6 @@ namespace PudgeWars.EditorTools
             go.AddComponent<Shadow>().effectDistance = new Vector2(2f, -2f);
             return text;
         }
-
-        static void Box(string name, Transform parent, Vector3 pos, Vector3 size, Material mat)
-        {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            go.name = name;
-            go.transform.SetParent(parent, false);
-            go.transform.localPosition = pos;
-            go.transform.localScale = size;
-            go.GetComponent<MeshRenderer>().sharedMaterial = mat;
-            go.isStatic = true;
-        }
-
-        static Material Mat(string name, Color color) => SaveMat(name, "Universal Render Pipeline/Lit", m =>
-        {
-            m.SetColor("_BaseColor", color);
-            m.SetFloat("_Smoothness", 0.1f);
-        });
 
         static Material UnlitMat(string name, Color color) => SaveMat(name, "Universal Render Pipeline/Unlit", m => m.SetColor("_BaseColor", color));
 

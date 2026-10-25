@@ -10,37 +10,42 @@ using UnityEngine.Rendering;
 namespace PudgeWars.EditorTools
 {
     /// <summary>
-    /// Landscape of the test arena: a terrain that is also the arena's ground (a hole over the pit, Radiant grass on
-    /// the player's side, Dire's scorched ground on the bots' side, flat around the walls and rising into hills that
-    /// hide the empty space beyond it) and Dota 2's standard trees outside the walls: Radiant oaks and pines on the
-    /// player's side, Dire trees on the bots' side, one mango tree. The arena's ground blocks are hidden under it.
+    /// The test arena's ground as one terrain: the two sides on flat ground (Radiant grass on the player's side,
+    /// Dire's scorched ground on the bots' side), the pit cut into it, steep hills instead of walls all around
+    /// (rock on the slopes, black in the depth of the pit), and a few of Dota 2's standard trees inside the arena
+    /// along its side edges: Radiant oaks and pines on the player's side, Dire trees on the bots' side, one mango tree.
+    /// Heroes walk around the trees (<see cref="Obstacle"/>); hooks fly through them.
     /// Trees come from Tools/Landscape/build_trees.py, the ground textures from make_ground_textures.py. Rebuilt as a
-    /// whole (the "Landscape" object and the terrain asset) by its menu item and by Build Test Arena.
+    /// whole (the "Landscape" object and the terrain asset) by its menu item and by Build Test Arena; the old box
+    /// geometry of the arena (ground blocks, walls, pit) is removed.
     /// </summary>
     public static class LandscapeBuilder
     {
         const string TreeDir = "Assets/Art/Landscape/Trees";
         const string TerrainDir = "Assets/Art/Landscape/Terrain";
         const string RootName = "Landscape";
-        static readonly string[] RadiantTrees = { "tree_oak_01", "tree_oak_01b", "tree_oak_02", "tree_pine_01", "tree_pine_02", "tree_pine_03b" };
-        static readonly string[] DireTrees = { "dire_tree004", "dire_tree004b", "dire_tree007", "dire_tree008" };
+        static readonly string[] RadiantTrees = { "tree_oak_01", "tree_pine_01", "tree_oak_02", "tree_pine_02", "tree_oak_01b", "tree_pine_03b" };
+        static readonly string[] DireTrees = { "dire_tree004", "dire_tree007", "dire_tree004b", "dire_tree008" };
         const string MangoTree = "mango_tree";
         static readonly string[] TwoSidedMaterials = { "dire_tree007_moss" }; // doubleSided in the glTF
         const float LeafCutoff = 0.5f;
 
-        // 128 m with a 129 heightmap: 1 m cells, their edges on whole metres like the pit's, so the hole fits it
-        const float TerrainSize = 128f;
-        const int HeightmapResolution = 129;
-        const float TerrainHeight = 20f;
-        const float FlatMargin = 10f; // flat ground this far around the walls, metres (the trees stand there)
-        const float HillHeight = 11f;
-        const float GroundTile = 6f; // metres per tile of the ground textures
+        // 64 m with a 257 heightmap: 0.25 m cells, their edges on the pit's and the sides' whole metres
+        const float TerrainSize = 64f;
+        const int HeightmapResolution = 257;
+        const float TerrainBottom = -7f, TerrainHeight = 24f;
+        const float PitDepth = 6f;     // below the falling heroes' kill height (Arena.killHeight)
+        const float PitLip = 0.75f;    // the pit walls drop over this much, metres
+        const float CliffHeight = 7f;  // the hills rise this high within the first CliffRun metres: too steep to climb
+        const float CliffRun = 3f;
+        const float RidgeHeight = 6f;  // and then this much more toward the terrain's edge
+        // behind the back edges the hills stay under this slope (rise per metre, plus a steeper one sideways): the
+        // cameras stand above them and look over them at the heroes at the back edge
+        const float BackSlope = 1.3f, BackSideSlope = 2.5f;
 
-        const int TreesPerSide = 22;
-        const float TreeSpacing = 2.6f;
-        const float TreeBand = 11f;   // trees stand up to this far from the walls
-        const float SideGap = 1.8f;   // kept clear outside the side walls: crowns must not hang over the heroes
-        const float BackGap = 3f;     // and behind the back walls: the cameras look over them at the heroes
+        const float TreeInset = 1.3f;  // trees stand this far inside the side edges
+        const int TreesPerEdge = 3;
+        const float TreeRadius = 0.5f;
         const int Seed = 1300;
 
         [MenuItem("Pudge Wars/Build Landscape")]
@@ -61,13 +66,13 @@ namespace PudgeWars.EditorTools
             SetupTreeAssets();
             foreach (var old in arena.gameObject.scene.GetRootGameObjects().Where(g => g.name == RootName))
                 Object.DestroyImmediate(old);
+            foreach (Transform box in arena.transform.Cast<Transform>().ToList())
+                if (box.name.StartsWith("Ground_") || box.name.StartsWith("Pit_")) Object.DestroyImmediate(box.gameObject);
+
             var root = new GameObject(RootName).transform;
             var rng = new System.Random(Seed);
             var terrain = BuildTerrain(arena, root, rng);
             PlaceTrees(arena, terrain, root, rng);
-            // the terrain is the ground now; the blocks stay for their pit faces, which the wall slabs cover anyway
-            foreach (var name in new[] { "Ground_Player", "Ground_Bots" })
-                if (arena.transform.Find(name) is { } block && block.TryGetComponent<MeshRenderer>(out var r)) r.enabled = false;
             AssetDatabase.SaveAssets();
             Debug.Log("[LandscapeBuilder] landscape built");
         }
@@ -87,44 +92,37 @@ namespace PudgeWars.EditorTools
             var border = new Vector2(rng.Next(1000), rng.Next(1000));
 
             var heights = new float[HeightmapResolution, HeightmapResolution];
-            float rampLength = half - OuterHalf(arena).x - FlatMargin;
             for (int z = 0; z < HeightmapResolution; z++)
             for (int x = 0; x < HeightmapResolution; x++)
             {
-                float wx = -half + x * cell, wz = -half + z * cell;
-                float d = DistanceOutside(arena, wx, wz) - FlatMargin;
-                if (d <= 0f) continue;
-                float rise = Mathf.SmoothStep(0f, 1f, d / rampLength);
-                float hill = Mathf.PerlinNoise(hills.x + wx * 0.05f, hills.y + wz * 0.05f);
-                float bump = Mathf.PerlinNoise(bumps.x + wx * 0.2f, bumps.y + wz * 0.2f);
-                float y = rise * HillHeight * (0.5f + 0.8f * hill) + Mathf.Clamp01(d / 4f) * bump * 0.8f;
-                heights[z, x] = y / TerrainHeight;
+                float y = GroundHeight(arena, -half + x * cell, -half + z * cell, hills, bumps);
+                heights[z, x] = (y - TerrainBottom) / TerrainHeight;
             }
             data.SetHeights(0, 0, heights);
 
-            // a hole over the pit, of whole cells inside it
-            int holesRes = data.holesResolution;
-            var holes = new bool[holesRes, holesRes]; // false: a hole
-            for (int z = 0; z < holesRes; z++)
-            for (int x = 0; x < holesRes; x++)
+            // Radiant's grass on the player's side (z < 0) and Dire's ground on the bots' side with a ragged border
+            // at z = 0, rock on the steep slopes, black in the depth of the pit
+            data.terrainLayers = new[]
             {
-                float x0 = -half + x * cell, z0 = -half + z * cell;
-                holes[z, x] = !(x0 >= -arena.halfWidth && x0 + cell <= arena.halfWidth && z0 >= -arena.pitHalfDepth && z0 + cell <= arena.pitHalfDepth);
-            }
-            data.SetHoles(0, 0, holes);
-
-            // Radiant's grass on the player's side (z < 0), Dire's ground on the bots' side, a ragged border at z = 0
-            data.terrainLayers = new[] { Layer("Grass_Radiant"), Layer("Ground_Dire") };
+                Layer("Grass_Radiant", 6f), Layer("Ground_Dire", 6f), Layer("Cliff", 5f), Layer("Abyss", 5f),
+            };
             int aRes = data.alphamapResolution;
-            var alpha = new float[aRes, aRes, 2];
+            var alpha = new float[aRes, aRes, 4];
             for (int z = 0; z < aRes; z++)
             for (int x = 0; x < aRes; x++)
             {
-                float wx = -half + (x + 0.5f) * TerrainSize / aRes, wz = -half + (z + 0.5f) * TerrainSize / aRes;
+                float u = (x + 0.5f) / aRes, v = (z + 0.5f) / aRes;
+                float wx = -half + u * TerrainSize, wz = -half + v * TerrainSize;
+                float y = data.GetInterpolatedHeight(u, v) + TerrainBottom;
+                float abyss = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.5f, -4f, y));
+                float rock = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(32f, 48f, data.GetSteepness(u, v)));
                 float ragged = (Mathf.PerlinNoise(border.x + wx * 0.15f, border.y + wz * 0.15f) - 0.5f) * 5f;
                 float dire = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.5f, 1.5f, wz + ragged));
-                alpha[z, x, 0] = 1f - dire;
-                alpha[z, x, 1] = dire;
+                float ground = (1f - abyss) * (1f - rock);
+                alpha[z, x, 0] = ground * (1f - dire);
+                alpha[z, x, 1] = ground * dire;
+                alpha[z, x, 2] = (1f - abyss) * rock;
+                alpha[z, x, 3] = abyss;
             }
             data.SetAlphamaps(0, 0, alpha);
 
@@ -135,37 +133,53 @@ namespace PudgeWars.EditorTools
             var go = Terrain.CreateTerrainGameObject(data);
             go.name = "Terrain";
             go.transform.SetParent(parent, false);
-            go.transform.position = new Vector3(-half, 0f, -half); // the flat ground at y = 0, level with the arena
+            go.transform.position = new Vector3(-half, TerrainBottom, -half);
             GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.ContributeGI | StaticEditorFlags.OccluderStatic | StaticEditorFlags.OccludeeStatic);
             var terrain = go.GetComponent<Terrain>();
             terrain.materialTemplate = TerrainMaterial();
             terrain.drawInstanced = true;
-            terrain.heightmapPixelError = 4f;
-            terrain.basemapDistance = 200f;
-            terrain.shadowCastingMode = ShadowCastingMode.Off; // gentle hills: nothing worth a shadow, cheaper on phones
+            terrain.heightmapPixelError = 3f;
+            terrain.basemapDistance = 100f;
+            terrain.shadowCastingMode = ShadowCastingMode.On; // the pit walls and the hills shade what lies below them
             terrain.drawTreesAndFoliage = false;
             return terrain;
         }
 
-        /// <summary>Half sizes of the arena with its walls, metres.</summary>
-        static Vector2 OuterHalf(Arena arena) => new(arena.halfWidth + 0.5f, arena.pitHalfDepth + arena.sideDepth + 0.5f);
-
-        /// <summary>Distance from the arena with its walls on the ground plane; 0 inside it.</summary>
-        static float DistanceOutside(Arena arena, float x, float z)
+        /// <summary>
+        /// World height of the ground: 0 on the arena's sides, the pit below them (|z| &lt; pitHalfDepth), and steep
+        /// hills outside the arena (|x| &gt; halfWidth, |z| &gt; pitHalfDepth + sideDepth: where heroes cannot go).
+        /// </summary>
+        static float GroundHeight(Arena arena, float x, float z, Vector2 hills, Vector2 bumps)
         {
-            var outer = OuterHalf(arena);
-            float dx = Mathf.Max(0f, Mathf.Abs(x) - outer.x), dz = Mathf.Max(0f, Mathf.Abs(z) - outer.y);
-            return Mathf.Sqrt(dx * dx + dz * dz);
+            float depth = arena.pitHalfDepth + arena.sideDepth;
+            float dx = Mathf.Max(0f, Mathf.Abs(x) - arena.halfWidth), dz = Mathf.Max(0f, Mathf.Abs(z) - depth);
+            if (dx <= 0f && dz <= 0f)
+            {
+                float inward = arena.pitHalfDepth - Mathf.Abs(z); // the pit ends where the side hills begin
+                return inward > 0f && Mathf.Abs(x) < arena.halfWidth ? -PitDepth * Mathf.SmoothStep(0f, 1f, inward / PitLip) : 0f;
+            }
+            float d = Mathf.Sqrt(dx * dx + dz * dz);
+            float y = CliffHeight * Mathf.SmoothStep(0f, 1f, d / CliffRun)
+                      + RidgeHeight * Mathf.SmoothStep(0f, 1f, (d - CliffRun) / 14f);
+            float noise = (Mathf.PerlinNoise(hills.x + x * 0.07f, hills.y + z * 0.07f) - 0.5f) * 5f
+                          + (Mathf.PerlinNoise(bumps.x + x * 0.3f, bumps.y + z * 0.3f) - 0.5f) * 0.8f;
+            y = Mathf.Max(0f, y + noise * Mathf.Clamp01(d / CliffRun));
+            if (dz > 0f) y = Mathf.Min(y, BackSlope * dz + BackSideSlope * dx);
+            return y;
         }
 
-        static TerrainLayer Layer(string name)
+        static TerrainLayer Layer(string name, float tile)
         {
             var texturePath = $"{TerrainDir}/{name}.png";
             var ti = (TextureImporter)AssetImporter.GetAtPath(texturePath);
+            ti.textureType = TextureImporterType.Default;
+            ti.textureShape = TextureImporterShape.Texture2D; // a new image may come in as a cubemap
             ti.wrapMode = TextureWrapMode.Repeat;
             ti.mipmapEnabled = true;
             ti.sRGBTexture = true;
             ti.SaveAndReimport();
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            if (texture == null) Debug.LogError("[LandscapeBuilder] no 2D texture in " + texturePath);
 
             var path = $"{TerrainDir}/{name}.terrainlayer";
             var layer = AssetDatabase.LoadAssetAtPath<TerrainLayer>(path);
@@ -174,8 +188,8 @@ namespace PudgeWars.EditorTools
                 layer = new TerrainLayer();
                 AssetDatabase.CreateAsset(layer, path);
             }
-            layer.diffuseTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
-            layer.tileSize = new Vector2(GroundTile, GroundTile);
+            layer.diffuseTexture = texture;
+            layer.tileSize = new Vector2(tile, tile);
             layer.metallic = 0f;
             layer.smoothness = 0f;
             EditorUtility.SetDirty(layer);
@@ -199,32 +213,28 @@ namespace PudgeWars.EditorTools
 
         // trees ////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// A few trees along both side edges of each side, clear of the pit; the mango tree in the middle of the
+        /// player side's left edge.
+        /// </summary>
         static void PlaceTrees(Arena arena, Terrain terrain, Transform parent, System.Random rng)
         {
             var root = new GameObject("Trees").transform;
             root.SetParent(parent, false);
-            var outer = OuterHalf(arena);
-            var placed = new List<Vector2>();
-
-            // the mango tree: on the player's side, left of the arena, in view of the own side's camera
-            var mango = new Vector2(-(outer.x + SideGap + 1.5f), -(arena.pitHalfDepth + 4f));
-            Tree(MangoTree, mango, 1f, terrain, root, rng);
-            placed.Add(mango);
-
+            float zNear = arena.pitHalfDepth + 2.8f, zFar = arena.pitHalfDepth + arena.sideDepth - TreeInset;
             foreach (var side in new[] { -1f, 1f })
             {
                 var kinds = side < 0f ? RadiantTrees : DireTrees;
-                int count = 0;
-                for (int attempt = 0; attempt < 5000 && count < TreesPerSide; attempt++)
-                {
-                    var p = new Vector2(Range(rng, -outer.x - TreeBand, outer.x + TreeBand), side * Range(rng, 0.5f, outer.y + TreeBand));
-                    if (Mathf.Abs(p.x) < outer.x + SideGap && Mathf.Abs(p.y) < outer.y + BackGap) continue; // the arena and its clear strip
-                    if (DistanceOutside(arena, p.x, p.y) > TreeBand) continue;
-                    if (placed.Any(q => (q - p).sqrMagnitude < TreeSpacing * TreeSpacing)) continue;
-                    placed.Add(p);
-                    Tree(kinds[count % kinds.Length], p, Range(rng, 0.85f, 1.15f), terrain, root, rng);
-                    count++;
-                }
+                int n = 0;
+                foreach (var edge in new[] { -1f, 1f })
+                    for (int i = 0; i < TreesPerEdge; i++)
+                    {
+                        float z = Mathf.Lerp(zNear, zFar, i / (TreesPerEdge - 1f)) + Range(rng, -0.4f, 0.4f);
+                        float x = edge * (arena.halfWidth - TreeInset + Range(rng, -0.25f, 0.25f));
+                        bool mango = side < 0f && edge < 0f && i == TreesPerEdge / 2;
+                        var model = mango ? MangoTree : kinds[n++ % kinds.Length];
+                        Tree(model, new Vector2(x, side * z), mango ? 1f : Range(rng, 0.85f, 1.1f), terrain, root, rng);
+                    }
             }
         }
 
@@ -234,9 +244,12 @@ namespace PudgeWars.EditorTools
             var go = (GameObject)PrefabUtility.InstantiatePrefab(asset, parent);
             var position = new Vector3(at.x, 0f, at.y);
             position.y = terrain.SampleHeight(position) + terrain.transform.position.y;
-            go.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, Range(rng, 0f, 360f), 0f));
-            go.transform.localScale = Vector3.one * scale;
-            GameObjectUtility.SetStaticEditorFlags(go, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.OccludeeStatic);
+            // on top of the model's own root rotation and scale (the FBX's axis conversion may sit there)
+            go.transform.SetPositionAndRotation(position, Quaternion.Euler(0f, Range(rng, 0f, 360f), 0f) * asset.transform.localRotation);
+            go.transform.localScale = asset.transform.localScale * scale;
+            go.AddComponent<Obstacle>().radius = TreeRadius;
+            foreach (var t in go.GetComponentsInChildren<Transform>())
+                GameObjectUtility.SetStaticEditorFlags(t.gameObject, StaticEditorFlags.BatchingStatic | StaticEditorFlags.ContributeGI | StaticEditorFlags.OccludeeStatic);
         }
 
         static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);
@@ -262,6 +275,9 @@ namespace PudgeWars.EditorTools
                 mi.globalScale = 1f;
                 mi.useFileScale = true;
                 mi.bakeAxisConversion = true;
+                // as the other models (PudgeAssetImporter): the file's root stays a plain root and the mesh node
+                // keeps its own rotation, which placing the tree must not overwrite
+                mi.preserveHierarchy = true;
                 mi.importNormals = ModelImporterNormals.Import;
                 mi.importTangents = ModelImporterTangents.CalculateMikk;
                 mi.importAnimation = false;
@@ -285,6 +301,7 @@ namespace PudgeWars.EditorTools
             var ti = (TextureImporter)AssetImporter.GetAtPath(path);
             if (ti == null) return null;
             ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            ti.textureShape = TextureImporterShape.Texture2D; // a new image may come in as a cubemap
             ti.sRGBTexture = !normal;
             ti.alphaIsTransparency = false;
             ti.mipmapEnabled = true;
@@ -292,7 +309,9 @@ namespace PudgeWars.EditorTools
             ti.mipMapsPreserveCoverage = !normal;
             ti.alphaTestReferenceValue = LeafCutoff;
             ti.SaveAndReimport();
-            return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+            if (texture == null) Debug.LogError("[LandscapeBuilder] no 2D texture in " + path);
+            return texture;
         }
 
         static Material TreeMaterial(string name, Texture2D color, Texture2D normal)
