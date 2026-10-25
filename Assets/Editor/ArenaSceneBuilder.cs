@@ -41,6 +41,7 @@ namespace PudgeWars.EditorTools
             var arena = arenaGo.AddComponent<Arena>();
             BuildGeometry(arena, arenaGo.transform);
             BuildLighting();
+            LandscapeBuilder.Build(arena);
 
             var cam = new GameObject("Main Camera") { tag = "MainCamera" };
             var camera = cam.AddComponent<Camera>();
