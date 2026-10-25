@@ -9,6 +9,7 @@ namespace PudgeWars.Gameplay
     /// direction is within 11.5° in front of it. With a look direction set (first-person controls) the hero
     /// turns to it instead and moves in any direction without turning, like in a shooter.
     /// Heroes do not walk through each other or through trees (obstacles): a step into one slides along it.
+    /// Heroes that overlap all the same (one let go or respawned on top of another) drift apart.
     /// </summary>
     public class PudgeMotor : MonoBehaviour
     {
@@ -23,6 +24,10 @@ namespace PudgeWars.Gameplay
         public bool keepOffPit;
         [Tooltip("With keepOffPit: how far from the edge the centre stops, metres (the body hangs over it).")]
         public float pitGap = 0.1f;
+        [Tooltip("Overlapping heroes drift apart at this speed each, m/s.")]
+        public float separationSpeed = 1.5f;
+
+        const float OverlapSlack = 0.02f; // overlaps up to this are left alone: bodies pressed together touch
 
         Vector3 input;
         Vector3? look;
@@ -92,6 +97,7 @@ namespace PudgeWars.Gameplay
                 if (angleLeft <= FacingTolerance) speed = Step(transform.forward * input.magnitude);
             }
             if (self != null && !self.IsControllable) return; // stepped over the edge: the fall animation stays
+            Separate(Time.deltaTime);
             if (hook == null || !hook.IsBusy) anim?.Locomotion(speed);
         }
 
@@ -105,6 +111,9 @@ namespace PudgeWars.Gameplay
             {
                 pos = PushOutOfHeroes(pos);
                 if (arena != null) pos = arena.ClampToSide(pos, self.team, self.radius, keepOffPit ? pitGap : null);
+                // a wall or the pit edge may push the slide back into a body: then the hero stays where it is
+                // (otherwise, frame by frame, it would sink into a hero pressed against the edge)
+                if (Intrudes(pos, transform.position)) pos = transform.position;
             }
             var velocity = (pos - transform.position) / Mathf.Max(Time.deltaTime, 1e-5f);
             transform.position = pos;
@@ -131,6 +140,60 @@ namespace PudgeWars.Gameplay
                     pos = PushOut(pos, from, obstacle.center, obstacle.radius);
             }
             return pos;
+        }
+
+        /// <summary>True if <paramref name="pos"/> is deeper in a hero's body or an obstacle than <paramref name="from"/>.</summary>
+        bool Intrudes(Vector3 pos, Vector3 from)
+        {
+            foreach (var other in Hookable.All)
+                if (other != self && other.IsAlive && !other.IsFalling && Deeper(pos, from, other.transform.position, other.radius)) return true;
+            foreach (var obstacle in Obstacle.All)
+                if (Deeper(pos, from, obstacle.center, obstacle.radius)) return true;
+            return false;
+        }
+
+        bool Deeper(Vector3 pos, Vector3 from, Vector3 center, float radius)
+        {
+            var d = new Vector3(pos.x - center.x, 0f, pos.z - center.z);
+            var was = new Vector3(from.x - center.x, 0f, from.z - center.z);
+            float allowed = Mathf.Min(self.radius + radius, was.magnitude) - 1e-4f;
+            return d.sqrMagnitude < allowed * allowed;
+        }
+
+        /// <summary>
+        /// Overlapping heroes drift apart, each at <see cref="separationSpeed"/>: a step never goes deeper into a body,
+        /// but nothing else would take them out of one, and two bots in each other could circle there for good.
+        /// Within the own side, never closer to the pit than now.
+        /// </summary>
+        void Separate(float deltaTime)
+        {
+            if (self == null) return;
+            var pos = transform.position;
+            var push = Vector3.zero;
+            bool afterSelf = false; // in the list of heroes
+            foreach (var other in Hookable.All)
+            {
+                if (other == self) afterSelf = true;
+                if (other == self || !other.IsAlive || other.IsFalling) continue;
+                var d = pos - other.transform.position;
+                d.y = 0f;
+                float overlap = self.radius + other.radius - d.magnitude;
+                if (overlap <= OverlapSlack) continue;
+                // one right on top of the other: the two go opposite ways, by their order in the list
+                var away = d.sqrMagnitude > 1e-8f ? d.normalized : afterSelf ? Vector3.left : Vector3.right;
+                push += away * (overlap * 0.5f); // the other one moves its half
+            }
+            if (push.sqrMagnitude < 1e-10f) return;
+            var next = pos + Vector3.ClampMagnitude(push, separationSpeed * deltaTime);
+            var arena = Arena.Instance;
+            if (arena != null)
+            {
+                // a hero put outside its side (tests) is left there
+                if ((arena.ClampToSide(pos, self.team, self.radius) - pos).sqrMagnitude > 1e-6f) return;
+                float edgeGap = Mathf.Max(0f, Mathf.Abs(pos.z) - arena.pitHalfDepth);
+                next = arena.ClampToSide(next, self.team, self.radius, edgeGap);
+            }
+            transform.position = next;
         }
 
         Vector3 PushOut(Vector3 pos, Vector3 from, Vector3 center, float radius)

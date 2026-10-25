@@ -133,7 +133,7 @@ namespace PudgeWars.Gameplay
             return p;
         }
 
-        /// <summary>A random point on a team's side where a hero fits between the obstacles (trees).</summary>
+        /// <summary>A random point on a team's side where a hero fits between the obstacles (trees) and the other heroes.</summary>
         /// <param name="pitMargin">Distance kept from the pit edge; <paramref name="margin"/> if negative.</param>
         public Vector3 RandomPointOnSide(Team team, float margin, float pitMargin = -1f)
         {
@@ -144,8 +144,22 @@ namespace PudgeWars.Gameplay
                 float x = UnityEngine.Random.Range(-halfWidth + margin, halfWidth - margin);
                 float z = UnityEngine.Random.Range(pitHalfDepth + pitMargin, pitHalfDepth + sideDepth - margin);
                 var p = new Vector3(x, 0f, team == Team.Player ? -z : z);
-                if (attempt >= 30 || !Obstacle.Blocks(p, heroClearance)) return p;
+                if (attempt >= 30 || (!Obstacle.Blocks(p, heroClearance) && !HeroAt(p, heroClearance))) return p;
             }
+        }
+
+        /// <summary>True if a hero of <paramref name="radius"/> at <paramref name="p"/> would overlap a living hero.</summary>
+        static bool HeroAt(Vector3 p, float radius)
+        {
+            foreach (var h in Hookable.All)
+            {
+                if (!h.IsAlive || h.IsFalling) continue;
+                var d = h.transform.position - p;
+                d.y = 0f;
+                float r = h.radius + radius;
+                if (d.sqrMagnitude < r * r) return true;
+            }
+            return false;
         }
 
         public void ReportDeath(Hookable victim, Hookable killer)
