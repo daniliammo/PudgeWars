@@ -36,6 +36,22 @@ namespace PudgeWars.Tests
             var tree = terrain.transform.position + Vector3.Scale(data.GetTreeInstance(0).position, data.size);
             Assert.IsTrue(Obstacle.Blocks(new Vector3(tree.x + 0.3f, 0f, tree.z), 0.5f), "a hero fits into a tree's trunk");
             Assert.IsFalse(Obstacle.Blocks(new Vector3(tree.x + 3f, 0f, tree.z), 0.5f));
+            // in play (the trees work on a copy of the terrain's data): Radiant's grass on its side, Dire's ground on Dire's
+            var arena = Object.FindAnyObjectByType<Arena>();
+            float[] Weights(Vector3 p)
+            {
+                var local = p - terrain.transform.position;
+                int ax = (int)(local.x / data.size.x * data.alphamapWidth), az = (int)(local.z / data.size.z * data.alphamapHeight);
+                var w = data.GetAlphamaps(ax, az, 1, 1);
+                return Enumerable.Range(0, data.alphamapLayers).Select(i => w[0, 0, i]).ToArray();
+            }
+            var radiantGround = Weights(new Vector3(0f, 0f, -(arena.pitHalfDepth + 5f)));
+            var direGround = Weights(new Vector3(0f, 0f, arena.pitHalfDepth + 5f));
+            Assert.AreEqual("Radiant_Grass", data.terrainLayers[0].name);
+            Assert.AreEqual("Dire_Ground", data.terrainLayers[1].name);
+            Assert.Greater(radiantGround[0], 0.5f, "Radiant's side is not grass");
+            Assert.Greater(direGround[1], 0.5f, "Dire's side is not Dire's ground: " + string.Join(", ", direGround));
+
             // grass on Radiant's side (z < 0), none on Dire's scorched ground
             int res = data.detailResolution, radiant = 0, dire = 0;
             for (int i = 0; i < data.detailPrototypes.Length; i++)

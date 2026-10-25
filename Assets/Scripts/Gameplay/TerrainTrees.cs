@@ -56,13 +56,35 @@ namespace PudgeWars.Gameplay
         {
             terrain = GetComponent<Terrain>();
             // a cut tree changes the terrain's data: a copy of it, not the asset
-            data = Instantiate(terrain.terrainData);
+            var asset = terrain.terrainData;
+            data = Instantiate(asset);
+            CopyGround(asset, data);
             terrain.terrainData = data;
             if (TryGetComponent<TerrainCollider>(out var ground)) ground.terrainData = data;
             trees = data.treeInstances;
             down = new bool[trees.Length];
             stumpsUp = new GameObject[trees.Length];
             regrowing = new Coroutine[trees.Length];
+        }
+
+        /// <summary>
+        /// What a cloned terrain data may come without: how its ground layers blend (else all of it is the first
+        /// layer, Radiant's grass on Dire's side too) and its grass. The heights and the trees come with the clone.
+        /// </summary>
+        static void CopyGround(TerrainData from, TerrainData to)
+        {
+            to.terrainLayers = from.terrainLayers;
+            to.alphamapResolution = from.alphamapResolution;
+            to.baseMapResolution = from.baseMapResolution;
+            int res = from.alphamapResolution;
+            to.SetAlphamaps(0, 0, from.GetAlphamaps(0, 0, res, res));
+
+            to.detailPrototypes = from.detailPrototypes;
+            to.SetDetailScatterMode(from.detailScatterMode);
+            to.SetDetailResolution(from.detailResolution, from.detailResolutionPerPatch);
+            int details = from.detailResolution;
+            for (int i = 0; i < from.detailPrototypes.Length; i++)
+                to.SetDetailLayer(0, 0, i, from.GetDetailLayer(0, 0, details, details, i));
         }
 
         void OnEnable()
