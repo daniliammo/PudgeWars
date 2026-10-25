@@ -38,7 +38,7 @@
    ```bash
    python3 sounds.py --binkadec /path/binkadec.exe --wine        # wine из PortProton, свой префикс; звуки хука → Assets/Audio/Pudge
    ```
-   Затем в Unity: **Pudge Wars → Assign Hook Sounds** (или пересобрать арену).
+   Затем в Unity: **Pudge Wars → Assign Sounds** (или пересобрать арену).
 
 ## Что важно знать
 

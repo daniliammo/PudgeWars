@@ -1220,6 +1220,8 @@ namespace PudgeWars.Tests
             t = 0f;
             while (player.IsAlive && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.IsFalse(player.IsAlive);
+            yield return null;
+            Assert.Greater(follow.Trauma, 0.5f, "no shake on death");
             yield return new WaitForSeconds(feedback.greyIn + 0.2f);
             Assert.Greater(feedback.BloodAlpha, 0.3f, "no red at the sides after death");
             Assert.AreEqual(1f, feedback.GreyWeight, 0.01f, "the picture did not lose its colour");

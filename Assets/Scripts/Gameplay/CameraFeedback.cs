@@ -6,9 +6,10 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// What the local player feels through the camera (<see cref="TopDownCamera"/>, which adds this): a shake when
-    /// the own hero is caught by a hook and a lighter one when the own hook catches someone; on death red floods in
-    /// from the screen's sides and the picture loses most of its colour, until the hero is back.
+    /// What the local player feels through the camera (<see cref="TopDownCamera"/>, which adds this if the scene has
+    /// none): a shake when the own hero is caught by a hook, when the own hook catches someone and on death; on death
+    /// red floods in from the screen's sides and the picture loses most of its colour, until the hero is back, which
+    /// sounds the revive clip.
     /// The red is a screen overlay; the colour goes with URP's Color Adjustments, and the camera's post-processing is
     /// on only while that runs (it costs a full-screen pass on phones). Works on a network client too: the state is
     /// read from the hero, and the own hook's catches come from the server (<see cref="HookAbility.ApplyRemoteCatch"/>).
@@ -17,8 +18,9 @@ namespace PudgeWars.Gameplay
     {
         [Header("Shake")]
         [Tooltip("Jolt when the own hero is caught by a hook (0..1).")] public float caughtShake = 0.7f;
-        [Tooltip("Jolt when the own hook catches an enemy.")] public float hitShake = 0.45f;
-        [Tooltip("Jolt when the own hook catches an ally (a pull or a rescue).")] public float allyHitShake = 0.25f;
+        [Tooltip("Jolt when the own hook catches an enemy.")] public float hitShake = 0.6f;
+        [Tooltip("Jolt when the own hook catches an ally (a pull or a rescue).")] public float allyHitShake = 0.3f;
+        [Tooltip("Jolt when the own hero dies.")] public float deathShake = 0.8f;
 
         [Header("Death")]
         public Color bloodColor = new(0.7f, 0.02f, 0.02f);
@@ -29,6 +31,8 @@ namespace PudgeWars.Gameplay
         [Tooltip("Colour saturation while dead: -100 is black and white.")] [Range(-100f, 0f)] public float deadSaturation = -75f;
         [Tooltip("Seconds the colour takes to drain.")] public float greyIn = 0.8f;
         [Tooltip("Seconds everything takes to come back after the respawn.")] public float recover = 0.5f;
+        [Tooltip("Played when the own hero comes back (Audio/revive.mp3).")] public AudioClip reviveSound;
+        [Range(0f, 1f)] public float reviveVolume = 0.8f;
 
         TopDownCamera follow;
         Camera cam;
@@ -40,6 +44,7 @@ namespace PudgeWars.Gameplay
         Image blood;
         RectTransform bloodRect;
         Volume grey;
+        AudioSource audioSource;
 
         /// <summary>The red overlay's opacity now (0 = none).</summary>
         public float BloodAlpha => blood != null && blood.enabled ? blood.color.a : 0f;
@@ -96,8 +101,8 @@ namespace PudgeWars.Gameplay
             {
                 if (hero.IsHooked && !wasHooked && follow != null) follow.Shake(caughtShake);
                 wasHooked = hero.IsHooked;
-                if (wasAlive && !hero.IsAlive) deadFor = 0f;
-                else if (!wasAlive && hero.IsAlive) deadFor = -1f;
+                if (wasAlive && !hero.IsAlive) Died();
+                else if (!wasAlive && hero.IsAlive) Revived();
                 wasAlive = hero.IsAlive;
             }
             else deadFor = -1f;
@@ -114,6 +119,25 @@ namespace PudgeWars.Gameplay
             float t = dead ? deadFor : float.MaxValue; // after the respawn: the settled look, fading out
             ShowBlood(t, fade);
             SetGrey(Mathf.SmoothStep(0f, 1f, t / Mathf.Max(greyIn, 0.01f)) * fade);
+        }
+
+        void Died()
+        {
+            deadFor = 0f;
+            if (follow != null) follow.Shake(deathShake);
+        }
+
+        void Revived()
+        {
+            deadFor = -1f;
+            if (reviveSound == null) return;
+            if (audioSource == null)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+                audioSource.playOnAwake = false;
+                audioSource.spatialBlend = 0f; // the own hero's: heard the same wherever the camera is
+            }
+            audioSource.PlayOneShot(reviveSound, reviveVolume);
         }
 
         /// <summary>
