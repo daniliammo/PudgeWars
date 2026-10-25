@@ -853,7 +853,7 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator CaughtCharacterLosesHookInWindupButNotInFlight()
+        public IEnumerator CaughtCharacterLosesHookInWindupButNotInFlightAndAMissComesBack()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
             for (int i = 0; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
@@ -869,18 +869,47 @@ namespace PudgeWars.Tests
             player.Release();
             Assert.IsTrue(player.IsControllable);
 
-            // already flying: the hook flies on, and a miss vanishes at full range
+            // already flying: the hook flies on, and a miss comes back to the caught owner instead of vanishing
             yield return new WaitUntil(() => hook.IsReady);
             Assert.IsTrue(hook.TryCast(aim));
             yield return new WaitForSeconds(hook.castDelay + 0.2f);
             Assert.IsTrue(hook.IsFlying);
             player.AttachTo(bot.GetComponent<HookAbility>());
             Assert.IsTrue(hook.IsFlying && hook.HeadVisible, "a hook in flight must fly on when the owner is caught");
+            var head = hook.hookHead.position;
             float t = 0f;
-            while (hook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
-            Assert.IsFalse(hook.IsBusy, "a missed hook of a caught owner did not vanish");
-            Assert.IsFalse(hook.HeadVisible);
+            while (hook.IsBusy && t < 4f)
+            {
+                Assert.IsTrue(hook.HeadVisible, "a missed hook of a caught owner vanished");
+                head = hook.hookHead.position;
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.IsFalse(hook.IsBusy, "the missed hook never came back");
+            var left = head - player.transform.position;
+            Assert.Less(new Vector3(left.x, 0f, left.z).magnitude, 2f, "the hook vanished away from the player instead of coming back");
             player.Release();
+
+            // on its way back when the owner is caught: it comes back all the same
+            yield return new WaitUntil(() => hook.IsReady);
+            Assert.IsTrue(hook.TryCast(aim));
+            t = 0f;
+            while (hook.IsFlying || !hook.HeadVisible) { t += Time.deltaTime; Assert.Less(t, 3f, "the hook did not turn back"); yield return null; }
+            Assert.IsTrue(hook.IsBusy && !hook.IsFlying, "the hook is not on its way back");
+            player.AttachTo(bot.GetComponent<HookAbility>());
+            Assert.IsTrue(hook.IsBusy && hook.HeadVisible, "a returning missed hook vanished when the owner was caught");
+            t = 0f;
+            while (hook.IsBusy && t < 4f) { t += Time.deltaTime; yield return null; }
+            Assert.IsFalse(hook.IsBusy, "the returning hook never came back");
+
+            // a falling owner: the empty hook breaks off
+            player.Release();
+            yield return new WaitUntil(() => hook.IsReady);
+            Assert.IsTrue(hook.TryCast(aim));
+            t = 0f;
+            while (hook.IsFlying || !hook.HeadVisible) { t += Time.deltaTime; Assert.Less(t, 3f, "the hook did not turn back"); yield return null; }
+            player.StartFalling(Vector3.zero);
+            Assert.IsFalse(hook.IsBusy, "the hook of a falling owner must break off");
         }
 
         [UnityTest]
