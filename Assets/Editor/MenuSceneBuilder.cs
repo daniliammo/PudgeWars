@@ -56,7 +56,11 @@ namespace PudgeWars.EditorTools
             if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return; // the open scene's changes are not lost
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            LandscapeBuilder.SetupTreeAssets();
+            // every asset first: an import while the terrain data are filled loses what they hold (LandscapeBuilder.PrepareAssets)
+            LandscapeBuilder.PrepareAssets();
+            var radiantSky = Sky("Sky_Radiant", tint: new Color(0.5f, 0.5f, 0.5f), ground: new Color(0.37f, 0.35f, 0.35f), atmosphere: 1f, exposure: 1.3f);
+            var direSky = Sky("Sky_Dire", tint: new Color(0.62f, 0.32f, 0.28f), ground: new Color(0.25f, 0.16f, 0.14f), atmosphere: 1.7f, exposure: 1.1f);
+            AssetDatabase.SaveAssets();
             float height = PlacePudge(); // first: the one-sided trees turn to the camera, which stands by his height
             var camera = new Vector2(0f, CameraDistance(height));
             var root = new GameObject("Landscape");
@@ -67,13 +71,15 @@ namespace PudgeWars.EditorTools
             PlaceTrees(terrain, radiant, MenuSide.Radiant, camera);
             PlaceTrees(terrain, dire, MenuSide.Dire, camera);
             PlaceGrass(radiant); // Dire's scorched ground has none
+            EditorUtility.SetDirty(dire);
+            AssetDatabase.SaveAssets(); // both sides' data with their trees and grass, before anything else is made
             var sun = BuildLighting();
 
             var landscape = root.AddComponent<MenuLandscape>();
             landscape.terrain = terrain;
             landscape.sun = sun;
-            landscape.radiant = RadiantLook(radiant);
-            landscape.dire = DireLook(dire);
+            landscape.radiant = RadiantLook(radiant, radiantSky);
+            landscape.dire = DireLook(dire, direSky);
             landscape.Show(MenuSide.Radiant); // as the scene is saved; at start-up it shows the side drawn for the run
 
             BuildCamera(height);
@@ -150,8 +156,7 @@ namespace PudgeWars.EditorTools
             LandscapeBuilder.WriteAlphamaps(data, alpha);
 
             var dataPath = $"{LandscapeBuilder.TerrainDir}/MenuTerrain_{side}.asset";
-            AssetDatabase.DeleteAsset(dataPath);
-            AssetDatabase.CreateAsset(data, dataPath);
+            LandscapeBuilder.SaveTerrainData(data, dataPath);
             return data;
         }
 
@@ -287,10 +292,10 @@ namespace PudgeWars.EditorTools
         }
 
         /// <summary>Daylight: a clear blue sky, warm sun, bluish haze.</summary>
-        static MenuLandscape.Look RadiantLook(TerrainData terrain) => new()
+        static MenuLandscape.Look RadiantLook(TerrainData terrain, Material sky) => new()
         {
             terrain = terrain,
-            sky = Sky("Sky_Radiant", tint: new Color(0.5f, 0.5f, 0.5f), ground: new Color(0.37f, 0.35f, 0.35f), atmosphere: 1f, exposure: 1.3f),
+            sky = sky,
             sun = new Color(1f, 0.95f, 0.86f),
             sunIntensity = 1.35f,
             ambientSky = new Color(0.58f, 0.63f, 0.72f),
@@ -300,10 +305,10 @@ namespace PudgeWars.EditorTools
         };
 
         /// <summary>Dusk: a red, smoky sky, a low orange sun, dark reddish haze.</summary>
-        static MenuLandscape.Look DireLook(TerrainData terrain) => new()
+        static MenuLandscape.Look DireLook(TerrainData terrain, Material sky) => new()
         {
             terrain = terrain,
-            sky = Sky("Sky_Dire", tint: new Color(0.62f, 0.32f, 0.28f), ground: new Color(0.25f, 0.16f, 0.14f), atmosphere: 1.7f, exposure: 1.1f),
+            sky = sky,
             sun = new Color(1f, 0.70f, 0.52f),
             sunIntensity = 1.15f,
             ambientSky = new Color(0.42f, 0.36f, 0.40f),

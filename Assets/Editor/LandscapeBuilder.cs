@@ -107,7 +107,7 @@ namespace PudgeWars.EditorTools
 
         public static void Build(Arena arena)
         {
-            SetupTreeAssets();
+            PrepareAssets();
             foreach (var old in arena.gameObject.scene.GetRootGameObjects().Where(g => g.name == RootName))
                 Object.DestroyImmediate(old);
             foreach (Transform box in arena.transform.Cast<Transform>().ToList())
@@ -125,7 +125,6 @@ namespace PudgeWars.EditorTools
 
         static Terrain BuildTerrain(Arena arena, Transform parent, System.Random rng)
         {
-            Directory.CreateDirectory(TerrainDir);
             var data = new TerrainData { heightmapResolution = HeightmapResolution }; // resolution first: it resets the size
             data.size = new Vector3(TerrainSize, TerrainHeight, TerrainSize);
             data.alphamapResolution = 256;
@@ -173,10 +172,7 @@ namespace PudgeWars.EditorTools
             }
             WriteAlphamaps(data, alpha);
             PlaceGrass(arena, data, alpha);
-
-            const string dataPath = TerrainDir + "/ArenaTerrain.asset";
-            AssetDatabase.DeleteAsset(dataPath);
-            AssetDatabase.CreateAsset(data, dataPath);
+            SaveTerrainData(data, TerrainDir + "/ArenaTerrain.asset");
 
             var go = Terrain.CreateTerrainGameObject(data);
             go.name = "Terrain";
@@ -199,6 +195,14 @@ namespace PudgeWars.EditorTools
         /// How the ground layers blend, written into the terrain's alphamap textures themselves: SetAlphamaps alone
         /// reaches only the GPU's copy, the saved asset kept the first layer everywhere (Radiant's grass on Dire's side).
         /// </summary>
+        /// <summary>A terrain data built in memory, saved as an asset in place of the old one at once.</summary>
+        internal static void SaveTerrainData(TerrainData data, string path)
+        {
+            AssetDatabase.DeleteAsset(path);
+            AssetDatabase.CreateAsset(data, path);
+            AssetDatabase.SaveAssetIfDirty(data);
+        }
+
         internal static void WriteAlphamaps(TerrainData data, float[,,] alpha)
         {
             data.SetAlphamaps(0, 0, alpha);
@@ -289,7 +293,35 @@ namespace PudgeWars.EditorTools
             return y;
         }
 
-        internal static TerrainLayer Layer(string name, float tile)
+        /// <summary>
+        /// Everything the terrains are made of, imported and created before any terrain data is: an import unloads
+        /// what nothing saved holds yet, and a terrain data being filled lost its alphamaps (the first layer everywhere,
+        /// Radiant's grass on Dire's side) and the main menu's Dire data its trees. The models and the textures of the
+        /// trees and the grass, the planted trees' prefabs with their stumps and falling tops, the grass prefabs, the
+        /// ground layers, the terrain material. Saved at the end.
+        /// </summary>
+        internal static void PrepareAssets()
+        {
+            Directory.CreateDirectory(TerrainDir);
+            SetupTreeAssets();
+            foreach (var model in ArenaRadiantTrees.Concat(RadiantTrees).Concat(DireTrees).Append(MangoTree).Distinct())
+            {
+                TreePrefab(model);
+                PartPrefab(model + StumpSuffix);
+                PartPrefab(model + FallingSuffix);
+            }
+            SetupModels(GrassDir, Grass);
+            foreach (var model in Grass) GrassPrefab(model);
+            foreach (var layer in GroundLayers) PrepareLayer(layer);
+            TerrainMaterial();
+            AssetDatabase.SaveAssets();
+        }
+
+        static readonly string[] GroundLayers =
+            { "Radiant_Grass", "Radiant_Flowers", "Radiant_Stones", "Dire_Ground", "Dire_Patches", "Path_Sand", "Cliff", "Abyss" };
+
+        /// <summary>A ground texture's import settings and its terrain layer asset (<see cref="PrepareAssets"/>).</summary>
+        static void PrepareLayer(string name)
         {
             var texturePath = $"{TerrainDir}/{name}.png";
             var ti = (TextureImporter)AssetImporter.GetAtPath(texturePath);
@@ -299,16 +331,17 @@ namespace PudgeWars.EditorTools
             ti.mipmapEnabled = true;
             ti.sRGBTexture = true;
             ti.SaveAndReimport();
+            var path = $"{TerrainDir}/{name}.terrainlayer";
+            if (AssetDatabase.LoadAssetAtPath<TerrainLayer>(path) == null) AssetDatabase.CreateAsset(new TerrainLayer(), path);
+        }
+
+        /// <summary>A prepared ground layer (<see cref="PrepareAssets"/>) with its tile size; no import here.</summary>
+        internal static TerrainLayer Layer(string name, float tile)
+        {
+            var texturePath = $"{TerrainDir}/{name}.png";
             var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
             if (texture == null) Debug.LogError("[LandscapeBuilder] no 2D texture in " + texturePath);
-
-            var path = $"{TerrainDir}/{name}.terrainlayer";
-            var layer = AssetDatabase.LoadAssetAtPath<TerrainLayer>(path);
-            if (layer == null)
-            {
-                layer = new TerrainLayer();
-                AssetDatabase.CreateAsset(layer, path);
-            }
+            var layer = AssetDatabase.LoadAssetAtPath<TerrainLayer>($"{TerrainDir}/{name}.terrainlayer");
             layer.diffuseTexture = texture;
             layer.tileSize = new Vector2(tile, tile);
             layer.metallic = 0f;
@@ -414,11 +447,11 @@ namespace PudgeWars.EditorTools
         {
             var data = terrain.terrainData;
             var models = trees.Select(t => t.model).Distinct().ToList();
-            data.treePrototypes = models.Select(m => new TreePrototype { prefab = TreePrefab(m) }).ToArray();
+            data.treePrototypes = models.Select(m => new TreePrototype { prefab = Prefab(TreeDir, m) }).ToArray();
             if (terrain.TryGetComponent<TerrainTrees>(out var cutting))
             {
-                cutting.stumps = models.Select(m => PartPrefab(m + StumpSuffix)).ToArray();
-                cutting.fallingParts = models.Select(m => PartPrefab(m + FallingSuffix)).ToArray();
+                cutting.stumps = models.Select(m => Prefab(TreeDir, m + StumpSuffix)).ToArray();
+                cutting.fallingParts = models.Select(m => Prefab(TreeDir, m + FallingSuffix)).ToArray();
                 EditorUtility.SetDirty(cutting);
             }
             var origin = terrain.transform.position;
@@ -466,18 +499,11 @@ namespace PudgeWars.EditorTools
         /// </summary>
         internal static DetailPrototype[] GrassPrototypes(IEnumerable<string> models)
         {
-            SetupModels(GrassDir, models);
             return models.Select(model =>
             {
-                var (mesh, materials) = Bake(GrassDir, model);
-                var go = new GameObject(model);
-                go.AddComponent<MeshFilter>().sharedMesh = mesh;
-                var renderer = go.AddComponent<MeshRenderer>();
-                renderer.sharedMaterials = materials;
-                renderer.shadowCastingMode = ShadowCastingMode.Off;
                 var grass = new DetailPrototype
                 {
-                    prototype = SavePrefab(go, GrassDir, model),
+                    prototype = Prefab(GrassDir, model),
                     usePrototypeMesh = true,
                     useInstancing = true,
                     renderMode = DetailRenderMode.VertexLit,
@@ -489,6 +515,20 @@ namespace PudgeWars.EditorTools
                 return grass;
             }).ToArray();
         }
+
+        static GameObject GrassPrefab(string model)
+        {
+            var (mesh, materials) = Bake(GrassDir, model);
+            var go = new GameObject(model);
+            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            var renderer = go.AddComponent<MeshRenderer>();
+            renderer.sharedMaterials = materials;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            return SavePrefab(go, GrassDir, model);
+        }
+
+        /// <summary>A prefab made by <see cref="PrepareAssets"/>; null if there is none (a tree without a stump).</summary>
+        static GameObject Prefab(string dir, string name) => AssetDatabase.LoadAssetAtPath<GameObject>($"{dir}/Prefabs/{name}.prefab");
 
         static Renderer MeshChild(GameObject parent, string name, Mesh mesh, Material[] materials)
         {
