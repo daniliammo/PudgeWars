@@ -5,7 +5,9 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// A character that can be caught by a hook, dragged, dropped into the pit and killed.
+    /// A character that can be caught by a hook, dragged, dropped into the pit and killed. Going over the edge (or dying)
+    /// it is hidden and its body (<see cref="Corpse"/>, a ragdoll) flies on in its place, rolls in the pit and stays
+    /// there until the respawn.
     /// </summary>
     public class Hookable : MonoBehaviour
     {
@@ -42,6 +44,10 @@ namespace PudgeWars.Gameplay
         public bool IsControllable => IsAlive && !IsHooked && !IsFalling;
         /// <summary>Horizontal velocity over the last frame, m/s (used by bots to lead their throws).</summary>
         public Vector3 PlanarVelocity { get; private set; }
+        /// <summary>Velocity over the last frame, m/s.</summary>
+        public Vector3 Velocity { get; private set; }
+        /// <summary>The body left by the fall or the death, until the respawn.</summary>
+        public Corpse Body => corpse;
         /// <summary>Owner of the last hook that caught this character: credited with the kill.</summary>
         public Hookable LastHookedBy { get; private set; }
         /// <summary>The hook pulling this character now (server / offline; null on a network client).</summary>
@@ -62,6 +68,8 @@ namespace PudgeWars.Gameplay
         Renderer marker;
         MaterialPropertyBlock markerColor;
         bool? markerAlly;
+        Corpse corpse;
+        bool visible = true;
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
         void Awake()
@@ -82,6 +90,7 @@ namespace PudgeWars.Gameplay
 
         void OnEnable() => all.Add(this);
         void OnDisable() => all.Remove(this);
+        void OnDestroy() => RemoveBody();
 
         public void AttachTo(HookAbility hook)
         {
@@ -115,6 +124,7 @@ namespace PudgeWars.Gameplay
             velocity = horizontalVelocity;
             if (ownHook != null) ownHook.OwnerLostControl();
             anim?.Play(PudgeAnimation.Death, 0.1f);
+            DropBody(velocity);
         }
 
         /// <summary>The character walked over the pit edge by itself: it falls, and nobody gets the kill.</summary>
@@ -139,6 +149,7 @@ namespace PudgeWars.Gameplay
             ColorMarker();
             var p = transform.position;
             var v = (p - lastPosition) / Mathf.Max(Time.deltaTime, 1e-5f);
+            Velocity = v;
             PlanarVelocity = new Vector3(v.x, 0f, v.z);
             lastPosition = p;
         }
@@ -163,8 +174,8 @@ namespace PudgeWars.Gameplay
             IsFalling = false;
             IsAlive = false;
             Health = 0f;
+            DropBody(velocity);
             velocity = Vector3.zero;
-            SetVisible(false);
             Died?.Invoke(this);
             Arena.Instance?.ReportDeath(this, LastHookedBy);
         }
@@ -178,6 +189,7 @@ namespace PudgeWars.Gameplay
             Health = maxHealth;
             // a chain still hanging from the dead hero (its hook flew on or held a target) breaks at respawn
             if (ownHook != null) ownHook.Cancel();
+            RemoveBody();
             SetVisible(true);
             anim?.PlayAction(PudgeAnimation.Spawn, 1.2f, 0f);
             Respawned?.Invoke(this);
@@ -186,20 +198,40 @@ namespace PudgeWars.Gameplay
         /// <summary>Network client: the state the server simulates (the position comes with the transform sync).</summary>
         public void ApplyRemoteState(bool alive, bool falling, bool hooked)
         {
-            bool wasAlive = IsAlive;
+            bool wasAlive = IsAlive, wasFalling = IsFalling;
             IsAlive = alive;
             IsFalling = falling;
             remoteHooked = hooked;
             Health = alive ? maxHealth : 0f;
+            // the body drops where the server's hero went over the edge (or died), as fast as it was seen moving
+            if ((alive && falling && !wasFalling) || (!alive && wasAlive)) DropBody(Velocity);
             if (alive == wasAlive) return;
-            SetVisible(alive);
-            if (alive) lastPosition = transform.position;
+            if (alive)
+            {
+                RemoveBody();
+                SetVisible(true);
+                lastPosition = transform.position;
+            }
             else Died?.Invoke(this);
         }
 
-        void SetVisible(bool visible)
+        /// <summary>The character is hidden, its body flies on with <paramref name="bodyVelocity"/> (once per death).</summary>
+        void DropBody(Vector3 bodyVelocity)
         {
-            foreach (var r in renderers) r.enabled = visible;
+            if (corpse == null && visible) corpse = Corpse.Spawn(this, bodyVelocity, gravity);
+            SetVisible(false);
+        }
+
+        void RemoveBody()
+        {
+            if (corpse != null) corpse.Sink();
+            corpse = null;
+        }
+
+        void SetVisible(bool show)
+        {
+            visible = show;
+            foreach (var r in renderers) r.enabled = show;
         }
     }
 }

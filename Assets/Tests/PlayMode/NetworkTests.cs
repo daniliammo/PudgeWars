@@ -157,10 +157,12 @@ namespace PudgeWars.Tests
                 player.ApplyRemoteState(false, false, false);
                 Assert.IsFalse(player.IsAlive);
                 Assert.IsTrue(player.GetComponentsInChildren<Renderer>().Where(r => r.GetComponentInParent<HookAimIndicator>() == null).All(r => !r.enabled));
+                Assert.IsNotNull(player.Body, "no body where the server's hero died");
                 yield return new WaitForSeconds(arena.respawnDelay + 0.5f);
                 Assert.IsFalse(player.IsAlive, "a client must not respawn heroes itself");
                 player.ApplyRemoteState(true, false, false);
                 Assert.IsTrue(player.IsAlive);
+                Assert.IsNull(player.Body, "the body stayed after the respawn");
 
                 arena.ApplyRemoteScore(2, 1, 1, 0);
                 Assert.AreEqual(2, arena.Score);

@@ -1259,6 +1259,36 @@ namespace PudgeWars.Tests
             other.GetComponent<PudgeMotor>().SetMoveInput(Vector3.zero);
         }
 
+        [UnityTest]
+        public IEnumerator FallenHeroLeavesABleedingBodyInThePitUntilTheRespawn()
+        {
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            bot.transform.position = new Vector3(0f, 0f, arena.pitHalfDepth - 0.3f);
+            bot.StepIntoPit(Vector3.back * 3f);
+            var body = bot.Body;
+            Assert.IsNotNull(body, "no body was left by the fall");
+            var parts = body.GetComponentsInChildren<Rigidbody>();
+            Assert.GreaterOrEqual(parts.Length, 11, "the body is not a ragdoll (belly, chest, head, arms, legs)");
+            Assert.IsTrue(bot.GetComponentsInChildren<Renderer>().All(r => !r.enabled), "the hero is still shown over its body");
+
+            yield return new WaitUntil(() => !bot.IsAlive);
+            for (int shot = 0; shot < 6; shot++)
+            {
+                Capture($"body_{shot:00}");
+                yield return new WaitForSeconds(0.25f);
+            }
+            Assert.Less(parts.Max(p => p.position.y), -3f, "the body did not fall to the pit floor");
+            Assert.Greater(BloodSplatter.GroundStainCount, 0, "the body's fall splashed no blood");
+            Assert.IsNotNull(bot.Body, "the body is gone before the respawn");
+
+            yield return new WaitUntil(() => bot.IsAlive);
+            Assert.IsNull(bot.Body, "the respawned hero still has a body");
+            Assert.IsTrue(bot.GetComponentsInChildren<Renderer>().All(r => r.enabled), "the respawned hero is not shown");
+            yield return new WaitForSeconds(body.sinkTime + 0.2f);
+            Assert.IsTrue(body == null, "the body did not go after the respawn");
+            Assert.Greater(BloodSplatter.GroundStainCount, 0, "the blood went with the body");
+        }
+
         /// <summary>Screenshot including the overlay UI (Camera.Render does not draw ScreenSpaceOverlay canvases).</summary>
         [UnityTest]
         public IEnumerator BotsWalkUpToThePitEdgeButDoNotFallIn()
