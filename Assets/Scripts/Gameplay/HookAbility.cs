@@ -18,9 +18,10 @@ namespace PudgeWars.Gameplay
     /// Pudge's hook: turn to the target (Dota 2 facing rule), wind-up, flight to max range, catch the first
     /// hero on the way and pull it back. A target dragged over the pit is released and falls in. As Meat Hook in Dota,
     /// it catches allies too: an ally is pulled to Pudge unharmed and let go there. An ally an enemy's hook is pulling
-    /// is held instead (a tug of war): the enemy pulls at half speed and drags the rescuer after the ally; if the
-    /// enemy's hook lets go, the rescuer pulls the ally home (a rescue), if the ally reaches the pit the rescuer's
-    /// chain breaks. Pulling a free ally out of the way of an enemy hook that would surely catch it is a rescue too:
+    /// is held instead (a tug of war): the enemy pulls three times slower and drags the rescuer after the ally; if the
+    /// enemy's hook lets go — also when the enemy falls into the pit, which then breaks its chain instead of dragging the
+    /// held ally after it — the rescuer pulls the ally home (a rescue); if the ally reaches the pit the rescuer's chain
+    /// breaks. Pulling a free ally out of the way of an enemy hook that would surely catch it is a rescue too:
     /// the ally, moving on as it moves now (standing, casting, or running too late), would be the first one the
     /// enemy's head reaches.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
@@ -58,8 +59,8 @@ namespace PudgeWars.Gameplay
         public float tetherTimeout = 4f;
 
         [Header("Tug of war: an ally's hook holds the target")]
-        [Tooltip("Share of the pull speed left while an ally of the target holds it on its own hook.")]
-        [Range(0f, 1f)] public float heldPullFactor = 0.5f;
+        [Tooltip("While an ally of the target holds it on its own hook, the pull is this many times slower.")]
+        [Min(1f)] public float heldPullSlowdown = 3f;
 
         [Header("References (the head and the chain are unparented at runtime)")]
         public Transform hookHead;
@@ -296,7 +297,7 @@ namespace PudgeWars.Gameplay
             var origin = Origin;
             var toOrigin = origin - hookHead.position;
             float dist = toOrigin.magnitude;
-            float pull = target != null && target.HeldBy != null ? pullSpeed * heldPullFactor : pullSpeed;
+            float pull = target != null && target.HeldBy != null ? pullSpeed / heldPullSlowdown : pullSpeed;
             float step = (target != null ? pull : returnSpeed) * Time.deltaTime;
             var flatDir = new Vector3(toOrigin.x, 0f, toOrigin.z).normalized;
             if (dist <= step + 0.05f)
@@ -343,13 +344,19 @@ namespace PudgeWars.Gameplay
         public void OwnerLostControl()
         {
             if (state is State.Tethered or State.Flying) return;
-            if (state == State.Returning && target != null)
+            if (state == State.Returning && target != null && !OwnerFallsFromRescue)
             {
                 BeginTether();
                 return;
             }
             Cancel();
         }
+
+        /// <summary>
+        /// The owner is falling into the pit (or dead) while an ally of the target holds it: the chain breaks instead
+        /// of dragging the target after the owner, and the rescuer pulls it home.
+        /// </summary>
+        bool OwnerFallsFromRescue => target != null && target.HeldBy != null && self != null && (self.IsFalling || !self.IsAlive);
 
         bool OwnerCaught => self != null && !self.IsControllable;
 
@@ -365,7 +372,7 @@ namespace PudgeWars.Gameplay
         void Tether()
         {
             timer -= Time.deltaTime;
-            if (target == null || !target.IsHooked || timer <= 0f)
+            if (target == null || !target.IsHooked || timer <= 0f || OwnerFallsFromRescue)
             {
                 Cancel();
                 return;

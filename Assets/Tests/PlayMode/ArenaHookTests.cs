@@ -298,7 +298,7 @@ namespace PudgeWars.Tests
             var playerFrom = player.transform.position;
             yield return new WaitForSeconds(0.5f);
             float pulled = Vector3.Distance(allyFrom, ally.transform.position);
-            Assert.AreEqual(enemyHook.pullSpeed * enemyHook.heldPullFactor * 0.5f, pulled, 0.2f, "the held ally is not pulled at half speed");
+            Assert.AreEqual(enemyHook.pullSpeed / 3f * 0.5f, pulled, 0.15f, "the held ally is not pulled three times slower");
             Assert.Greater(Vector3.Distance(playerFrom, player.transform.position), 0.2f, "the rescuer is not dragged after the ally");
             Assert.AreEqual(0, arena.RescuesOf(Team.Player), "holding is not a rescue yet");
 
@@ -389,6 +389,28 @@ namespace PudgeWars.Tests
             // the enemy throws well to the side: the ally was never in danger
             yield return PullAllyAwayFromAnEnemyThrow(null, new Vector3(-10f, 0f, -9f), _ => { });
             Assert.AreEqual(0, arena.RescuesOf(Team.Player), "the enemy hook would have missed the ally");
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyFallingIntoThePitInATugOfWarBreaksItsChain()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var enemy = bots[0];
+            var ally = bots[1];
+            ally.team = Team.Player;
+            HookAbility enemyHook = null;
+            yield return SetUpTugOfWar(ally, enemy, hook, player, h => enemyHook = h);
+
+            // the enemy goes into the pit while the player holds the ally: its chain breaks, it does not drag the ally
+            enemy.StartFalling(Vector3.zero);
+            Assert.IsFalse(enemyHook.IsBusy, "the falling enemy's chain did not break");
+            Assert.IsFalse(ally.HookedBy == enemyHook, "the ally is still on the falling enemy's hook");
+            float t = 0f;
+            while (hook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the ally was dragged after the falling enemy");
+            var d = ally.transform.position - player.transform.position;
+            Assert.Less(new Vector3(d.x, 0f, d.z).magnitude, 2f, "the rescuer did not pull the ally home");
+            Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the rescue was not counted");
         }
 
         [UnityTest]
