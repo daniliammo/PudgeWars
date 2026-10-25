@@ -19,7 +19,7 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// A round obstacle on the ground (a tree's trunk): heroes walk around it as around each other, while a hook
     /// flies through it and a caught hero is dragged through it, as Meat Hook in Dota. Besides these components,
-    /// whole sets of obstacles are registered by their owners (the terrain's trees, <see cref="TerrainTreeObstacles"/>);
+    /// whole sets of obstacles are registered by their owners (the terrain's trees, <see cref="TerrainTrees"/>);
     /// <see cref="All"/> holds them all. Obstacles do not move.
     /// </summary>
     public class Obstacle : MonoBehaviour
