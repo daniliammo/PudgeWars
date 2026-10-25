@@ -8,7 +8,7 @@ namespace PudgeWars.Gameplay
     /// the hero turns at its turn rate and only starts moving (or casting at a point) once the target
     /// direction is within 11.5° in front of it. With a look direction set (first-person controls) the hero
     /// turns to it instead and moves in any direction without turning, like in a shooter.
-    /// Heroes do not walk through each other: a step into another hero slides along it.
+    /// Heroes do not walk through each other or through trees (obstacles): a step into one slides along it.
     /// </summary>
     public class PudgeMotor : MonoBehaviour
     {
@@ -113,28 +113,34 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// Keeps the step out of other heroes' bodies (circles of their radii): the part of the step into a hero is
-        /// dropped, so the walker slides along it. Heroes that already overlap (a pulled ally let go next to Pudge)
-        /// may only move apart, without being thrown out at once.
+        /// Keeps the step out of other heroes' bodies and of obstacles (circles of their radii): the part of the step
+        /// into one is dropped, so the walker slides along it. Bodies that already overlap (a pulled ally let go next
+        /// to Pudge, a hero dragged onto a tree) may only move apart, without being thrown out at once.
         /// </summary>
         Vector3 PushOutOfHeroes(Vector3 pos)
         {
             var from = transform.position;
-            for (int pass = 0; pass < 2; pass++) // a second pass settles a step between two heroes
+            for (int pass = 0; pass < 2; pass++) // a second pass settles a step between two bodies
             {
                 foreach (var other in Hookable.All)
                 {
                     if (other == self || !other.IsAlive || other.IsFalling) continue;
-                    var center = other.transform.position;
-                    var d = new Vector3(pos.x - center.x, 0f, pos.z - center.z);
-                    var was = new Vector3(from.x - center.x, 0f, from.z - center.z);
-                    float allowed = Mathf.Min(self.radius + other.radius, was.magnitude);
-                    if (d.sqrMagnitude >= allowed * allowed) continue;
-                    var away = d.sqrMagnitude > 1e-8f ? d.normalized : was.sqrMagnitude > 1e-8f ? was.normalized : -transform.forward;
-                    pos = new Vector3(center.x + away.x * allowed, pos.y, center.z + away.z * allowed);
+                    pos = PushOut(pos, from, other.transform.position, other.radius);
                 }
+                foreach (var obstacle in Obstacle.All)
+                    pos = PushOut(pos, from, obstacle.transform.position, obstacle.radius);
             }
             return pos;
+        }
+
+        Vector3 PushOut(Vector3 pos, Vector3 from, Vector3 center, float radius)
+        {
+            var d = new Vector3(pos.x - center.x, 0f, pos.z - center.z);
+            var was = new Vector3(from.x - center.x, 0f, from.z - center.z);
+            float allowed = Mathf.Min(self.radius + radius, was.magnitude);
+            if (d.sqrMagnitude >= allowed * allowed) return pos;
+            var away = d.sqrMagnitude > 1e-8f ? d.normalized : was.sqrMagnitude > 1e-8f ? was.normalized : -transform.forward;
+            return new Vector3(center.x + away.x * allowed, pos.y, center.z + away.z * allowed);
         }
     }
 }

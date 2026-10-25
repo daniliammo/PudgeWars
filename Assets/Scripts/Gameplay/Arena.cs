@@ -122,13 +122,19 @@ namespace PudgeWars.Gameplay
             return p;
         }
 
+        /// <summary>A random point on a team's side where a hero fits between the obstacles (trees).</summary>
         /// <param name="pitMargin">Distance kept from the pit edge; <paramref name="margin"/> if negative.</param>
         public Vector3 RandomPointOnSide(Team team, float margin, float pitMargin = -1f)
         {
             if (pitMargin < 0f) pitMargin = margin;
-            float x = UnityEngine.Random.Range(-halfWidth + margin, halfWidth - margin);
-            float z = UnityEngine.Random.Range(pitHalfDepth + pitMargin, pitHalfDepth + sideDepth - margin);
-            return new Vector3(x, 0f, team == Team.Player ? -z : z);
+            const float heroClearance = 0.8f; // a hero's radius and a little room
+            for (int attempt = 0; ; attempt++)
+            {
+                float x = UnityEngine.Random.Range(-halfWidth + margin, halfWidth - margin);
+                float z = UnityEngine.Random.Range(pitHalfDepth + pitMargin, pitHalfDepth + sideDepth - margin);
+                var p = new Vector3(x, 0f, team == Team.Player ? -z : z);
+                if (attempt >= 30 || !Obstacle.Blocks(p, heroClearance)) return p;
+            }
         }
 
         public void ReportDeath(Hookable victim, Hookable killer)
