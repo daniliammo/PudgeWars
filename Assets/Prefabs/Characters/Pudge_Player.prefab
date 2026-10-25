@@ -236,7 +236,7 @@ MonoBehaviour:
   dropCarry: 0.35
   tetherReelSpeed: 8
   tetherTimeout: 4
-  heldPullFactor: 0.5
+  heldPullSlowdown: 3
   hookHead: {fileID: 5359641613882523213}
   chain: {fileID: 2176489718261283249}
   chainOrigin: {fileID: 3618453310144610379}
