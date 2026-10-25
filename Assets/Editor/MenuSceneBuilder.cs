@@ -146,7 +146,7 @@ namespace PudgeWars.EditorTools
                 alpha[z, x, 2] = rock;
                 alpha[z, x, 3] = (1f - rock) * path;
             }
-            data.SetAlphamaps(0, 0, alpha);
+            LandscapeBuilder.WriteAlphamaps(data, alpha);
 
             var dataPath = $"{LandscapeBuilder.TerrainDir}/MenuTerrain_{side}.asset";
             AssetDatabase.DeleteAsset(dataPath);

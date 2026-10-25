@@ -168,7 +168,7 @@ namespace PudgeWars.EditorTools
                 alpha[z, x, 3] = abyss;
                 alpha[z, x, 4] = ground * sand;
             }
-            data.SetAlphamaps(0, 0, alpha);
+            WriteAlphamaps(data, alpha);
             PlaceGrass(arena, data, alpha);
 
             const string dataPath = TerrainDir + "/ArenaTerrain.asset";
@@ -190,6 +190,32 @@ namespace PudgeWars.EditorTools
             terrain.detailObjectDistance = GrassDistance;
             go.AddComponent<TerrainTrees>().radius = TreeRadius;
             return terrain;
+        }
+
+        /// <summary>
+        /// How the ground layers blend, written into the terrain's alphamap textures themselves: SetAlphamaps alone
+        /// reaches only the GPU's copy, the saved asset kept the first layer everywhere (Radiant's grass on Dire's side).
+        /// </summary>
+        internal static void WriteAlphamaps(TerrainData data, float[,,] alpha)
+        {
+            data.SetAlphamaps(0, 0, alpha);
+            int res = alpha.GetLength(0), layers = alpha.GetLength(2);
+            var textures = data.alphamapTextures;
+            for (int t = 0; t < textures.Length; t++)
+            {
+                var pixels = new Color[res * res];
+                for (int z = 0; z < res; z++)
+                for (int x = 0; x < res; x++)
+                {
+                    float Channel(int c) => t * 4 + c < layers ? alpha[z, x, t * 4 + c] : 0f;
+                    pixels[z * res + x] = new Color(Channel(0), Channel(1), Channel(2), Channel(3));
+                }
+                textures[t].SetPixels(pixels);
+                textures[t].Apply(true);
+                EditorUtility.SetDirty(textures[t]);
+            }
+            data.SetBaseMapDirty();
+            EditorUtility.SetDirty(data);
         }
 
         /// <summary>Sand along the pit's rims on both sides, a ragged band about RimSandWidth wide, fading out at its edge.</summary>
