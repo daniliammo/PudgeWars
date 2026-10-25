@@ -5911,7 +5911,7 @@ MonoBehaviour:
   pitHalfDepth: 3
   sideDepth: 11
   killHeight: -4
-  respawnDelay: 2.5
+  respawnDelay: 3
   killGoldBase: 125
   killGoldPerLevel: 8
   streakBreakPerKill: 5

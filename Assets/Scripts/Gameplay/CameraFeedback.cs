@@ -9,8 +9,9 @@ namespace PudgeWars.Gameplay
     /// What the local player feels through the camera (<see cref="TopDownCamera"/>, which adds this if the scene has
     /// none): a shake when the own hero is caught by a hook, when the own hook catches someone and on death; on death
     /// red floods in from the screen's sides and the picture loses most of its colour, until the hero is back; the
-    /// revive clip (Resources/Audio/revive) starts a second before that (counted from the death with the arena's
-    /// respawn delay) — only here, for the own hero: every player hears their own.
+    /// revive clip (Resources/Audio/revive) starts <see cref="reviveLead"/> before that (counted from the death with
+    /// the arena's respawn delay; at most at the death itself), so the hero is back on the clip's 3rd second — only
+    /// here, for the own hero: every player hears their own.
     /// The red is a screen overlay; the colour goes with URP's Color Adjustments, and the camera's post-processing is
     /// on only while that runs (it costs a full-screen pass on phones). Works on a network client too: the state is
     /// read from the hero, and the own hook's catches come from the server (<see cref="HookAbility.ApplyRemoteCatch"/>).
@@ -34,7 +35,8 @@ namespace PudgeWars.Gameplay
         [Tooltip("Seconds everything takes to come back after the respawn.")] public float recover = 0.5f;
         [Tooltip("Played when the own hero comes back; Resources/Audio/revive if empty.")] public AudioClip reviveSound;
         [Range(0f, 1f)] public float reviveVolume = 0.8f;
-        [Tooltip("The revive sound starts this many seconds before the hero is back.")] public float reviveLead = 1f;
+        [Tooltip("The revive sound starts this many seconds before the hero is back: it is back on this second of the clip (no earlier than the death: keep it within Arena.respawnDelay).")]
+        public float reviveLead = 3f;
 
         TopDownCamera follow;
         Camera cam;
@@ -152,7 +154,10 @@ namespace PudgeWars.Gameplay
                 audioSource.playOnAwake = false;
                 audioSource.spatialBlend = 0f; // the own hero's: heard the same wherever the camera is
             }
-            audioSource.PlayOneShot(reviveSound, reviveVolume);
+            // its own clip, not a one-shot: a new death restarts it, and its position can be read (AudioSource.time)
+            audioSource.clip = reviveSound;
+            audioSource.volume = reviveVolume;
+            audioSource.Play();
         }
 
         /// <summary>

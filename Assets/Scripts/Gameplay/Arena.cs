@@ -36,7 +36,8 @@ namespace PudgeWars.Gameplay
         public float sideDepth = 11f;
         [Tooltip("A falling character dies below this height.")]
         public float killHeight = -4f;
-        public float respawnDelay = 2.5f;
+        [Tooltip("Seconds from death to respawn: the 3rd second of the revive sound, which starts at the death (CameraFeedback.reviveLead).")]
+        public float respawnDelay = 3f;
         [Tooltip("Kill reward for the hero whose hook dragged the victim into the pit: killGoldBase + killGoldPerLevel × the victim's level (133 at level 1). A rescue pays half of it.")]
         public int killGoldBase = 125;
         [Tooltip("Kill reward added per level of the victim.")]
