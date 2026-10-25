@@ -35,6 +35,9 @@ namespace PudgeWars.EditorTools
             "tree_oak_01", "tree_pine_01", "tree_bamboo_01", "tree_oak_02", "tree_pine_02", "tree_bamboo_02",
             "tree_oak_01b", "tree_pine_03b", "tree_bamboo_03", "tree_oak_00", "tree_oakstatic_01", "tree_bamboo_00", "tree_oakstatic_02",
         };
+        // reliefs for Dota's cinematics: every face looks one way, nothing behind; planted turned to a camera that
+        // does not move (the main menu's), never on the arena
+        internal static readonly string[] OneSidedTrees = { "tree_oakstatic_01", "tree_oakstatic_02" };
         // Radiant's trees with tintable bark (Dota tints it per map): white here, so imported but not planted
         static readonly string[] PaleTrees = { "tree_oak_03", "tree_oak_04", "tree_oak_05", "tree_oak_06", "tree_gnarly001", "tree_cine_02_low" };
         // Radiant's trees in snow: imported for a winter landscape, not planted yet
@@ -366,12 +369,40 @@ namespace PudgeWars.EditorTools
             public readonly float scale, turn;
 
             public TreeSpot(string model, Vector2 at, float scale, System.Random rng)
+                : this(model, at, scale, Range(rng, 0f, 2f * Mathf.PI)) { }
+
+            TreeSpot(string model, Vector2 at, float scale, float turn)
             {
                 this.model = model;
                 this.at = at;
                 this.scale = scale;
-                turn = Range(rng, 0f, 2f * Mathf.PI);
+                this.turn = turn;
             }
+
+            /// <summary>The same tree turned so that its front looks at <paramref name="viewer"/> (a one-sided tree).</summary>
+            public TreeSpot Facing(Vector2 viewer)
+            {
+                var to = viewer - at;
+                float want = Mathf.Atan2(to.x, to.y) * Mathf.Rad2Deg;
+                return new TreeSpot(model, at, scale, Mathf.Repeat(want - FrontYaw(model), 360f) * Mathf.Deg2Rad);
+            }
+        }
+
+        /// <summary>
+        /// Which way a model's faces look on the ground plane, as a yaw in degrees (0 = +Z, 90 = +X), from its normals
+        /// in the space of its baked mesh (the FBX root's rotation included).
+        /// </summary>
+        static float FrontYaw(string model)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<GameObject>($"{TreeDir}/{model}.fbx");
+            var sum = Vector3.zero;
+            foreach (var filter in asset.GetComponentsInChildren<MeshFilter>())
+            {
+                if (filter.sharedMesh == null) continue;
+                var toRoot = filter.transform.localToWorldMatrix;
+                foreach (var n in filter.sharedMesh.normals) sum += toRoot.MultiplyVector(n);
+            }
+            return Mathf.Atan2(sum.x, sum.z) * Mathf.Rad2Deg;
         }
 
         /// <summary>

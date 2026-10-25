@@ -57,13 +57,15 @@ namespace PudgeWars.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             LandscapeBuilder.SetupTreeAssets();
+            float height = PlacePudge(); // first: the one-sided trees turn to the camera, which stands by his height
+            var camera = new Vector2(0f, CameraDistance(height));
             var root = new GameObject("Landscape");
             var heights = Heights(new System.Random(Seed));
             var radiant = BuildTerrainData(MenuSide.Radiant, heights);
             var dire = BuildTerrainData(MenuSide.Dire, heights);
             var terrain = BuildTerrain(root.transform, radiant);
-            PlaceTrees(terrain, radiant, MenuSide.Radiant);
-            PlaceTrees(terrain, dire, MenuSide.Dire);
+            PlaceTrees(terrain, radiant, MenuSide.Radiant, camera);
+            PlaceTrees(terrain, dire, MenuSide.Dire, camera);
             PlaceGrass(radiant); // Dire's scorched ground has none
             var sun = BuildLighting();
 
@@ -74,7 +76,6 @@ namespace PudgeWars.EditorTools
             landscape.dire = DireLook(dire);
             landscape.Show(MenuSide.Radiant); // as the scene is saved; at start-up it shows the side drawn for the run
 
-            float height = PlacePudge();
             BuildCamera(height);
             BuildUi();
 
@@ -204,9 +205,10 @@ namespace PudgeWars.EditorTools
         /// <summary>
         /// A side's trees, scattered over the land behind and beside Pudge, kept apart; none right behind him close up
         /// (his outline stays clean) and none in front of the camera. Both sides plant them in the same places; on
-        /// Radiant's the mango tree stands near him on the left.
+        /// Radiant's the mango tree stands near him on the left. A one-sided tree (a relief, nothing behind it) is turned
+        /// to the <paramref name="camera"/>: it does not move, so the tree always shows its front, as a 2D one would.
         /// </summary>
-        static void PlaceTrees(Terrain terrain, TerrainData data, MenuSide side)
+        static void PlaceTrees(Terrain terrain, TerrainData data, MenuSide side, Vector2 camera)
         {
             var rng = new System.Random(Seed);
             var kinds = side == MenuSide.Dire ? LandscapeBuilder.DireTrees : LandscapeBuilder.RadiantTrees;
@@ -232,6 +234,7 @@ namespace PudgeWars.EditorTools
                 float scale = LandscapeBuilder.Range(rng, 0.9f, 1.15f) * Mathf.Lerp(1f, 1.35f, t);
                 trees.Add(new LandscapeBuilder.TreeSpot(kinds[kind++ % kinds.Length], at, scale, rng));
             }
+            trees = trees.Select(t => LandscapeBuilder.OneSidedTrees.Contains(t.model) ? t.Facing(camera) : t).ToList();
             var shown = terrain.terrainData;
             terrain.terrainData = data;
             LandscapeBuilder.SetTrees(terrain, trees);
@@ -345,6 +348,9 @@ namespace PudgeWars.EditorTools
             return Mathf.Max(1f, bounds.max.y);
         }
 
+        /// <summary>How far in front of Pudge the camera stands: there he takes up PudgeScreenShare of the screen.</summary>
+        static float CameraDistance(float pudgeHeight) => pudgeHeight / PudgeScreenShare / (2f * Mathf.Tan(CameraFov * 0.5f * Mathf.Deg2Rad));
+
         /// <summary>In front of Pudge, a little above his middle, at the distance where he takes up PudgeScreenShare.</summary>
         static void BuildCamera(float pudgeHeight)
         {
@@ -356,7 +362,7 @@ namespace PudgeWars.EditorTools
             camera.clearFlags = CameraClearFlags.Skybox;
             go.AddComponent<AudioListener>();
 
-            float distance = pudgeHeight / PudgeScreenShare / (2f * Mathf.Tan(CameraFov * 0.5f * Mathf.Deg2Rad));
+            float distance = CameraDistance(pudgeHeight);
             var lookAt = new Vector3(0f, pudgeHeight * 0.5f, 0f);
             go.transform.position = new Vector3(0f, pudgeHeight * 0.62f, distance);
             go.transform.LookAt(lookAt);

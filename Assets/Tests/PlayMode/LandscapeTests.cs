@@ -135,6 +135,19 @@ namespace PudgeWars.Tests
                         foreach (int n in data.GetDetailLayer(0, 0, res, res, i)) grass += n;
                     if (side == MenuSide.Radiant) Assert.Greater(grass, 100, "Radiant's ground has no grass");
                     else Assert.AreEqual(0, grass, "grass on Dire's scorched ground");
+                    // one-sided trees (reliefs with nothing behind) show their front to the camera
+                    var cam = Camera.main.transform.position;
+                    foreach (var tree in data.treeInstances)
+                    {
+                        var prefab = data.treePrototypes[tree.prototypeIndex].prefab;
+                        if (!prefab.name.StartsWith("tree_oakstatic")) continue;
+                        var front = prefab.GetComponentsInChildren<MeshFilter>().SelectMany(f => f.sharedMesh.normals).Aggregate(Vector3.zero, (sum, n) => sum + n);
+                        front = Quaternion.AngleAxis(tree.rotation * Mathf.Rad2Deg, Vector3.up) * new Vector3(front.x, 0f, front.z);
+                        var at = landscape.terrain.transform.position + Vector3.Scale(tree.position, data.size);
+                        var toCamera = cam - at;
+                        toCamera.y = 0f;
+                        Assert.Greater(Vector3.Dot(front.normalized, toCamera.normalized), 0.95f, $"{prefab.name} at {at} shows the camera its empty back");
+                    }
                     Assert.AreEqual(look.sky, RenderSettings.skybox);
                     Assert.AreEqual(look.fog, RenderSettings.fogColor);
                 }
