@@ -1414,6 +1414,11 @@ namespace PudgeWars.Tests
             Assert.AreEqual($"Осмотр: Бот {bot.Nickname}", shop.inspectLabel.text);
             Assert.AreEqual("300", shop.goldLabel.text, "the bar does not show the clicked hero's gold");
             Assert.AreEqual(lens.icon, shop.slots[0].sprite, "the bar does not show the clicked hero's items");
+            Assert.IsTrue(shop.statsPanel.gameObject.activeSelf, "no stats of the inspected hero");
+            var stats = shop.statsPanel.GetComponentsInChildren<Text>().Select(t => t.text).ToList();
+            CollectionAssert.IsSubsetOf(new[] { "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);
+            StringAssert.Contains("+275", stats[stats.IndexOf("Дальность хука") + 1], "the lens's bonus to the hook range is not shown");
+            StringAssert.StartsWith("1300", stats[stats.IndexOf("Дальность хука") + 1]);
             botWallet.AddGold(50, popup: false);
             Assert.AreEqual("350", shop.goldLabel.text, "the bar does not follow the clicked hero's gold");
             Assert.IsFalse(shop.Buy(lens), "the player has no gold for the lens: buying must stay the player's own");
@@ -1421,6 +1426,7 @@ namespace PudgeWars.Tests
             shop.Inspect(null);
             Assert.AreEqual("40", shop.goldLabel.text, "the player's own gold did not come back");
             Assert.IsFalse(shop.inspectLabel.transform.parent.gameObject.activeSelf, "the inspect tab stayed after going back");
+            Assert.IsFalse(shop.statsPanel.gameObject.activeSelf, "the stats stayed after going back");
             Assert.IsNull(shop.slots[0].sprite);
         }
 

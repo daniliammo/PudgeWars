@@ -8,8 +8,9 @@ namespace PudgeWars.Gameplay
     /// In-match shop (MagazinGame in the original): a panel toggled with B or the HUD button, plus an
     /// always visible bar with the player's gold and item slots. The panel flies in from the right screen edge
     /// and flies back out when closed. A hero picked with a click (<see cref="Inspect"/>) takes the player's place
-    /// on the bar, so its gold and items can be seen, and a tab over the bar says whose they are ("Осмотр: Бот
-    /// Мясник"); purchases are still the player's own.
+    /// on the bar, so its gold and items can be seen, a tab over the bar says whose they are ("Осмотр: Бот
+    /// Мясник") and a panel over the tab shows its stats (<see cref="HeroStatsPanel"/>); purchases are still the
+    /// player's own.
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -26,6 +27,8 @@ namespace PudgeWars.Gameplay
         public string inspectFormat = "Осмотр: {0}";
         public Color inspectAllyColor = new(0.45f, 0.95f, 0.4f);
         public Color inspectEnemyColor = new(1f, 0.4f, 0.32f);
+        [Tooltip("Stats of the inspected hero over the tab; made at runtime if empty.")]
+        public HeroStatsPanel statsPanel;
         [Tooltip("Seconds the panel takes to fly in from beyond the screen edge (and back out).")]
         public float slideDuration = 0.25f;
 
@@ -51,6 +54,12 @@ namespace PudgeWars.Gameplay
             LocalPlayer.Changed += OnLocalPlayerChanged;
             if (inspectLabel == null) inspectLabel = BuildInspectLabel();
             else inspectTab = inspectLabel.gameObject;
+            if (statsPanel == null && inspectTab != null)
+            {
+                var tab = (RectTransform)inspectTab.transform;
+                float top = tab.anchoredPosition.y + (1f - tab.pivot.y) * tab.sizeDelta.y;
+                statsPanel = HeroStatsPanel.Create(tab.parent, inspectLabel.font, new Vector2(tab.anchoredPosition.x, top + 6f), tab.sizeDelta.x);
+            }
             if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             foreach (var row in rows)
@@ -186,6 +195,7 @@ namespace PudgeWars.Gameplay
             if (inspectLabel == null) return;
             var hero = inspected != null ? inspected.GetComponent<Hookable>() : null;
             inspectTab.SetActive(hero != null);
+            if (statsPanel != null) statsPanel.Show(hero);
             if (hero == null) return;
             inspectLabel.text = string.Format(inspectFormat, hero.DisplayName);
             inspectLabel.color = hero.team == LocalPlayer.Team ? inspectAllyColor : inspectEnemyColor;
