@@ -17,6 +17,7 @@ namespace PudgeWars.Gameplay
         public const string Hooked = "PopadaniePudge";
         public const string Death = "Death_HookPudge_pudge1_End_HookPudge";
         public const string Spawn = "Spawn_1";
+        public const string Taunt = "Nasmechka";
 
         [Tooltip("Above this speed the run cycle is used instead of the walk cycle, m/s.")]
         public float runThreshold = 2.4f;

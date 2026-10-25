@@ -8,17 +8,19 @@ using Mirror.Discovery;
 using PudgeWars.Gameplay;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 
 namespace PudgeWars.Net
 {
     /// <summary>
     /// Network menu (F2 or the "Сеть" button in the top right corner): nickname, host a game (with or without bots),
-    /// join by IP or pick a game found in the local network, leave the game. Drawn with IMGUI over the HUD; while it
-    /// is open it takes the keyboard and the mouse from the game (<see cref="OverlayInput"/>).
+    /// join by IP or pick a game found in the local network, leave the game, go to the main menu. Drawn with IMGUI over
+    /// the HUD, only in the arena (the main menu has its own, <see cref="MainMenu"/>); while it is open it takes the
+    /// keyboard and the mouse from the game (<see cref="OverlayInput"/>).
     /// </summary>
     public class NetMenu : MonoBehaviour
     {
-        const string NicknameKey = "net.nickname", AddressKey = "net.address", BotsKey = "net.bots";
+        internal const string NicknameKey = "net.nickname", AddressKey = "net.address", BotsKey = "net.bots";
         const float ReferenceHeight = 1080f;
 
         public bool IsOpen { get; private set; }
@@ -36,20 +38,32 @@ namespace PudgeWars.Net
         void Awake()
         {
             manager = GetComponent<PudgeNetworkManager>();
+            Load();
+            manager.ServerFound += response => found[response.uri.ToString()] = response;
+        }
+
+        /// <summary>The fields as last remembered (the main menu changes them too: the same keys).</summary>
+        void Load()
+        {
             nickname = PlayerPrefs.GetString(NicknameKey, "Игрок");
             address = PlayerPrefs.GetString(AddressKey, "127.0.0.1");
             bots = PlayerPrefs.GetInt(BotsKey, 1) != 0;
-            manager.ServerFound += response => found[response.uri.ToString()] = response;
         }
 
         void Update()
         {
+            if (Arena.Instance == null)
+            {
+                if (IsOpen) SetOpen(false);
+                return;
+            }
             var kb = Keyboard.current;
             if (kb != null && kb.f2Key.wasPressedThisFrame) SetOpen(!IsOpen);
         }
 
         void SetOpen(bool open)
         {
+            if (open && !IsOpen) Load();
             IsOpen = open;
             OverlayInput.Captured = open;
             if (!open) StopSearch();
@@ -59,6 +73,7 @@ namespace PudgeWars.Net
 
         void OnGUI()
         {
+            if (Arena.Instance == null) return;
             float scale = Mathf.Max(0.5f, Screen.height / ReferenceHeight);
             MakeStyles(scale);
             float width = Screen.width;
@@ -98,6 +113,17 @@ namespace PudgeWars.Net
             if (GUILayout.Button(searching ? "Ищу игры в локальной сети…" : "Найти игры в локальной сети", button)) Search();
             foreach (var (uri, _) in found.ToList())
                 if (GUILayout.Button("Войти: " + uri, button)) Join(uri);
+
+            if (Application.CanStreamedLevelBeLoaded(PudgeNetworkManager.MenuScene))
+            {
+                GUILayout.Space(12f * styleScale);
+                if (GUILayout.Button("Главное меню", button))
+                {
+                    StopSearch();
+                    SetOpen(false);
+                    SceneManager.LoadScene(PudgeNetworkManager.MenuScene);
+                }
+            }
         }
 
         void DrawSession()
@@ -132,24 +158,7 @@ namespace PudgeWars.Net
             Remember();
             StopSearch();
             manager.nickname = nickname;
-            target = target.Trim();
-            if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme == "kcp")
-            {
-                manager.networkAddress = uri.Host;
-                manager.StartClient(uri);
-            }
-            else
-            {
-                // "host" or "host:port"
-                int colon = target.LastIndexOf(':');
-                if (colon > 0 && ushort.TryParse(target.Substring(colon + 1), out var port))
-                {
-                    manager.Kcp.port = port;
-                    target = target.Substring(0, colon);
-                }
-                manager.networkAddress = target;
-                manager.StartClient();
-            }
+            manager.Join(target);
         }
 
         void Leave()

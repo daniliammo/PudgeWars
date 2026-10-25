@@ -21,18 +21,24 @@ namespace PudgeWars.Net
     /// the <see cref="NetMenu"/>. Offline the arena plays as before; starting a host, a server or joining one swaps
     /// the arena's own heroes for network ones: each player gets a hero on the team with fewer players, bots fill the
     /// teams up to <see cref="teamSize"/>. The server simulates everything, clients send input and show the result
-    /// (<see cref="Simulation.IsProxy"/>). Leaving the network game reloads the arena offline.
+    /// (<see cref="Simulation.IsProxy"/>). Leaving the network game reloads the arena offline, or returns to the main
+    /// menu if the game was started from it (<see cref="LaunchInArena"/>).
     /// A build started with -batchmode or -server runs a dedicated server (port: -port N, default 7777).
     /// </summary>
     public class PudgeNetworkManager : NetworkManager
     {
         public const uint PlayerAssetId = 0x50570001, BotAssetId = 0x50570002, MatchAssetId = 0x50570003;
         public const ushort DefaultPort = 7777;
+        public const string ArenaScene = "Arena", MenuScene = "Menu";
         const long DiscoveryHandshake = 0x5057_4E45_5457_4F52; // only Pudge Wars servers answer
 
         [Tooltip("Heroes per team in a network game; bots take the places players leave free.")]
         public int teamSize = 3;
         public bool fillWithBots = true;
+        [Tooltip("The host's own team (Dire by default); the other players join the team with fewer players.")]
+        public Team hostTeam = Team.Bots;
+        [Tooltip("Difficulty multiplier of every bot the server spawns (BotBrain.difficulty, 1 = default).")]
+        [Min(0.05f)] public float botDifficulty = 1f;
         public NetPrefabs prefabs;
         [Tooltip("Sent to the server when joining.")]
         public string nickname = "Игрок";
@@ -62,7 +68,8 @@ namespace PudgeWars.Net
 
         readonly List<NetHero> bots = new();
         NetworkDiscovery discovery;
-        bool reloadArena;
+        bool reloadArena, returnToMenu;
+        Action pendingStart;
         int nextBotName;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -106,9 +113,49 @@ namespace PudgeWars.Net
         public override void Update()
         {
             base.Update();
+            if (pendingStart != null && Arena.Instance != null)
+            {
+                var start = pendingStart;
+                pendingStart = null;
+                start();
+            }
             if (!reloadArena || NetworkServer.active || NetworkClient.active) return;
             reloadArena = false;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            bool toMenu = returnToMenu && Application.CanStreamedLevelBeLoaded(MenuScene);
+            returnToMenu = false;
+            if (toMenu) SceneManager.LoadScene(MenuScene);
+            else SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// <summary>
+        /// From the main menu: loads the arena and, once it is up, runs <paramref name="start"/> (host or join).
+        /// Leaving that game (or failing to connect) returns to the menu.
+        /// </summary>
+        public void LaunchInArena(Action start)
+        {
+            returnToMenu = true;
+            pendingStart = start;
+            SceneManager.LoadScene(ArenaScene);
+        }
+
+        /// <summary>Joins a game by "host", "host:port" or a kcp:// address found in the local network.</summary>
+        public void Join(string target)
+        {
+            target = target.Trim();
+            if (Uri.TryCreate(target, UriKind.Absolute, out var uri) && uri.Scheme == "kcp")
+            {
+                networkAddress = uri.Host;
+                StartClient(uri);
+                return;
+            }
+            int colon = target.LastIndexOf(':');
+            if (colon > 0 && ushort.TryParse(target.Substring(colon + 1), out var port))
+            {
+                Kcp.port = port;
+                target = target.Substring(0, colon);
+            }
+            networkAddress = target;
+            StartClient();
         }
 
         // server //////////////////////////////////////////////////////////////
@@ -161,13 +208,14 @@ namespace PudgeWars.Net
         static int Players(Team team) => NetHero.OnServer.Count(h => !h.isBot && h.Team == team);
 
         /// <summary>
-        /// The host plays for Dire, the others join the team with fewer players, Radiant when even (so the first
-        /// client is Radiant).
+        /// The host plays for <see cref="hostTeam"/> (Dire by default), the others join the team with fewer players,
+        /// the host's opponents when even (so the first client plays against the host).
         /// </summary>
-        static Team TeamForNewPlayer(NetworkConnectionToClient conn)
+        Team TeamForNewPlayer(NetworkConnectionToClient conn)
         {
-            if (conn is LocalConnectionToClient) return Team.Bots;
-            return Players(Team.Bots) < Players(Team.Player) ? Team.Bots : Team.Player;
+            if (conn is LocalConnectionToClient) return hostTeam;
+            var other = hostTeam == Team.Bots ? Team.Player : Team.Bots;
+            return Players(hostTeam) < Players(other) ? hostTeam : other;
         }
 
         /// <summary>Keeps every team at <see cref="teamSize"/> heroes with bots (or removes the bots when off).</summary>
@@ -194,6 +242,7 @@ namespace PudgeWars.Net
             var hero = BuildHero(true, position, rotation);
             var names = prefabs.botNames;
             string nick = names.Length > 0 ? names[nextBotName++ % names.Length] : $"Бот {nextBotName++}";
+            if (hero.TryGetComponent<BotBrain>(out var brain)) brain.difficulty = botDifficulty;
             var net = hero.GetComponent<NetHero>();
             net.Setup(team, nick);
             NetworkServer.Spawn(hero, BotAssetId);

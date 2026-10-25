@@ -3,6 +3,7 @@
     "rootNamespace": "PudgeWars.Net",
     "references": [
         "PudgeWars.Gameplay",
+        "UnityEngine.UI",
         "Mirror",
         "Mirror.Components",
         "Mirror.Transports",
