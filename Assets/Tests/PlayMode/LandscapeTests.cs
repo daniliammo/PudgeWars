@@ -112,6 +112,8 @@ namespace PudgeWars.Tests
                     Assert.Greater(data.treeInstanceCount, 20, $"{side}: the terrain has no trees of its own");
                     var models = data.treePrototypes.Select(p => p.prefab.name).ToList();
                     Assert.IsTrue(models.All(m => m.StartsWith("dire_") == (side == MenuSide.Dire)), $"{side}: trees of the other side: {string.Join(", ", models)}");
+                    var pale = new[] { "tree_oak_03", "tree_oak_04", "tree_oak_05", "tree_oak_06", "tree_gnarly001", "tree_cine_02_low" };
+                    Assert.IsFalse(models.Any(pale.Contains), $"{side}: white trees (untinted bark) in the menu: {string.Join(", ", models)}");
                     int res = data.detailResolution, grass = 0;
                     for (int i = 0; i < data.detailPrototypes.Length; i++)
                         foreach (int n in data.GetDetailLayer(0, 0, res, res, i)) grass += n;

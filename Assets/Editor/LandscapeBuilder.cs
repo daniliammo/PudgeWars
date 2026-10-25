@@ -32,10 +32,11 @@ namespace PudgeWars.EditorTools
         static readonly string[] ArenaRadiantTrees = { "tree_oak_01", "tree_pine_01", "tree_oak_02", "tree_pine_02", "tree_oak_01b", "tree_pine_03b" };
         internal static readonly string[] RadiantTrees =
         {
-            "tree_oak_01", "tree_pine_01", "tree_bamboo_01", "tree_oak_02", "tree_pine_02", "tree_oak_03", "tree_bamboo_02",
-            "tree_oak_01b", "tree_pine_03b", "tree_oak_04", "tree_gnarly001", "tree_oak_05", "tree_bamboo_03", "tree_oak_00",
-            "tree_oakstatic_01", "tree_oak_06", "tree_cine_02_low", "tree_bamboo_00", "tree_oakstatic_02",
+            "tree_oak_01", "tree_pine_01", "tree_bamboo_01", "tree_oak_02", "tree_pine_02", "tree_bamboo_02",
+            "tree_oak_01b", "tree_pine_03b", "tree_bamboo_03", "tree_oak_00", "tree_oakstatic_01", "tree_bamboo_00", "tree_oakstatic_02",
         };
+        // Radiant's trees with tintable bark (Dota tints it per map): white here, so imported but not planted
+        static readonly string[] PaleTrees = { "tree_oak_03", "tree_oak_04", "tree_oak_05", "tree_oak_06", "tree_gnarly001", "tree_cine_02_low" };
         // Radiant's trees in snow: imported for a winter landscape, not planted yet
         internal static readonly string[] SnowTrees =
         {
@@ -490,7 +491,7 @@ namespace PudgeWars.EditorTools
 
         /// <summary>Import settings of the tree models and textures, and their URP materials (masked leaves).</summary>
         internal static void SetupTreeAssets() =>
-            SetupModels(TreeDir, RadiantTrees.Concat(SnowTrees).Concat(DireTrees).Append(MangoTree)
+            SetupModels(TreeDir, RadiantTrees.Concat(PaleTrees).Concat(SnowTrees).Concat(DireTrees).Append(MangoTree)
                 .SelectMany(m => new[] { m, m + StumpSuffix, m + FallingSuffix }));
 
         /// <summary>Import settings of the models in <paramref name="dir"/> and their textures, and their URP materials.</summary>
