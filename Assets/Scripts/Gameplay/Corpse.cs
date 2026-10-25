@@ -32,6 +32,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>The body's head (its pelvis, or the body itself, if the skeleton has none): the camera follows it.</summary>
         public Transform Head { get; private set; }
+        /// <summary>The head's place over the hero's feet when the body took its place (where things over the hero sat).</summary>
+        public Vector3 HeadOffset { get; private set; }
 
         readonly List<Rigidbody> bodies = new();
         Rigidbody pelvis;
@@ -57,6 +59,7 @@ namespace PudgeWars.Gameplay
                 skin.updateWhenOffscreen = true; // the bones fly away from the copy's origin: its bounds must follow them
             var corpse = copy.AddComponent<Corpse>();
             corpse.Build(velocity, gravity);
+            corpse.HeadOffset = corpse.Head.position - hero.transform.position;
             return corpse;
         }
 

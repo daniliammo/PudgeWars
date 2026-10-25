@@ -1377,18 +1377,33 @@ namespace PudgeWars.Tests
             }
             CaptureScreen("health_bars");
 
-            // a dead hero's bar goes away and comes back full with the respawn
+            // a dead hero's bar stays a while at 0 over its body: the fill is gone at once, the white trail of the
+            // lost health holds, then runs down gradually; then the bar goes away and comes back full with the respawn
             var bot = heroes.First(h => h.team == Team.Bots);
             bot.StartFalling(Vector3.zero);
             yield return new WaitUntil(() => !bot.IsAlive);
             yield return null;
+            float deathTime = Time.time;
             Assert.AreEqual(0f, bot.Health);
             Assert.AreEqual($"0/{Mathf.CeilToInt(bot.maxHealth)}", bars.HealthLabel(bot).text);
-            Assert.IsFalse(bars.Of(bot).root.gameObject.activeSelf, "a dead hero's bar is still shown");
+            Assert.IsTrue(bars.Of(bot).root.gameObject.activeSelf, "a dead hero's bar went away at once");
+            Assert.AreEqual(0f, bars.Of(bot).fill.anchorMax.x, 1e-4f, "the fill did not drop at once");
+            Assert.AreEqual(1f, bars.Trail(bot).anchorMax.x, 0.05f, "no trail where the health was");
+            yield return new WaitForSeconds(bars.trailHold + 0.3f);
+            float trail = bars.Trail(bot).anchorMax.x;
+            Assert.That(trail, Is.GreaterThan(0.05f).And.LessThan(0.95f), "the trail must run down gradually, not at once");
+            CaptureScreen("health_trail");
+            yield return new WaitUntil(() => bars.Trail(bot).anchorMax.x <= 1e-4f);
+            Assert.IsTrue(bars.Of(bot).root.gameObject.activeSelf, "the bar went away before its time");
+            yield return new WaitUntil(() => !bars.Of(bot).root.gameObject.activeSelf);
+            Assert.AreEqual(bars.deadShowTime, Time.time - deathTime, 0.2f, "the dead hero's bar did not stay its time");
+            Assert.IsFalse(bot.IsAlive);
             yield return new WaitUntil(() => bot.IsAlive);
             yield return null;
             Assert.IsTrue(bars.Of(bot).root.gameObject.activeSelf);
             Assert.AreEqual(1f, bars.Of(bot).fill.anchorMax.x, 1e-4f);
+            Assert.AreEqual(1f, bars.Trail(bot).anchorMax.x, 1e-4f, "the trail did not come back with the health");
+            Assert.AreEqual(1f, bars.Of(bot).root.GetComponent<CanvasGroup>().alpha, 1e-4f, "the respawned hero's bar stayed faded");
             Assert.AreEqual($"{Mathf.CeilToInt(bot.maxHealth)}/{Mathf.CeilToInt(bot.maxHealth)}", bars.HealthLabel(bot).text);
 
             // a multi-kill shows as "×N" next to the level from a Double Kill on; a death or the window running out clears it

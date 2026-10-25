@@ -10,7 +10,9 @@ namespace PudgeWars.Gameplay
     /// "current / max" health in white with a black outline over the bar, the hero's name above ("Бот …" for bots)
     /// and its level in a dark circle with a light gold digit at the bar's left end, just below the name, with the
     /// multi-kill ("×3", kills within the multi-kill window, from Double Kill on) in orange to the left of the circle. Follows each hero on screen (never leaving it at the top, where the far
-    /// heroes stand) and hides while it is dead or behind the camera.
+    /// heroes stand), or its body while it has one (<see cref="Corpse"/>), and hides behind the camera.
+    /// Lost health shows as in Dota: the fill drops at once, a white trail stays where it was and after a moment runs
+    /// down to it. A dead hero's bar stays a while at 0 (the trail running out), then fades away until the respawn.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class HealthBars : MonoBehaviour
@@ -40,10 +42,19 @@ namespace PudgeWars.Gameplay
         public Color multiKillTextColor = new(1f, 0.55f, 0.15f);
         [Tooltip("Bars of heroes at the far edge of the view are held this far below the top of the screen, canvas units.")]
         public float topMargin = 40f;
+        [Tooltip("The lost health's trail behind the fill.")] public Color trailColor = new(1f, 1f, 1f, 0.9f);
+        [Tooltip("Seconds the trail stays where the health was before it runs down (each new hit starts it again).")]
+        public float trailHold = 0.35f;
+        [Tooltip("How fast the trail runs down, bars per second.")] public float trailSpeed = 1.1f;
+        [Tooltip("Seconds a dead hero's bar stays shown at 0, its fading included.")] public float deadShowTime = 2f;
+        [Tooltip("Seconds of fading at the end of that.")] public float deadFadeTime = 0.4f;
 
         class Bar
         {
-            public RectTransform root, fill;
+            public RectTransform root, fill, trail;
+            public CanvasGroup group;
+            public float trailFraction, lastFraction, holdUntil;
+            public float deadSince = -1f; // -1 while alive
             public Image fillImage;
             public Text name, health, level, multiKill;
             public int shownHealth = -1, shownMax = -1, shownLevel = -1, shownMultiKill = -1;
@@ -77,6 +88,9 @@ namespace PudgeWars.Gameplay
         public (RectTransform root, RectTransform fill, Text name) Of(Hookable hero) =>
             bars.TryGetValue(hero, out var b) ? (b.root, b.fill, b.name) : default;
 
+        /// <summary>The lost health's white trail behind a hero's fill (null if it has no bar yet).</summary>
+        public RectTransform Trail(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.trail : null;
+
         /// <summary>The "current / max" health label on a hero's bar (null if it has none yet).</summary>
         public Text HealthLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.health : null;
 
@@ -101,7 +115,7 @@ namespace PudgeWars.Gameplay
                 }
                 bar.name.text = hero.DisplayName;
                 bar.fillImage.color = hero.team == LocalPlayer.Team ? playerColor : enemyColor; // teams may change in a network game
-                bar.fill.anchorMax = new Vector2(hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f, 1f);
+                ShowFill(hero, bar);
                 ShowHealth(hero, bar);
                 ShowLevel(hero, bar);
                 ShowMultiKill(hero, bar);
@@ -112,6 +126,20 @@ namespace PudgeWars.Gameplay
                 if (bars[hero].root != null) Destroy(bars[hero].root.gameObject);
                 bars.Remove(hero);
             }
+        }
+
+        static float Fraction(Hookable hero) => hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f;
+
+        /// <summary>The fill follows the health at once; the trail stays on a drop, then runs down; a heal takes it along.</summary>
+        void ShowFill(Hookable hero, Bar bar)
+        {
+            float fraction = Fraction(hero), now = Time.time;
+            if (fraction < bar.lastFraction - 1e-4f) bar.holdUntil = now + trailHold;
+            bar.lastFraction = fraction;
+            if (fraction >= bar.trailFraction) bar.trailFraction = fraction;
+            else if (now >= bar.holdUntil) bar.trailFraction = Mathf.MoveTowards(bar.trailFraction, fraction, trailSpeed * Time.deltaTime);
+            bar.fill.anchorMax = new Vector2(fraction, 1f);
+            bar.trail.anchorMax = new Vector2(bar.trailFraction, 1f);
         }
 
         /// <summary>Rebuilds the text only when the numbers change (no garbage every frame).</summary>
@@ -142,9 +170,20 @@ namespace PudgeWars.Gameplay
 
         void Place(Hookable hero, Bar bar)
         {
+            float now = Time.time;
+            if (hero.IsAlive) bar.deadSince = -1f;
+            else if (bar.deadSince < 0f) bar.deadSince = now;
+            float deadFor = bar.deadSince < 0f ? 0f : now - bar.deadSince;
+            bar.group.alpha = Mathf.Clamp01((deadShowTime - deadFor) / Mathf.Max(deadFadeTime, 0.01f));
+
+            // over the body while there is one: it took the hero's place, its head as high under the bar as the hero's was
+            var body = hero.Body;
+            var anchor = body != null && body.Head != null
+                ? body.Head.position - body.HeadOffset + Vector3.up * anchorHeight
+                : hero.transform.position + Vector3.up * anchorHeight;
             var cam = Camera.main;
-            var screen = cam != null ? cam.WorldToScreenPoint(hero.transform.position + Vector3.up * anchorHeight) : Vector3.zero;
-            bool visible = hero.IsAlive && screen.z > 0f;
+            var screen = cam != null ? cam.WorldToScreenPoint(anchor) : Vector3.zero;
+            bool visible = deadFor < deadShowTime && screen.z > 0f;
             bar.root.gameObject.SetActive(visible);
             if (!visible) return;
             var uiCam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
@@ -157,8 +196,18 @@ namespace PudgeWars.Gameplay
             var root = Rect(rect, "HealthBar_" + hero.name, size + Vector2.one * (2f * border));
             Img(root, frameColor);
 
+            var group = root.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            group.interactable = false;
+
             var inner = Rect(root, "Inner", size);
             Img(inner, emptyColor);
+            // the lost health's trail, under the fill
+            var trail = Rect(inner, "Trail", Vector2.zero);
+            trail.anchorMin = Vector2.zero;
+            trail.anchorMax = Vector2.one;
+            trail.pivot = new Vector2(0f, 0.5f);
+            Img(trail, trailColor);
             var fill = Rect(inner, "Fill", Vector2.zero);
             fill.anchorMin = Vector2.zero;
             fill.anchorMax = Vector2.one;
@@ -245,7 +294,13 @@ namespace PudgeWars.Gameplay
             multiKillOutline.effectColor = Color.black;
             multiKillOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
-            var bar = new Bar { root = root, fill = fill, fillImage = fillImage, name = name, health = health, level = level, multiKill = multiKill };
+            float fraction = Fraction(hero);
+            var bar = new Bar
+            {
+                root = root, fill = fill, trail = trail, group = group, trailFraction = fraction, lastFraction = fraction,
+                fillImage = fillImage, name = name, health = health, level = level, multiKill = multiKill,
+            };
+            ShowFill(hero, bar);
             ShowHealth(hero, bar);
             ShowLevel(hero, bar);
             ShowMultiKill(hero, bar);
