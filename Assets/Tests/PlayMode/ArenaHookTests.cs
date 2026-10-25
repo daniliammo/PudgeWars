@@ -793,7 +793,7 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator OwnerFreedFromATautChainPullsItsCatchOn()
+        public IEnumerator OwnerCarriedByAnAllyPullsItsCatchOn()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
             var victim = bots[0];   // caught by the player
@@ -819,7 +819,8 @@ namespace PudgeWars.Tests
             t = 0f;
             while (!player.IsHooked && t < 2f) { t += Time.deltaTime; yield return null; }
             Assert.AreEqual(allyHook, player.HookedBy, "the ally's hook did not catch the player");
-            Assert.IsTrue(hook.IsTethered, "the caught player's hook must keep its catch on a taut chain");
+            Assert.IsFalse(hook.IsTethered, "an ally only carries the player: its hook must pull on, not hang on a taut chain");
+            Assert.IsTrue(hook.IsBusy && victim.IsHooked, "the carried player's hook let its catch go");
 
             t = 0f;
             while (player.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
@@ -831,6 +832,44 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, arena.Score, "the freed player did not pull the victim on into the pit");
             Assert.AreEqual(arena.KillGold(victim), player.GetComponent<HeroInventory>().Gold, "the kill belongs to the player");
             Assert.IsFalse(hook.IsTethered);
+        }
+
+        [UnityTest]
+        public IEnumerator OwnerCarriedByAnAllyKeepsItsThrownHook()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var ally = bots[0]; // hooks the player home while the player's own hook is out
+            ally.team = Team.Player;
+            for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -12f), Quaternion.identity);
+            ally.transform.SetPositionAndRotation(new Vector3(-6f, 0f, -12f), Quaternion.LookRotation(Vector3.right));
+            yield return null;
+
+            // thrown to the right, away from everyone: a miss
+            Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.right * 10f));
+            yield return new WaitForSeconds(hook.castDelay + 0.2f);
+            Assert.IsTrue(hook.IsFlying);
+
+            var allyHook = ally.GetComponent<HookAbility>();
+            Assert.IsTrue(allyHook.TryCast(player.transform.position));
+            float t = 0f;
+            while (!player.IsHooked && t < 2f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(allyHook, player.HookedBy, "the ally's hook did not catch the player");
+
+            // the hook flies on and comes back to the player wherever it is carried, instead of vanishing
+            var head = hook.hookHead.position;
+            t = 0f;
+            while (hook.IsBusy && t < 5f)
+            {
+                Assert.IsTrue(hook.HeadVisible, "the player's hook vanished when an ally caught the player");
+                head = hook.hookHead.position;
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.IsFalse(hook.IsBusy, "the player's hook never came back");
+            var left = head - player.transform.position;
+            Assert.Less(new Vector3(left.x, 0f, left.z).magnitude, 2f, "the hook vanished away from the player instead of coming back");
+            Assert.IsTrue(player.IsAlive && !player.IsFalling);
         }
 
         [UnityTest]

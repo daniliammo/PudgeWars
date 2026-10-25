@@ -24,6 +24,8 @@ namespace PudgeWars.Gameplay
     /// breaks. Pulling a free ally out of the way of an enemy hook that would surely catch it is a rescue too:
     /// the ally, moving on as it moves now (standing, casting, or running too late), would be the first one the
     /// enemy's head reaches.
+    /// An owner caught by an ally's hook is only carried home: its own hook goes on as usual (flies, pulls its catch,
+    /// comes back to it); only an enemy's hook, the pit or death breaks it off or leaves it on a taut chain.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
     /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
     /// </summary>
@@ -260,7 +262,7 @@ namespace PudgeWars.Gameplay
             {
                 hookHead.position = contact;
                 Play(sounds.impact);
-                if (OwnerCaught) Cancel(); // a caught owner cannot hold anyone
+                if (self != null && !self.IsControllable) Cancel(); // a caught or carried owner cannot hold anyone
                 else
                 {
                     BeginHold(hit);
@@ -345,6 +347,8 @@ namespace PudgeWars.Gameplay
         public void OwnerLostControl()
         {
             if (state is State.Tethered or State.Flying) return;
+            // an ally's hook only carries the owner home: a hook on its way back comes back to it as usual
+            if (state == State.Returning && !OwnerCaught) return;
             if (state == State.Returning && target != null && !OwnerFallsFromRescue)
             {
                 BeginTether();
@@ -359,7 +363,13 @@ namespace PudgeWars.Gameplay
         /// </summary>
         bool OwnerFallsFromRescue => target != null && target.HeldBy != null && self != null && (self.IsFalling || !self.IsAlive);
 
-        bool OwnerCaught => self != null && !self.IsControllable;
+        /// <summary>
+        /// The owner cannot pull its hook in: an enemy's hook has it, it is falling or dead. An ally's hook only carries
+        /// it home, and the owner's own hook goes on meanwhile (returning to it wherever it is carried).
+        /// </summary>
+        bool OwnerCaught => self != null && (!self.IsAlive || self.IsFalling || (self.IsHooked && !CarriedByAlly));
+
+        bool CarriedByAlly => self.HookedBy != null && self.HookedBy.Owner != null && !IsEnemy(self.HookedBy.Owner);
 
         void BeginTether()
         {
