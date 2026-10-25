@@ -106,29 +106,45 @@ namespace PudgeWars.EditorTools
             return heights;
         }
 
-        /// <summary>A side's terrain data (MenuTerrain_Radiant / _Dire): its ground, rock on the slopes.</summary>
+        /// <summary>
+        /// A side's terrain data (MenuTerrain_Radiant / _Dire) with Dota's ground textures: Radiant's grass with
+        /// patches of flowery grass and a stone path, or Dire's cracked ground with patchy dirt and a sand path; rock on
+        /// the slopes. The path comes from the camera to a round place under Pudge and winds on behind him.
+        /// </summary>
         static TerrainData BuildTerrainData(MenuSide side, float[,] heights)
         {
             var data = new TerrainData { heightmapResolution = HeightmapResolution }; // resolution first: it resets the size
             data.size = new Vector3(TerrainWidth, TerrainHeight, TerrainLength);
-            data.alphamapResolution = 256;
+            data.alphamapResolution = 512; // 0.31 m: the path keeps its edges
             data.baseMapResolution = 512;
             data.SetHeights(0, 0, heights);
 
+            bool dire = side == MenuSide.Dire;
             data.terrainLayers = new[]
             {
-                side == MenuSide.Dire ? LandscapeBuilder.Layer("Ground_Dire", 6f) : LandscapeBuilder.Layer("Grass_Radiant", 6f),
+                LandscapeBuilder.Layer(dire ? "Dire_Ground" : "Radiant_Grass", dire ? 6f : 5f),
+                LandscapeBuilder.Layer(dire ? "Dire_Patches" : "Radiant_Flowers", dire ? 6f : 5f),
                 LandscapeBuilder.Layer("Cliff", 5f),
+                LandscapeBuilder.Layer(dire ? "Path_Sand" : "Radiant_Stones", dire ? 3f : 2.5f),
             };
+            var noise = new System.Random(Seed + (dire ? 2 : 1));
+            var patches = new Vector2(noise.Next(1000), noise.Next(1000));
+            var origin = Origin;
             int aRes = data.alphamapResolution;
-            var alpha = new float[aRes, aRes, 2];
+            var alpha = new float[aRes, aRes, 4];
             for (int z = 0; z < aRes; z++)
             for (int x = 0; x < aRes; x++)
             {
                 float u = (x + 0.5f) / aRes, v = (z + 0.5f) / aRes;
+                float wx = origin.x + u * TerrainWidth, wz = origin.z + v * TerrainLength;
                 float rock = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(30f, 45f, data.GetSteepness(u, v)));
-                alpha[z, x, 0] = 1f - rock;
-                alpha[z, x, 1] = rock;
+                float path = PathShare(wx, wz);
+                float patch = 0.8f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.75f, Mathf.PerlinNoise(patches.x + wx * 0.06f, patches.y + wz * 0.06f)));
+                float ground = (1f - rock) * (1f - path);
+                alpha[z, x, 0] = ground * (1f - patch);
+                alpha[z, x, 1] = ground * patch;
+                alpha[z, x, 2] = rock;
+                alpha[z, x, 3] = (1f - rock) * path;
             }
             data.SetAlphamaps(0, 0, alpha);
 
@@ -155,6 +171,21 @@ namespace PudgeWars.EditorTools
             terrain.treeDistance = 200f;
             terrain.detailObjectDistance = GrassDistance;
             return terrain;
+        }
+
+        /// <summary>
+        /// 1 on the path: a round place under Pudge, a straight way from it to the camera and a winding one behind
+        /// him that fades out among the trees; soft at its edges.
+        /// </summary>
+        static float PathShare(float x, float z)
+        {
+            const float place = 2.3f, halfWidth = 0.8f, behind = 14f, soft = 0.35f;
+            float d = new Vector2(x, z).magnitude - place;
+            float offset = z > 0f ? Mathf.Abs(x) : Mathf.Abs(x - 1.2f * Mathf.Sin(-z * 0.3f));
+            float way = z > TerrainFront - 6f || z < -behind ? 1e3f : offset - halfWidth * (z < 0f ? Mathf.Lerp(1f, 0.6f, -z / behind) : 1f);
+            float edge = Mathf.Min(d, way);
+            float fade = z < 0f ? Mathf.InverseLerp(-behind, -behind + 4f, z) : 1f;
+            return fade * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-soft, soft, edge)));
         }
 
         /// <summary>Flat around Pudge, then rolling hills that rise toward the horizon and toward the sides.</summary>
@@ -224,7 +255,7 @@ namespace PudgeWars.EditorTools
                 float u = (x + 0.5f) / GrassResolution, v = (z + 0.5f) / GrassResolution;
                 var at = new Vector2(origin.x + u * TerrainWidth, origin.z + v * TerrainLength);
                 float d = at.magnitude;
-                if (d < GrassNear || d > GrassFar || at.y > 3f || data.GetSteepness(u, v) > 28f) continue;
+                if (d < GrassNear || d > GrassFar || at.y > 3f || data.GetSteepness(u, v) > 28f || PathShare(at.x, at.y) > 0.2f) continue;
                 float patch = Mathf.InverseLerp(0.35f, 0.75f, Mathf.PerlinNoise(patches.x + at.x * 0.08f, patches.y + at.y * 0.08f));
                 float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(GrassFar * 0.6f, GrassFar, d));
                 int count = Mathf.FloorToInt(patch * fade * GrassPerCell + (float)rng.NextDouble());

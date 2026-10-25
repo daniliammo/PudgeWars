@@ -80,6 +80,7 @@ namespace PudgeWars.EditorTools
         const float GrassPerCell = 0.45f; // clumps in a cell in the thick of a patch, outside the arena
         const float GrassInArena = 0.5f;  // of that inside it
         const float GrassDistance = 80f;
+        const float RimSandWidth = 1.4f; // the sand band along the pit's rims, metres
 
         const float TreeInset = 1.3f;  // trees stand this far inside the side edges
         const int TreesPerEdge = 3;
@@ -140,14 +141,15 @@ namespace PudgeWars.EditorTools
             }
             data.SetHeights(0, 0, heights);
 
-            // Radiant's grass on the player's side (z < 0) and Dire's ground on the bots' side with a ragged border
-            // at z = 0, rock on the steep slopes, black in the depth of the pit
+            // Dota's Radiant grass on the player's side (z < 0) and Dire's cracked ground on the bots' side with a
+            // ragged border at z = 0, a band of sand along the pit's rims as on a river bank, rock on the steep slopes,
+            // black in the depth of the pit (layers 0 and 1 are the sides' ground: PlaceGrass reads layer 0)
             data.terrainLayers = new[]
             {
-                Layer("Grass_Radiant", 6f), Layer("Ground_Dire", 6f), Layer("Cliff", 5f), Layer("Abyss", 5f),
+                Layer("Radiant_Grass", 5f), Layer("Dire_Ground", 6f), Layer("Cliff", 5f), Layer("Abyss", 5f), Layer("Path_Sand", 3f),
             };
             int aRes = data.alphamapResolution;
-            var alpha = new float[aRes, aRes, 4];
+            var alpha = new float[aRes, aRes, 5];
             for (int z = 0; z < aRes; z++)
             for (int x = 0; x < aRes; x++)
             {
@@ -159,10 +161,12 @@ namespace PudgeWars.EditorTools
                 float ragged = (Mathf.PerlinNoise(border.x + wx * 0.15f, border.y + wz * 0.15f) - 0.5f) * 5f;
                 float dire = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(-1.5f, 1.5f, wz + ragged));
                 float ground = (1f - abyss) * (1f - rock);
-                alpha[z, x, 0] = ground * (1f - dire);
-                alpha[z, x, 1] = ground * dire;
+                float sand = RimSand(arena, wx, wz, border);
+                alpha[z, x, 0] = ground * (1f - sand) * (1f - dire);
+                alpha[z, x, 1] = ground * (1f - sand) * dire;
                 alpha[z, x, 2] = (1f - abyss) * rock;
                 alpha[z, x, 3] = abyss;
+                alpha[z, x, 4] = ground * sand;
             }
             data.SetAlphamaps(0, 0, alpha);
             PlaceGrass(arena, data, alpha);
@@ -186,6 +190,16 @@ namespace PudgeWars.EditorTools
             terrain.detailObjectDistance = GrassDistance;
             go.AddComponent<TerrainTrees>().radius = TreeRadius;
             return terrain;
+        }
+
+        /// <summary>Sand along the pit's rims on both sides, a ragged band about RimSandWidth wide, fading out at its edge.</summary>
+        static float RimSand(Arena arena, float x, float z, Vector2 noise)
+        {
+            float fromRim = Mathf.Abs(z) - arena.pitHalfDepth;
+            if (fromRim < -1f) return 0f;
+            float width = RimSandWidth + (Mathf.PerlinNoise(noise.x + 50f + x * 0.35f, noise.y + Mathf.Sign(z) * 9f) - 0.5f) * 1.2f;
+            float along = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(arena.halfWidth + 1f, arena.halfWidth - 1f, Mathf.Abs(x)));
+            return along * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(width - 0.5f, width + 0.3f, fromRim)));
         }
 
         /// <summary>
