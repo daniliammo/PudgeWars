@@ -2,22 +2,37 @@
 # Usage: blender -b --factory-startup -P build_trees.py -- <props_tree dir> <output dir>
 #   e.g. -- ~/dota_trees/models/props_tree Assets/Art/Landscape/Trees
 #
-# Only the standard map trees are taken (Radiant oaks and pines, Dire trees, the ones Dota has cut-down and
-# inspector variants of) and the mango tree. Each .glb holds three meshes on top of each other: the tree
-# (*_model), its stump and an inspector model; only the tree is kept, without its unused joint weights.
+# The map trees are taken (Radiant oaks, pines, bamboo and the others, also in snow; Dire trees) and the mango tree;
+# not their physics, inspector or tinted variants. Each .glb holds three meshes on top of each other: the tree
+# (*_model), its stump and an inspector model; the tree goes to <tree>.fbx and the stump to <tree>_stump.fbx, without
+# their unused joint weights. A tree Dota can cut down also has a *_destruction.glb: the part above the stump, which
+# falls when the tree is cut (the engine drops it, the file has no animation); it goes to <tree>_falling.fbx.
 #
 # Scale: the glTF files are in metres at Source's 1 inch per unit (an oak is 7.4 m = 291 units); the project
 # uses 1 Dota unit = 1 cm, so the trees are scaled by 0.01 / 0.0254 (an oak becomes 2.9 m, Pudge is 1.7 m).
 # Axes as in Tools/AssetExtraction/build_fbx.py: FBX forward -Z / up Y, Unity imports with bakeAxisConversion.
-import bpy, os, shutil, sys
+import bpy, math, os, shutil, sys
 from mathutils import Matrix
 
 TREES = [
-    'tree_oak_01', 'tree_oak_01b', 'tree_oak_02', 'tree_pine_01', 'tree_pine_02', 'tree_pine_03b',  # Radiant
-    'dire_tree004', 'dire_tree004b', 'dire_tree007', 'dire_tree008',                                # Dire
+    # Radiant
+    'tree_oak_00', 'tree_oak_01', 'tree_oak_01b', 'tree_oak_02', 'tree_oak_03', 'tree_oak_04', 'tree_oak_05', 'tree_oak_06',
+    'tree_oakstatic_01', 'tree_oakstatic_02',
+    'tree_pine_01', 'tree_pine_02', 'tree_pine_03b',
+    'tree_bamboo_00', 'tree_bamboo_01', 'tree_bamboo_02', 'tree_bamboo_03',
+    'tree_gnarly001', 'tree_cine_02_low',
+    # Radiant in snow
+    'tree_oak_snow_01', 'tree_oak_snow_01b', 'tree_oak_snow_02',
+    'tree_pine_snow_01', 'tree_pine_snow_02', 'tree_pine_snow_03b', 'tree_pine_01_heavysnow', 'tree_pine_02_heavysnow',
+    'tree_bamboo_snow_01', 'tree_bamboo_snow_02', 'tree_bamboo_snow_03',
+    # Dire
+    'dire_tree004', 'dire_tree004b', 'dire_tree007', 'dire_tree008',
     'mango_tree',
 ]
 SCALE = 0.01 / 0.0254
+# the cut-down part of the Dire trees is named after the tree's old name
+DESTRUCTION = {'dire_tree004': 'tree_dire_04', 'dire_tree004b': 'tree_dire_04b', 'dire_tree007': 'tree_dire_07',
+               'dire_tree008': 'tree_dire_08'}
 
 
 def clear():
@@ -28,11 +43,17 @@ def clear():
             coll.remove(block)
 
 
-def tree_mesh(name):
+def tree_mesh(name, stump=False):
+    """The tree's mesh (or its stump's, None if it has none), alone in the scene, in project units."""
     meshes = [o for o in bpy.data.objects if o.type == 'MESH']
-    kept = [o for o in meshes if o.name.endswith('_model') and 'stump' not in o.name] or meshes[:1]
+    if stump:
+        kept = [o for o in meshes if o.name.endswith('_stump_model')]
+        if not kept:
+            return None
+    else:
+        kept = [o for o in meshes if o.name.endswith('_model') and 'stump' not in o.name] or meshes[:1]
     if len(kept) != 1:
-        raise RuntimeError(f'{name}: expected one tree mesh, got {[o.name for o in meshes]}')
+        raise RuntimeError(f'{name}: expected one mesh, got {[o.name for o in meshes]}')
     tree = kept[0]
     for o in list(bpy.data.objects):
         if o != tree:
@@ -40,6 +61,9 @@ def tree_mesh(name):
     tree.parent = None
     tree.vertex_groups.clear()
     tree.data.transform(tree.matrix_world @ Matrix.Scale(1.0, 4))
+    if stump and name.startswith('tree_'):
+        # the Radiant stumps lie on their side in the files (their cut faces -Y): stood up, debris on the ground
+        tree.data.transform(Matrix.Rotation(-math.pi / 2, 4, 'X'))
     tree.data.transform(Matrix.Scale(SCALE, 4))
     tree.matrix_world = Matrix.Identity(4)
     tree.name = tree.data.name = name
@@ -87,19 +111,33 @@ def export_fbx(path, obj):
         use_active_collection=False, collection='', batch_mode='OFF', use_batch_own_dir=False)
 
 
+def convert(name, glb, out_dir, src, stump=False):
+    """One mesh of a .glb to <name>.fbx; False if there is none."""
+    clear()
+    bpy.ops.import_scene.gltf(filepath=glb)
+    tree = tree_mesh(name, stump)
+    if tree is None:
+        return False
+    copy_textures(tree, src, out_dir)
+    export_fbx(os.path.join(out_dir, name + '.fbx'), tree)
+    vs = [v.co for v in tree.data.vertices]
+    lo = [min(v[i] for v in vs) for i in range(3)]
+    hi = [max(v[i] for v in vs) for i in range(3)]
+    print(f'TREE {name}: {len(tree.data.polygons)} faces, {hi[0] - lo[0]:.2f} x {hi[1] - lo[1]:.2f} m, '
+          f'height {lo[2]:.2f}..{hi[2]:.2f} m, materials {[s.material.name for s in tree.material_slots if s.material]}')
+    return True
+
+
 def main():
     src, out_dir = sys.argv[sys.argv.index('--') + 1:][:2]
     os.makedirs(os.path.join(out_dir, 'Textures'), exist_ok=True)
     for name in TREES:
-        clear()
-        bpy.ops.import_scene.gltf(filepath=os.path.join(src, name + '.glb'))
-        tree = tree_mesh(name)
-        copy_textures(tree, src, out_dir)
-        export_fbx(os.path.join(out_dir, name + '.fbx'), tree)
-        vs = [v.co for v in tree.data.vertices]
-        dims = [max(v[i] for v in vs) - min(v[i] for v in vs) for i in range(3)]
-        print(f'TREE {name}: {len(tree.data.polygons)} faces, {dims[0]:.2f} x {dims[1]:.2f} x {dims[2]:.2f} m, '
-              f'materials {[s.material.name for s in tree.material_slots if s.material]}')
+        glb = os.path.join(src, name + '.glb')
+        convert(name, glb, out_dir, src)
+        convert(name + '_stump', glb, out_dir, src, stump=True)
+        falling = os.path.join(src, DESTRUCTION.get(name, name) + '_destruction.glb')
+        if os.path.exists(falling):
+            convert(name + '_falling', falling, out_dir, src)
 
 
 main()
