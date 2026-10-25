@@ -4,19 +4,24 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Score on the HUD: the local player's team kills, deaths and rescues in the corner, and at the top centre the teams'
-    /// kills as on Dota's top bar — Radiant green on the left, Dire red on the right, the own team's name in bold.
-    /// The top bar is built at runtime under the same canvas.
+    /// Score on the HUD: in the corner the local player's own kills, deaths and rescues, and on a smaller line under
+    /// them its team's (the team's bots included); at the top centre the teams' kills as on Dota's top bar — Radiant
+    /// green on the left, Dire red on the right, the own team's name in bold. The team line and the top bar are built
+    /// at runtime under the same canvas.
     /// </summary>
     public class ScoreHud : MonoBehaviour
     {
         public Text label;
-        [Tooltip("{0} = kills of the local player's team, {1} = its deaths, {2} = its rescues (У/С/С = убийства / смерти / спасения).")]
+        [Tooltip("{0} = the local player's own kills, {1} = its deaths, {2} = its rescues (У/С/С = убийства / смерти / спасения).")]
         public string format = "У/С/С {0}/{1}/{2}";
+        [Tooltip("The same for the local player's whole team, on the smaller line under it.")]
+        public string teamFormat = "Команда {0}/{1}/{2}";
         public string radiantName = "RADIANT", direName = "DIRE";
         public Color radiantColor = new(0.35f, 0.85f, 0.3f);
         public Color direColor = new(0.9f, 0.25f, 0.18f);
 
+        /// <summary>The team's kills, deaths and rescues under the own ones.</summary>
+        public Text TeamLabel { get; private set; }
         /// <summary>Team kill counts on the top bar.</summary>
         public Text RadiantKills { get; private set; }
         public Text DireKills { get; private set; }
@@ -28,6 +33,7 @@ namespace PudgeWars.Gameplay
         {
             arena = Arena.Instance;
             BuildTeamBar();
+            BuildTeamLabel();
             if (arena != null) arena.ScoreChanged += OnScoreChanged;
             LocalPlayer.Changed += Show;
             Show();
@@ -45,8 +51,10 @@ namespace PudgeWars.Gameplay
         void Show()
         {
             var team = LocalPlayer.Team;
-            if (label != null)
-                label.text = string.Format(format, arena != null ? arena.KillsOf(team) : 0, arena != null ? arena.DeathsOf(team) : 0,
+            var own = arena != null ? arena.ScoreOf(LocalPlayer.Hero) : default;
+            if (label != null) label.text = string.Format(format, own.kills, own.deaths, own.rescues);
+            if (TeamLabel != null)
+                TeamLabel.text = string.Format(teamFormat, arena != null ? arena.KillsOf(team) : 0, arena != null ? arena.DeathsOf(team) : 0,
                     arena != null ? arena.RescuesOf(team) : 0);
             if (RadiantKills == null) return;
             RadiantKills.text = (arena != null ? arena.KillsOf(Team.Player) : 0).ToString();
@@ -62,6 +70,27 @@ namespace PudgeWars.Gameplay
         {
             title.fontStyle = own ? FontStyle.Bold : FontStyle.Normal;
             title.fontSize = own ? 28 : 22;
+        }
+
+        /// <summary>A smaller copy of the corner label right under it.</summary>
+        void BuildTeamLabel()
+        {
+            if (label == null) return;
+            var own = label.rectTransform;
+            var rt = new GameObject("TeamScoreLine", typeof(RectTransform)).GetComponent<RectTransform>();
+            rt.SetParent(own.parent, false);
+            rt.anchorMin = own.anchorMin;
+            rt.anchorMax = own.anchorMax;
+            rt.pivot = own.pivot;
+            rt.sizeDelta = own.sizeDelta;
+            rt.anchoredPosition = own.anchoredPosition - new Vector2(0f, label.fontSize * 1.1f);
+            TeamLabel = rt.gameObject.AddComponent<Text>();
+            TeamLabel.font = label.font;
+            TeamLabel.fontSize = Mathf.RoundToInt(label.fontSize * 0.6f);
+            TeamLabel.alignment = label.alignment;
+            TeamLabel.color = new Color(0.82f, 0.82f, 0.78f);
+            TeamLabel.raycastTarget = false;
+            TeamLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
         }
 
         void BuildTeamBar()

@@ -58,6 +58,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, arena.Score);
             Assert.IsFalse(bot.IsAlive);
             Assert.AreEqual(1, arena.ScoreOf(player).kills, "the kill is not in the player's own score");
+            Assert.AreEqual("У/С/С 1/0/0", Object.FindAnyObjectByType<ScoreHud>().label.text, "the own kill is not in the corner");
             Assert.AreEqual(1, arena.ScoreOf(bot).deaths, "the death is not in the bot's own score");
             Assert.AreEqual(0, arena.ScoreOf(player).deaths);
             Assert.AreEqual(arena.KillGold(bot), player.GetComponent<HeroInventory>().Gold, "no gold for the kill");
@@ -488,7 +489,36 @@ namespace PudgeWars.Tests
             Assert.AreEqual("СПАСЁН", announcer.LastText);
             Assert.AreEqual($"Тебя спас {ally.Nickname}", announcer.LastSubtitle);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player));
-            Assert.AreEqual("У/С/С 0/0/1", Object.FindAnyObjectByType<ScoreHud>().label.text, "rescues are the third number");
+            Assert.AreEqual(1, arena.ScoreOf(ally).rescues, "the rescue is the ally's own");
+            Assert.AreEqual(1, arena.ScoreOf(player).rescued, "the player was rescued once");
+            Assert.AreEqual(0, arena.ScoreOf(player).rescues);
+            var hud = Object.FindAnyObjectByType<ScoreHud>();
+            Assert.AreEqual("У/С/С 0/0/0", hud.label.text, "the corner shows the player's own score: an ally's rescue is not the player's");
+            Assert.AreEqual("Команда 0/0/1", hud.TeamLabel.text, "the team's rescues are on the team line");
+        }
+
+        [UnityTest]
+        public IEnumerator AnAllysKillIsTheTeamsNotThePlayersOwn()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var ally = bots[0];
+            var victim = bots[1];
+            ally.team = Team.Player;
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
+            ally.transform.SetPositionAndRotation(new Vector3(6f, 0f, -arena.pitHalfDepth - 1.5f), Quaternion.identity);
+            victim.transform.position = new Vector3(6f, 0f, arena.pitHalfDepth + 1.5f);
+            yield return null;
+
+            Assert.IsTrue(ally.GetComponent<HookAbility>().TryCast(victim.transform.position));
+            float t = 0f;
+            while (arena.KillsOf(Team.Player) == 0 && t < 5f) { t += Time.deltaTime; yield return null; }
+            Assert.AreEqual(1, arena.KillsOf(Team.Player), "the ally did not kill the bot");
+            Assert.AreEqual(1, arena.ScoreOf(ally).kills, "the kill is the ally's own");
+            Assert.AreEqual(0, arena.ScoreOf(player).kills, "an ally's kill must not count as the player's");
+            var hud = Object.FindAnyObjectByType<ScoreHud>();
+            Assert.AreEqual("У/С/С 0/0/0", hud.label.text, "the corner shows the player's own score");
+            Assert.AreEqual("Команда 1/0/0", hud.TeamLabel.text, "the team line counts the ally's kill");
+            Assert.AreEqual(0, player.GetComponent<HeroInventory>().Gold, "the ally's kill reward is not the player's");
         }
 
         [UnityTest]
@@ -1475,7 +1505,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(lens.icon, shop.slots[0].sprite, "the bar does not show the clicked hero's items");
             Assert.IsTrue(shop.statsPanel.gameObject.activeSelf, "no stats of the inspected hero");
             var stats = shop.statsPanel.GetComponentsInChildren<Text>().Select(t => t.text).ToList();
-            CollectionAssert.IsSubsetOf(new[] { "У/С/С", "0/0/0", "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);
+            CollectionAssert.IsSubsetOf(new[] { "У/С/С", "0/0/0", "Спасён", "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);
             StringAssert.Contains("+275", stats[stats.IndexOf("Дальность хука") + 1], "the lens's bonus to the hook range is not shown");
             StringAssert.StartsWith("1300", stats[stats.IndexOf("Дальность хука") + 1]);
             botWallet.AddGold(50, popup: false);

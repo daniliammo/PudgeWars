@@ -6,7 +6,7 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Stats of the inspected hero, as Dota shows a selected unit's: its own kills / deaths / rescues (У/С/С, like the
-    /// team's in the corner of the HUD), level, health, movement speed and the hook's range (item bonuses in green),
+    /// player's own in the corner of the HUD) and how many times it was rescued, level, health, movement speed and the hook's range (item bonuses in green),
     /// flight and pull speed and cooldown. Speeds and range are in Dota units like the
     /// tooltips (1 m = 100). A dark panel over the inspect tab, refreshed a few times a second while shown.
     /// </summary>
@@ -69,6 +69,7 @@ namespace PudgeWars.Gameplay
             shownRows = 0;
             var score = Arena.Instance != null ? Arena.Instance.ScoreOf(hero) : default;
             Row("У/С/С", $"{score.kills}/{score.deaths}/{score.rescues}");
+            Row("Спасён", score.rescued.ToString());
             Row("Уровень", hero.Level.ToString());
             Row("Здоровье", $"{Mathf.CeilToInt(hero.Health)}/{Mathf.CeilToInt(hero.maxHealth)}");
             if (hero.TryGetComponent<PudgeMotor>(out var motor)) Row("Скорость", Units(motor.moveSpeed));

@@ -11,10 +11,11 @@ namespace PudgeWars.Gameplay
     /// </summary>
     public enum Team { Player, Bots }
 
-    /// <summary>A hero's own score: kills, deaths and rescues (У/С/С as in the corner of the HUD).</summary>
+    /// <summary>A hero's own score: kills, deaths and rescues (У/С/С as in the corner of the HUD), and how many times
+    /// allies' hooks rescued it.</summary>
     public struct HeroScore
     {
-        public int kills, deaths, rescues;
+        public int kills, deaths, rescues, rescued;
     }
 
     /// <summary>
@@ -63,7 +64,7 @@ namespace PudgeWars.Gameplay
         public int DeathsOf(Team team) => deaths[(int)team];
         /// <summary>Allies a team's hooks pulled out of enemy hooks.</summary>
         public int RescuesOf(Team team) => rescues[(int)team];
-        /// <summary>A hero's own kills, deaths and rescues (У/С/С), as the server counted them on a client.</summary>
+        /// <summary>A hero's own kills, deaths, rescues and times rescued, as the server counted them on a client.</summary>
         public HeroScore ScoreOf(Hookable hero) => hero != null && heroScores.TryGetValue(hero, out var s) ? s : default;
         /// <summary>Gold for killing a hero: 125 + its level × 8, so 133 at level 1.</summary>
         public int KillGold(Hookable victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
@@ -189,6 +190,9 @@ namespace PudgeWars.Gameplay
             var rescuerScore = ScoreOf(rescuer);
             rescuerScore.rescues++;
             heroScores[rescuer] = rescuerScore;
+            var rescuedScore = ScoreOf(rescued);
+            rescuedScore.rescued++;
+            heroScores[rescued] = rescuedScore;
             if (rescuer.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(KillGold(rescued) / 2);
             Rescued?.Invoke(rescued, rescuer);
             ScoreChanged?.Invoke(Score, Deaths);

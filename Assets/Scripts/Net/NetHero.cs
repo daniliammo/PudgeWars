@@ -9,7 +9,7 @@ namespace PudgeWars.Net
     /// <summary>
     /// Network side of a hero. The server simulates the hero with the usual gameplay components and publishes what
     /// clients need to show it: team and nickname, alive / falling / caught, multi-kill count, its own kills / deaths /
-    /// rescues, gold and items, the hook's head and cooldown, animations and gold popups (the position goes with
+    /// rescues / times rescued, gold and items, the hook's head and cooldown, animations and gold popups (the position goes with
     /// NetworkTransform), and the hook's catches. The owning client sends its input instead of moving the hero itself:
     /// movement direction, hook casts and purchases.
     /// </summary>
@@ -29,6 +29,7 @@ namespace PudgeWars.Net
         [SyncVar] int kills;
         [SyncVar] int deaths;
         [SyncVar] int rescues;
+        [SyncVar] int rescued;
         [SyncVar(hook = nameof(OnGoldChanged))] int gold;
         [SyncVar(hook = nameof(OnItemsChanged))] string items = "";
         [SyncVar] string animState;
@@ -140,6 +141,7 @@ namespace PudgeWars.Net
             kills = score.kills;
             deaths = score.deaths;
             rescues = score.rescues;
+            rescued = score.rescued;
             if (hook == null) return;
             hookFlags = (byte)((hook.IsBusy ? BusyFlag : 0) | (hook.HeadVisible ? VisibleFlag : 0) | (hook.IsFlying ? FlyingFlag : 0));
             if (hook.HeadVisible)
@@ -236,7 +238,7 @@ namespace PudgeWars.Net
             if (Arena.Instance != null)
             {
                 Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);
-                Arena.Instance.ApplyRemoteHeroScore(hookable, new HeroScore { kills = kills, deaths = deaths, rescues = rescues });
+                Arena.Instance.ApplyRemoteHeroScore(hookable, new HeroScore { kills = kills, deaths = deaths, rescues = rescues, rescued = rescued });
             }
             if (hook != null)
                 hook.ApplyRemoteState((hookFlags & BusyFlag) != 0, (float)(hookReadyAt - NetworkTime.time),
