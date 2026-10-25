@@ -9,7 +9,7 @@ namespace PudgeWars.Gameplay
     /// What the local player feels through the camera (<see cref="TopDownCamera"/>, which adds this if the scene has
     /// none): a shake when the own hero is caught by a hook, when the own hook catches someone and on death; on death
     /// red floods in from the screen's sides and the picture loses most of its colour, until the hero is back, which
-    /// sounds the revive clip.
+    /// sounds the revive clip (Resources/Audio/revive) — only here, for the own hero: every player hears their own.
     /// The red is a screen overlay; the colour goes with URP's Color Adjustments, and the camera's post-processing is
     /// on only while that runs (it costs a full-screen pass on phones). Works on a network client too: the state is
     /// read from the hero, and the own hook's catches come from the server (<see cref="HookAbility.ApplyRemoteCatch"/>).
@@ -31,7 +31,7 @@ namespace PudgeWars.Gameplay
         [Tooltip("Colour saturation while dead: -100 is black and white.")] [Range(-100f, 0f)] public float deadSaturation = -75f;
         [Tooltip("Seconds the colour takes to drain.")] public float greyIn = 0.8f;
         [Tooltip("Seconds everything takes to come back after the respawn.")] public float recover = 0.5f;
-        [Tooltip("Played when the own hero comes back (Audio/revive.mp3).")] public AudioClip reviveSound;
+        [Tooltip("Played when the own hero comes back; Resources/Audio/revive if empty.")] public AudioClip reviveSound;
         [Range(0f, 1f)] public float reviveVolume = 0.8f;
 
         TopDownCamera follow;
@@ -57,6 +57,8 @@ namespace PudgeWars.Gameplay
         {
             follow = GetComponent<TopDownCamera>();
             cam = GetComponent<Camera>();
+            // the camera adds this at runtime, so the clip cannot wait for the scene to assign it
+            if (reviveSound == null) reviveSound = Resources.Load<AudioClip>("Audio/revive");
         }
 
         void OnEnable()

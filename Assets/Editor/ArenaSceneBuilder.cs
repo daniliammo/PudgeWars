@@ -23,7 +23,6 @@ namespace PudgeWars.EditorTools
         const string AudioDir = "Assets/Audio/Pudge";
         const string AnnouncerDir = "Assets/Audio/Announcer";
         const string CoinSound = "Assets/Audio/coinsondesk.mp3";
-        const string ReviveSound = "Assets/Audio/revive.mp3";
         const string PlayerPrefabPath = "Assets/Prefabs/Characters/Pudge_Player.prefab";
         const string BotPrefabPath = "Assets/Prefabs/Characters/Pudge_Bot.prefab";
         const string LatinFont = "Assets/Art/UI/Fonts/TrajanPro-Bold.otf";
@@ -51,7 +50,6 @@ namespace PudgeWars.EditorTools
             camera.backgroundColor = new Color(0.08f, 0.09f, 0.11f);
             cam.AddComponent<AudioListener>();
             var follow = cam.AddComponent<TopDownCamera>();
-            cam.AddComponent<CameraFeedback>().reviveSound = AssetDatabase.LoadAssetAtPath<AudioClip>(ReviveSound);
 
             var (playerPrefab, botPrefab) = BuildCharacterPrefabs();
             var player = Place(playerPrefab, "Player", PlayerNickname, new Vector3(0f, 0f, -8f), Vector3.forward);
@@ -231,20 +229,12 @@ namespace PudgeWars.EditorTools
                 .Where(p => Path.GetFileNameWithoutExtension(p) == name).Select(AssetDatabase.LoadAssetAtPath<AudioClip>).FirstOrDefault();
 
         /// <summary>
-        /// Re-assigns the sounds without rebuilding the arena: the hook's on the character prefabs (after the clips are
-        /// imported) and the revive sound on the open scene's camera.
+        /// Re-assigns the hook's sounds on the character prefabs without rebuilding the arena (after the clips are
+        /// imported). The revive sound needs nothing: the camera loads it from Resources.
         /// </summary>
         [MenuItem("Pudge Wars/Assign Sounds")]
         public static void AssignSounds()
         {
-            var follow = Object.FindAnyObjectByType<TopDownCamera>();
-            if (follow != null)
-            {
-                if (!follow.TryGetComponent<CameraFeedback>(out var feedback)) feedback = follow.gameObject.AddComponent<CameraFeedback>();
-                feedback.reviveSound = AssetDatabase.LoadAssetAtPath<AudioClip>(ReviveSound);
-                EditorUtility.SetDirty(feedback);
-                EditorSceneManager.MarkSceneDirty(follow.gameObject.scene);
-            }
             var sounds = LoadHookSounds();
             foreach (var path in new[] { PlayerPrefabPath, BotPrefabPath })
             {

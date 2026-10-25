@@ -1243,6 +1243,12 @@ namespace PudgeWars.Tests
             Assert.Greater(follow.Trauma, 0.4f, "no shake when the player is caught");
             player.Release();
 
+            // another hero's respawn is not the player's: no revive sound
+            t = 0f;
+            while (!bot.IsAlive && t < arena.respawnDelay + 2f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(bot.IsAlive, "the bot did not respawn");
+            Assert.IsFalse(follow.TryGetComponent<AudioSource>(out var quiet) && quiet.isPlaying, "the revive sound played for a bot");
+
             // death: red from the sides and most of the colour gone, until the respawn
             Assert.AreEqual(0f, feedback.BloodAlpha);
             Assert.IsFalse(feedback.PostProcessing, "post-processing must stay off while alive");
@@ -1261,6 +1267,9 @@ namespace PudgeWars.Tests
             t = 0f;
             while (!player.IsAlive && t < arena.respawnDelay + 2f) { t += Time.deltaTime; yield return null; }
             Assert.IsTrue(player.IsAlive, "the player did not respawn");
+            yield return null;
+            Assert.IsNotNull(feedback.reviveSound, "no revive sound (Resources/Audio/revive)");
+            Assert.IsTrue(follow.TryGetComponent<AudioSource>(out var revive) && revive.isPlaying, "the revive sound did not play");
             yield return new WaitForSeconds(feedback.recover + 0.2f);
             Assert.AreEqual(0f, feedback.BloodAlpha, "the red stayed after the respawn");
             Assert.AreEqual(0f, feedback.GreyWeight, "the colour did not come back");
