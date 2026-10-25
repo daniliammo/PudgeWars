@@ -287,7 +287,14 @@ namespace PudgeWars.Tests
             while (!ally.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.AreEqual(enemyHook, ally.HookedBy, "the enemy did not catch the ally");
 
-            Assert.IsTrue(rescuerHook.TryCast(ally.transform.position));
+            yield return null; // from this frame on the ally is dragged after the enemy's head (it jumps to it first)
+
+            // thrown where the dragged ally will be when the head gets there: a throw at where it stands now passes
+            // behind it
+            var pull = enemy.transform.position - ally.transform.position;
+            pull.y = 0f;
+            float eta = rescuerHook.castDelay + Vector3.Distance(rescuer.transform.position, ally.transform.position) / rescuerHook.flySpeed;
+            Assert.IsTrue(rescuerHook.TryCast(ally.transform.position + pull.normalized * enemyHook.pullSpeed * eta));
             t = 0f;
             while (ally.HeldBy == null && t < 2f) { t += Time.deltaTime; yield return null; }
             Assert.AreEqual(rescuerHook, ally.HeldBy, "the rescuer's hook did not hold the ally");
@@ -721,24 +728,27 @@ namespace PudgeWars.Tests
                 return block.GetColor("_BaseColor");
             }
             Color Bar(Hookable h) => bars.Of(h).fill.GetComponent<Image>().color;
+            // a colour read back from a property block (linear colour space) differs in the last digits
+            void AssertColor(Color expected, Color actual, string message = null) =>
+                Assert.Less(((Vector4)(expected - actual)).magnitude, 1e-3f, $"{message} expected {expected}, was {actual}");
 
-            Assert.AreEqual(player.allyMarkerColor, Marker(player));
-            Assert.AreEqual(bot.enemyMarkerColor, Marker(bot));
+            AssertColor(player.allyMarkerColor, Marker(player));
+            AssertColor(bot.enemyMarkerColor, Marker(bot));
             Assert.AreEqual(bars.playerColor, Bar(player));
             Assert.AreEqual(bars.enemyColor, Bar(bot));
 
             // a bot on the player's team is an ally: green, whatever its prefab says
             bot.team = Team.Player;
             yield return null;
-            Assert.AreEqual(bot.allyMarkerColor, Marker(bot), "an allied bot's marker stayed red");
+            AssertColor(bot.allyMarkerColor, Marker(bot), "an allied bot's marker stayed red");
             Assert.AreEqual(bars.playerColor, Bar(bot), "an allied bot's health bar stayed red");
 
             // the local player plays for Dire (as the host in a network game): its own marker stays green, Radiant is red
             player.team = Team.Bots;
             bot.team = Team.Player;
             yield return null;
-            Assert.AreEqual(player.allyMarkerColor, Marker(player), "the local player's own marker must be green");
-            Assert.AreEqual(bot.enemyMarkerColor, Marker(bot));
+            AssertColor(player.allyMarkerColor, Marker(player), "the local player's own marker must be green");
+            AssertColor(bot.enemyMarkerColor, Marker(bot));
             Assert.AreEqual(bars.enemyColor, Bar(bot));
         }
 

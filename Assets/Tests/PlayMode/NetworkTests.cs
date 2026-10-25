@@ -64,7 +64,9 @@ namespace PudgeWars.Tests
                 var enemies = Hookable.All.Where(h => h.team == Team.Player).ToList();
                 var bot = enemies[0];
                 for (int i = 1; i < enemies.Count; i++) enemies[i].transform.position = new Vector3(12f, 0f, -12f + i);
-                bot.transform.position = new Vector3(hero.transform.position.x, 0f, -(arena.pitHalfDepth + 1.5f));
+                // the hero spawns anywhere on its side, up to 17 m from the bot: beyond the hook's reach
+                hero.transform.SetPositionAndRotation(new Vector3(0f, 0f, arena.pitHalfDepth + 1.5f), Quaternion.LookRotation(Vector3.back));
+                bot.transform.position = new Vector3(0f, 0f, -(arena.pitHalfDepth + 1.5f));
                 Assert.IsTrue(hero.GetComponent<HookAbility>().TryCast(bot.transform.position));
                 t = 0f;
                 while (arena.KillsOf(Team.Bots) == 0 && t < 6f)
