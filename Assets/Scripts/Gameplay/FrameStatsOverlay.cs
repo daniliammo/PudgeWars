@@ -202,7 +202,12 @@ namespace PudgeWars.Gameplay
                 background = new Texture2D(1, 1);
                 background.SetPixel(0, 0, new Color(0f, 0f, 0f, 0.65f));
                 background.Apply();
-                fpsStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, padding = new RectOffset(8, 8, 4, 4) };
+                // No wrapping: rounding in CalcSize made the label wrap its tail ("мс)") onto a clipped second line.
+                fpsStyle = new GUIStyle(GUI.skin.label)
+                {
+                    fontSize = 18, fontStyle = FontStyle.Bold, padding = new RectOffset(8, 8, 4, 4),
+                    wordWrap = false, clipping = TextClipping.Overflow,
+                };
                 fpsStyle.normal.background = background;
                 detailsStyle = new GUIStyle(fpsStyle) { fontSize = 14, fontStyle = FontStyle.Normal, wordWrap = false };
             }
