@@ -116,25 +116,38 @@ namespace PudgeWars.Tests
             var landscape = Object.FindAnyObjectByType<MenuLandscape>();
             Assert.IsNotNull(landscape, "the menu has no MenuLandscape");
             Assert.AreEqual(MenuLandscape.Side, landscape.Shown, "the menu does not show the side drawn for this run");
-            var drawn = landscape.Shown;
+            Assert.AreNotEqual("MenuTerrain_Preview", landscape.terrain.terrainData.name, "the menu shows the editor's saved land, not a new one");
+            var (drawn, seed) = (landscape.Shown, landscape.Seed);
             try
             {
                 foreach (var side in new[] { MenuSide.Radiant, MenuSide.Dire })
                 {
-                    landscape.Show(side);
+                    landscape.Show(side, 7);
                     var data = landscape.terrain.terrainData;
-                    var look = side == MenuSide.Dire ? landscape.dire : landscape.radiant;
-                    Assert.AreEqual(look.terrain, data, $"{side}: the terrain shows the other side's data");
+                    var look = landscape.LookOf(side);
                     Assert.Greater(data.treeInstanceCount, 20, $"{side}: the terrain has no trees of its own");
                     var models = data.treePrototypes.Select(p => p.prefab.name).ToList();
                     Assert.IsTrue(models.All(m => m.StartsWith("dire_") == (side == MenuSide.Dire)), $"{side}: trees of the other side: {string.Join(", ", models)}");
                     var pale = new[] { "tree_oak_03", "tree_oak_04", "tree_oak_05", "tree_oak_06", "tree_gnarly001", "tree_cine_02_low" };
                     Assert.IsFalse(models.Any(pale.Contains), $"{side}: white trees (untinted bark) in the menu: {string.Join(", ", models)}");
+                    Assert.AreEqual(look.ground, data.terrainLayers[0]);
+
+                    // the ground blends: the side's ground, rock on the hills, the path under Pudge
+                    var weights = data.GetAlphamaps(0, 0, data.alphamapWidth, data.alphamapHeight);
+                    var under = Weights(landscape.terrain, weights, Vector3.zero);
+                    Assert.Greater(under[3], 0.5f, $"{side}: no path under Pudge: {string.Join(", ", under)}");
+                    bool rock = false;
+                    for (int z = 0; z < data.alphamapHeight && !rock; z += 4)
+                    for (int x = 0; x < data.alphamapWidth && !rock; x += 4)
+                        rock = weights[z, x, 2] > 0.5f;
+                    Assert.IsTrue(rock, $"{side}: no rock on the hills");
+
                     int res = data.detailResolution, grass = 0;
                     for (int i = 0; i < data.detailPrototypes.Length; i++)
                         foreach (int n in data.GetDetailLayer(0, 0, res, res, i)) grass += n;
                     if (side == MenuSide.Radiant) Assert.Greater(grass, 100, "Radiant's ground has no grass");
                     else Assert.AreEqual(0, grass, "grass on Dire's scorched ground");
+
                     // one-sided trees (reliefs with nothing behind) show their front to the camera
                     var cam = Camera.main.transform.position;
                     foreach (var tree in data.treeInstances)
@@ -156,8 +169,41 @@ namespace PudgeWars.Tests
             }
             finally
             {
-                landscape.Show(drawn);
+                landscape.Show(drawn, seed);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator MenuLandIsNewEachTime()
+        {
+            if (!Application.CanStreamedLevelBeLoaded(PudgeNetworkManager.MenuScene))
+                Assert.Ignore("the Menu scene is not in the build: Pudge Wars → Build Main Menu");
+            yield return Load(PudgeNetworkManager.MenuScene);
+            int first = Object.FindAnyObjectByType<MenuLandscape>().Seed;
+            yield return Load(PudgeNetworkManager.MenuScene);
+            var landscape = Object.FindAnyObjectByType<MenuLandscape>();
+            Assert.AreNotEqual(first, landscape.Seed, "the menu opened on the same land again");
+            Assert.AreEqual(MenuLandscape.Side, landscape.Shown, "the side changed: it is drawn once a run");
+
+            // different seeds: different hills and forest; the same seed: the same land
+            float[,] Heights() { var d = landscape.terrain.terrainData; return d.GetHeights(0, 0, d.heightmapResolution, d.heightmapResolution); }
+            Vector3 FirstTree() => landscape.terrain.terrainData.GetTreeInstance(1).position;
+            landscape.Show(landscape.Shown, 11);
+            var (heights, tree) = (Heights(), FirstTree());
+            landscape.Show(landscape.Shown, 12);
+            Assert.AreNotEqual(heights[200, 128], Heights()[200, 128], "the hills did not change with the seed");
+            Assert.AreNotEqual(tree, FirstTree(), "the forest did not change with the seed");
+            landscape.Show(landscape.Shown, 11);
+            Assert.AreEqual(heights[200, 128], Heights()[200, 128]);
+        }
+
+        /// <summary>The ground layers' weights at a world point.</summary>
+        static float[] Weights(Terrain terrain, float[,,] weights, Vector3 p)
+        {
+            var data = terrain.terrainData;
+            var local = p - terrain.transform.position;
+            int x = (int)(local.x / data.size.x * data.alphamapWidth), z = (int)(local.z / data.size.z * data.alphamapHeight);
+            return Enumerable.Range(0, data.alphamapLayers).Select(i => weights[z, x, i]).ToArray();
         }
     }
 }
