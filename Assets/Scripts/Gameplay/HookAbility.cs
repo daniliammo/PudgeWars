@@ -460,13 +460,22 @@ namespace PudgeWars.Gameplay
             return hitsAllies && (!h.IsHooked || IsRescue(h));
         }
 
+        /// <summary>The hook is on its way out (turning to throw, winding up or flying) and may still catch someone.</summary>
+        public bool IsOnItsWayOut => state is State.Turning or State.Windup or State.Flying;
+
         /// <summary>
         /// This hook, on its way out, would catch <paramref name="hero"/> moving on at <paramref name="velocity"/>
         /// before reaching anyone else (the others staying where they are). A hook in flight goes on from its head,
         /// one still turning or winding up starts once that is over (its direction is already set and its owner
         /// cannot move meanwhile). False for a hook that is not on its way out.
         /// </summary>
-        public bool WouldCatch(Hookable hero, Vector3 velocity)
+        public bool WouldCatch(Hookable hero, Vector3 velocity) => !float.IsPositiveInfinity(CatchTime(hero, velocity));
+
+        /// <summary>
+        /// Seconds from now until this hook catches <paramref name="hero"/> as in <see cref="WouldCatch"/> (the turn
+        /// and the wind-up left included); infinity if it would not catch it first, or is not on its way out.
+        /// </summary>
+        public float CatchTime(Hookable hero, Vector3 velocity)
         {
             Vector3 start;
             float delay, length;
@@ -488,15 +497,15 @@ namespace PudgeWars.Gameplay
                     length = EffectiveRange;
                     break;
                 default:
-                    return false;
+                    return float.PositiveInfinity;
             }
-            if (!CanCatch(hero)) return false;
+            if (!CanCatch(hero)) return float.PositiveInfinity;
             float when = TimeToReach(hero, velocity, start, delay, length);
-            if (float.IsPositiveInfinity(when)) return false;
+            if (float.IsPositiveInfinity(when)) return when;
             foreach (var other in Hookable.All)
                 if (other != hero && CanCatch(other) && TimeToReach(other, Vector3.zero, start, delay, length) < when)
-                    return false; // someone else is in the way first
-            return true;
+                    return float.PositiveInfinity; // someone else is in the way first
+            return delay + when;
         }
 
         /// <summary>

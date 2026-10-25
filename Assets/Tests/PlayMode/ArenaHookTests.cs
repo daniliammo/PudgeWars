@@ -539,6 +539,7 @@ namespace PudgeWars.Tests
             var brain = rescuer.GetComponent<BotBrain>();
             brain.rescueChance = 1f;
             brain.rescueReaction = Vector2.zero;
+            brain.pullOutReaction = new Vector2(30f, 30f); // only the tug of war, no pulling out before the catch
             brain.throwInterval = new Vector2(30f, 30f); // only the rescue throw
             brain.pauseRange = new Vector2(30f, 30f);    // and no wandering off before it
             brain.enabled = true;
@@ -559,6 +560,43 @@ namespace PudgeWars.Tests
             while (rescueHook.IsBusy && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the rescued ally died");
             Assert.AreEqual(1, arena.RescuesOf(Team.Bots));
+        }
+
+        [UnityTest]
+        public IEnumerator BotPullsAnAllyOutOfTheWayOfAnEnemyHookAfterAReaction()
+        {
+            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var ally = bots[0];
+            var rescuer = bots[1];
+            for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
+            player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -7f), Quaternion.identity);
+            ally.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4.5f), Quaternion.LookRotation(Vector3.back));
+            rescuer.transform.SetPositionAndRotation(new Vector3(3f, 0f, 6f), Quaternion.LookRotation(Vector3.left));
+            yield return null;
+            yield return null;
+
+            var brain = rescuer.GetComponent<BotBrain>();
+            brain.rescueChance = 1f;
+            brain.pullOutReaction = new Vector2(0.1f, 0.1f);
+            brain.throwInterval = new Vector2(30f, 30f); // only the rescue throw
+            brain.pauseRange = new Vector2(30f, 30f);    // and no wandering off before it
+            brain.enabled = true;
+            var rescueHook = rescuer.GetComponent<HookAbility>();
+            Hookable rescued = null, hit = null;
+            rescueHook.TargetCaught += h => rescued = h;
+            hook.TargetCaught += h => hit = h;
+
+            // the player throws at the standing ally: the bot is not quick off the mark, but its head gets there first
+            Assert.IsTrue(hook.TryCast(ally.transform.position));
+            yield return new WaitForSeconds(0.05f);
+            Assert.IsFalse(rescueHook.IsBusy, "the bot threw before its reaction time");
+            float t = 0f;
+            while (rescued == null && hit == null && t < 2f) { t += Time.deltaTime; yield return null; }
+            brain.enabled = false;
+            Assert.AreEqual(ally, rescued, "the bot did not pull its ally out of the way of the player's hook");
+            Assert.AreNotEqual(ally, hit, "the player's hook caught the ally");
+            Assert.AreEqual(1, arena.RescuesOf(Team.Bots), "pulling the ally out of a sure hook is a rescue");
+            Assert.AreEqual(1, arena.ScoreOf(rescuer).rescues);
         }
 
         [UnityTest]

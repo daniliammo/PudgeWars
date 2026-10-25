@@ -492,7 +492,7 @@ MonoBehaviour:
   aimError: 7
   rangeFraction: 0.95
   allyClearance: 0.3
-  rescueChance: 0.5
+  rescueChance: 0.75
   rescueReaction: {x: 0.15, y: 0.35}
   stuckTime: 0.75
 --- !u!114 &8265682135997580674
