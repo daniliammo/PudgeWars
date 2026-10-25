@@ -33,6 +33,17 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>Net worth as in Dota: the gold in hand and what the items cost.</summary>
+        public int NetWorth
+        {
+            get
+            {
+                int worth = gold;
+                foreach (var item in items) worth += item.cost;
+                return worth;
+            }
+        }
+
         /// <param name="popup">false for quiet income (the gold trickle) that shows no "+N" and no coins.</param>
         public void AddGold(int amount, bool popup = true)
         {

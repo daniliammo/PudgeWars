@@ -1,3 +1,4 @@
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,8 +7,10 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Score on the HUD: in the corner the local player's own kills, deaths and rescues, and on a smaller line under
     /// them its team's (the team's bots included); at the top centre the teams' kills as on Dota's top bar — Radiant
-    /// green on the left, Dire red on the right, the own team's name in bold. The team line and the top bar are built
-    /// at runtime under the same canvas.
+    /// green on the left, Dire red on the right, the own team's name in bold — and under it the teams' net worth (the
+    /// gold and the items of all their heroes, <see cref="HeroInventory.NetWorth"/>; every hero's are known on a network
+    /// client too), the leading team's in bold with its lead. The team line and the top bar are built at runtime under
+    /// the same canvas.
     /// </summary>
     public class ScoreHud : MonoBehaviour
     {
@@ -19,15 +22,22 @@ namespace PudgeWars.Gameplay
         public string radiantName = "RADIANT", direName = "DIRE";
         public Color radiantColor = new(0.35f, 0.85f, 0.3f);
         public Color direColor = new(0.9f, 0.25f, 0.18f);
+        public Color worthColor = new(1f, 0.84f, 0.35f); // the caption, gold
+        [Tooltip("How often the net worth is counted again, seconds.")]
+        public float worthInterval = 0.25f;
 
         /// <summary>The team's kills, deaths and rescues under the own ones.</summary>
         public Text TeamLabel { get; private set; }
         /// <summary>Team kill counts on the top bar.</summary>
         public Text RadiantKills { get; private set; }
         public Text DireKills { get; private set; }
+        /// <summary>The teams' net worth under the top bar.</summary>
+        public Text RadiantWorth { get; private set; }
+        public Text DireWorth { get; private set; }
 
         Arena arena;
         Text radiantTitle, direTitle;
+        float worthAt;
 
         void Start()
         {
@@ -46,6 +56,35 @@ namespace PudgeWars.Gameplay
         }
 
         void OnScoreChanged(int score, int deaths) => Show();
+
+        void Update()
+        {
+            if (RadiantWorth == null || Time.unscaledTime < worthAt) return;
+            worthAt = Time.unscaledTime + worthInterval;
+            ShowWorth();
+        }
+
+        /// <summary>The teams' net worth: "12 450" on each side, the leader's in bold with "+1 230".</summary>
+        public void ShowWorth()
+        {
+            int radiant = NetWorthOf(Team.Player), dire = NetWorthOf(Team.Bots);
+            RadiantWorth.text = radiant > dire ? $"(+{Thousands(radiant - dire)})  {Thousands(radiant)}" : Thousands(radiant);
+            DireWorth.text = dire > radiant ? $"{Thousands(dire)}  (+{Thousands(dire - radiant)})" : Thousands(dire);
+            RadiantWorth.fontStyle = radiant > dire ? FontStyle.Bold : FontStyle.Normal;
+            DireWorth.fontStyle = dire > radiant ? FontStyle.Bold : FontStyle.Normal;
+        }
+
+        /// <summary>The gold and the items of all the team's heroes, bots included.</summary>
+        public static int NetWorthOf(Team team)
+        {
+            int worth = 0;
+            foreach (var hero in Hookable.All)
+                if (hero.team == team && hero.TryGetComponent<HeroInventory>(out var inventory))
+                    worth += inventory.NetWorth;
+            return worth;
+        }
+
+        static string Thousands(int value) => value.ToString("N0", CultureInfo.InvariantCulture).Replace(',', ' '); // Trajan may lack a no-break space
 
         /// <summary>The score from the local player's side (in a network game it may be the far team).</summary>
         void Show()
@@ -110,6 +149,20 @@ namespace PudgeWars.Gameplay
             Make(bar, "Colon", font, 44, Vector2.zero, new Vector2(20f, 70f), TextAnchor.MiddleCenter, Color.white).text = ":";
             DireKills = Make(bar, "DireKills", font, 52, new Vector2(50f, 0f), new Vector2(90f, 70f), TextAnchor.MiddleLeft, direColor);
             direTitle = Make(bar, "DireName", font, 24, new Vector2(170f, 0f), new Vector2(170f, 40f), TextAnchor.MiddleCenter, direColor);
+
+            // the net worth strip right under the score
+            var worth = new GameObject("TeamNetWorth", typeof(RectTransform)).GetComponent<RectTransform>();
+            worth.SetParent(bar.parent, false);
+            worth.anchorMin = worth.anchorMax = worth.pivot = new Vector2(0.5f, 1f);
+            worth.anchoredPosition = bar.anchoredPosition - new Vector2(0f, bar.sizeDelta.y + 2f);
+            worth.sizeDelta = new Vector2(bar.sizeDelta.x, 32f);
+            var worthBg = worth.gameObject.AddComponent<Image>();
+            worthBg.color = new Color(0.05f, 0.06f, 0.08f, 0.65f);
+            worthBg.raycastTarget = false;
+            RadiantWorth = Make(worth, "RadiantNetWorth", font, 22, new Vector2(-155f, 0f), new Vector2(200f, 30f), TextAnchor.MiddleRight, radiantColor);
+            Make(worth, "Caption", font, 14, Vector2.zero, new Vector2(110f, 30f), TextAnchor.MiddleCenter, worthColor).text = "NET WORTH";
+            DireWorth = Make(worth, "DireNetWorth", font, 22, new Vector2(155f, 0f), new Vector2(200f, 30f), TextAnchor.MiddleLeft, direColor);
+            ShowWorth();
         }
 
         static Text Make(RectTransform parent, string name, Font font, int size, Vector2 position, Vector2 box, TextAnchor align, Color color)

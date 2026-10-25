@@ -733,6 +733,31 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator TopBarShowsTheTeamsNetWorthUnderTheScore()
+        {
+            var hud = Object.FindAnyObjectByType<ScoreHud>();
+            yield return null;
+            Assert.IsNotNull(hud.RadiantWorth, "no net worth under the score");
+            foreach (var h in Hookable.All) h.GetComponent<HeroInventory>().AddGold(-h.GetComponent<HeroInventory>().Gold, popup: false);
+            var lens = Object.FindAnyObjectByType<ShopUI>().rows[0].item;
+            var inventory = player.GetComponent<HeroInventory>();
+            inventory.AddGold(lens.cost + 300, popup: false);
+            Assert.IsTrue(inventory.TryBuy(lens));
+            Hookable.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(1000, popup: false);
+            Assert.AreEqual(lens.cost + 300, inventory.NetWorth, "the net worth is the gold and what the items cost");
+
+            hud.ShowWorth();
+            int radiant = ScoreHud.NetWorthOf(Team.Player), dire = ScoreHud.NetWorthOf(Team.Bots);
+            Assert.AreEqual(lens.cost + 300, radiant);
+            Assert.AreEqual(1000, dire);
+            string Spaced(int v) => v.ToString("N0", System.Globalization.CultureInfo.InvariantCulture).Replace(',', ' ');
+            StringAssert.EndsWith(Spaced(radiant), hud.RadiantWorth.text);
+            StringAssert.Contains($"+{Spaced(radiant - dire)}", hud.RadiantWorth.text, "the leader's lead is not shown");
+            Assert.AreEqual(FontStyle.Bold, hud.RadiantWorth.fontStyle);
+            Assert.AreEqual("1 000", hud.DireWorth.text);
+        }
+
+        [UnityTest]
         public IEnumerator BotDoesNotThrowThroughAnAlly()
         {
             var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
