@@ -27,8 +27,11 @@ namespace PudgeWars.Gameplay
         public float maxLifetime = 120f;
 
         // the Pudge skeleton's bones that get a body; sizes below are for a hero 1.75 m tall (the original's)
-        const string Pelvis = "root", Chest = "spine3", Neck = "neck1", Head = "head";
+        const string PelvisBone = "root", ChestBone = "spine3", NeckBone = "neck1", HeadBone = "head";
         const float ModelSpine = 0.562f; // root to spine3 in the original, metres
+
+        /// <summary>The body's head (its pelvis, or the body itself, if the skeleton has none): the camera follows it.</summary>
+        public Transform Head { get; private set; }
 
         readonly List<Rigidbody> bodies = new();
         Rigidbody pelvis;
@@ -82,7 +85,7 @@ namespace PudgeWars.Gameplay
                     frictionCombine = PhysicsMaterialCombine.Average, bounceCombine = PhysicsMaterialCombine.Minimum,
                 };
 
-            if (!bones.TryGetValue(Pelvis, out var root) || !bones.TryGetValue(Chest, out var chest))
+            if (!bones.TryGetValue(PelvisBone, out var root) || !bones.TryGetValue(ChestBone, out var chest))
             {
                 // not the Pudge skeleton: one rolling capsule for the whole body
                 pelvis = AddBody(transform, 100f);
@@ -93,6 +96,7 @@ namespace PudgeWars.Gameplay
                 capsule.sharedMaterial = material;
             }
             else BuildRagdoll(bones, root, chest);
+            Head = bones.GetValueOrDefault(HeadBone) ?? (pelvis != null ? pelvis.transform : transform);
 
             // every part of the body flies as one, turning over forward in its flight
             var flat = new Vector3(velocity.x, 0f, velocity.z);
@@ -116,8 +120,8 @@ namespace PudgeWars.Gameplay
         {
             float s = Vector3.Distance(root.position, chest.position) / ModelSpine;
             var up = (chest.position - root.position).normalized;
-            var head = bones.GetValueOrDefault(Head);
-            var neck = bones.GetValueOrDefault(Neck);
+            var head = bones.GetValueOrDefault(HeadBone);
+            var neck = bones.GetValueOrDefault(NeckBone);
             var ahead = head != null ? Vector3.ProjectOnPlane(head.position - chest.position, up) : Vector3.zero;
             var forward = ahead.sqrMagnitude > 1e-6f ? ahead.normalized : Vector3.ProjectOnPlane(root.forward, up).normalized;
             var right = Vector3.Cross(up, forward);

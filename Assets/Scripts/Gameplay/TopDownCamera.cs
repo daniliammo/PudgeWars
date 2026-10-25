@@ -13,7 +13,8 @@ namespace PudgeWars.Gameplay
     /// With the phone controls on (<see cref="TouchControls"/>) the views switch by their camera button and in
     /// first person a finger dragging over the empty screen turns the view instead of the mouse.
     /// Follows the local player's hero (<see cref="LocalPlayer"/>); for a hero of the far team the views are mirrored,
-    /// so the own side is always at the bottom of the screen. <see cref="Shake"/> jolts the view (a hook's hit, see
+    /// so the own side is always at the bottom of the screen. While the hero's body is down (<see cref="Corpse"/>, the
+    /// ragdoll flying into the pit and rolling there) every view follows the body's head. <see cref="Shake"/> jolts the view (a hook's hit, see
     /// <see cref="CameraFeedback"/>, which this camera brings along).
     /// </summary>
     [DefaultExecutionOrder(-10)] // before PlayerInputController: a click that recaptures the cursor is not a cast
@@ -25,6 +26,8 @@ namespace PudgeWars.Gameplay
         public Vector3 offset = new(0f, 11f, -10f);
         public Vector3 lookAhead = new(0f, 0f, 4.5f);
         public float smoothTime = 0.15f;
+        [Tooltip("Seconds the view takes to move from the hero over to its body's head when the body drops.")]
+        public float bodyBlend = 0.4f;
         [Tooltip("Enemy-side view: how far behind the enemy side's back wall the camera stands, metres.")]
         public float enemyViewBehind = 5f;
 
@@ -32,6 +35,8 @@ namespace PudgeWars.Gameplay
         [Tooltip("Eye position above the hero's feet, metres.")] public float eyeHeight = 1.9f;
         [Tooltip("Eye position in front of the hero's centre, so the head does not block the view, metres.")]
         public float eyeForward = 0.5f;
+        [Tooltip("Eye position above the centre of the body's head while the body is down, metres.")]
+        public float bodyEyeHeight = 0.3f;
         [Tooltip("Initial look down from the horizon, degrees.")] public float firstPersonPitch = 12f;
         public Vector2 pitchLimits = new(-60f, 80f);
         [Tooltip("Degrees per pixel of mouse movement.")] public float mouseSensitivity = 0.12f;
@@ -73,6 +78,11 @@ namespace PudgeWars.Gameplay
         Vector3 velocity;
         Vector3 basePosition; // the followed position without the shake
         float shakeTime;
+        Transform heroOf;     // the target whose Hookable is cached in hero
+        Hookable hero;
+        Corpse body;          // the hero's body the view is on
+        Vector3 bodyOffset;   // from the body's head to the hero's feet when the body dropped
+        float bodySince;
 
         void Awake()
         {
@@ -202,19 +212,50 @@ namespace PudgeWars.Gameplay
             velocity = Vector3.zero;
         }
 
+        /// <summary>
+        /// The point the views follow: the hero's feet, or while its body is down the body's head. The body takes the
+        /// hero's place in its pose of that moment, so the view starts at the feet and slides over to the head within
+        /// <see cref="bodyBlend"/>: <paramref name="onFeet"/> runs from 1 to 0 meanwhile (1 without a body).
+        /// </summary>
+        Vector3 Followed(out float onFeet)
+        {
+            if (heroOf != target)
+            {
+                heroOf = target;
+                hero = target.GetComponent<Hookable>();
+            }
+            var next = hero != null ? hero.Body : null;
+            if (next == null || next.Head == null)
+            {
+                body = null;
+                onFeet = 1f;
+                return target.position;
+            }
+            if (next != body)
+            {
+                body = next;
+                bodyOffset = target.position - body.Head.position;
+                bodySince = Time.time;
+            }
+            onFeet = 1f - Mathf.SmoothStep(0f, 1f, (Time.time - bodySince) / Mathf.Max(bodyBlend, 0.01f));
+            return body.Head.position + bodyOffset * onFeet;
+        }
+
         void Pose(out Vector3 position, out Quaternion rotation)
         {
+            var followed = Followed(out float onFeet);
             if (IsFirstPerson)
             {
                 var heading = Quaternion.Euler(0f, yaw, 0f);
-                position = target.position + Vector3.up * eyeHeight + heading * Vector3.forward * eyeForward;
+                // the eye: over the hero's feet, or just over the body's head
+                position = followed + Vector3.Lerp(Vector3.up * bodyEyeHeight, Vector3.up * eyeHeight + heading * Vector3.forward * eyeForward, onFeet);
                 rotation = heading * Quaternion.Euler(pitch, 0f, 0f);
                 return;
             }
             // the own view stands behind the own side and looks across the pit at the enemy: for the far team
             // (z > 0) the camera arm and the look-ahead are turned around
             var turn = Quaternion.Euler(0f, LocalPlayer.Team == Team.Bots ? 180f : 0f, 0f);
-            var focus = target.position + turn * lookAhead;
+            var focus = followed + turn * lookAhead;
             var arm = turn * offset;
             if (Mode == View.EnemySide)
             {
@@ -232,7 +273,7 @@ namespace PudgeWars.Gameplay
                 const float body = 1f;
                 float height = arm.y - body;
                 float toWall = Mathf.Atan2(height, enemyViewBehind + 0.6f);
-                float toPlayer = Mathf.Atan2(height, Mathf.Max(Mathf.Abs(position.z - target.position.z), 0.1f));
+                float toPlayer = Mathf.Atan2(height, Mathf.Max(Mathf.Abs(position.z - followed.z), 0.1f));
                 rotation = Quaternion.LookRotation(new Vector3(0f, 0f, -enemySide))
                            * Quaternion.Euler(0.5f * (toWall + toPlayer) * Mathf.Rad2Deg, 0f, 0f);
                 return;

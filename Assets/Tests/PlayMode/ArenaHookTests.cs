@@ -1289,6 +1289,28 @@ namespace PudgeWars.Tests
             Assert.Greater(BloodSplatter.GroundStainCount, 0, "the blood went with the body");
         }
 
+        [UnityTest]
+        public IEnumerator CameraFollowsTheHeadOfTheOwnBodyIntoThePit()
+        {
+            var follow = Camera.main.GetComponent<TopDownCamera>();
+            Assert.AreEqual(TopDownCamera.View.OwnSide, follow.Mode);
+            player.transform.position = new Vector3(0f, 0f, -arena.pitHalfDepth + 0.3f);
+            player.StepIntoPit(Vector3.forward * 3f);
+            var head = player.Body.Head;
+            Assert.AreNotEqual(player.Body.transform, head, "the body has no head bone");
+            yield return new WaitUntil(() => !player.IsAlive);
+            yield return new WaitForSeconds(1.5f);
+            Capture("camera_on_body");
+            var expected = head.position + follow.lookAhead + follow.offset; // the own view of the Radiant player
+            Assert.Less(Vector3.Distance(follow.transform.position, expected), 0.3f, "the camera did not follow the body's head");
+            Assert.Less(follow.transform.position.y, follow.offset.y - 2f, "the camera did not go down after the body");
+
+            yield return new WaitUntil(() => player.IsAlive);
+            yield return new WaitForSeconds(1f);
+            Assert.Less(Vector3.Distance(follow.transform.position, player.transform.position + follow.lookAhead + follow.offset), 0.3f,
+                "the camera did not come back to the respawned hero");
+        }
+
         /// <summary>Screenshot including the overlay UI (Camera.Render does not draw ScreenSpaceOverlay canvases).</summary>
         [UnityTest]
         public IEnumerator BotsWalkUpToThePitEdgeButDoNotFallIn()
