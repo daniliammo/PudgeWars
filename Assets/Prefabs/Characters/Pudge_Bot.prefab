@@ -323,6 +323,7 @@ MonoBehaviour:
   turnRate: 0.7
   keepOffPit: 1
   pitGap: 0.1
+  separationSpeed: 1.5
 --- !u!114 &2493412752412822984
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -492,9 +493,11 @@ MonoBehaviour:
   aimError: 7
   rangeFraction: 0.95
   allyClearance: 0.3
-  rescueChance: 0.75
+  rescueChance: 0.55
   rescueReaction: {x: 0.15, y: 0.35}
+  pullOutReaction: {x: 0.3, y: 0.55}
   stuckTime: 0.75
+  difficulty: 1
 --- !u!114 &8265682135997580674
 MonoBehaviour:
   m_ObjectHideFlags: 0

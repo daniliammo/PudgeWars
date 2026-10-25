@@ -30,7 +30,7 @@ namespace PudgeWars.Gameplay
         [Tooltip("Extra clearance around allies on the hook's path, metres: the bot does not throw through them.")]
         public float allyClearance = 0.3f;
         [Tooltip("Chance that the bot tries to pull an ally out of an enemy's hook.")]
-        [Range(0f, 1f)] public float rescueChance = 0.75f;
+        [Range(0f, 1f)] public float rescueChance = 0.55f;
         [Tooltip("Reaction time before a rescue throw, seconds.")]
         public Vector2 rescueReaction = new(0.15f, 0.35f);
         [Tooltip("Reaction time before pulling an ally out of the way of an enemy hook on its way to it, seconds (the same chance).")]
