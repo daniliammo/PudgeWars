@@ -147,14 +147,16 @@ namespace PudgeWars.EditorTools
             data.SetHeights(0, 0, heights);
 
             // Dota's Radiant grass on the player's side (z < 0) and Dire's cracked ground on the bots' side with a
-            // ragged border at z = 0, a band of sand along the pit's rims as on a river bank, rock on the steep slopes,
-            // black in the depth of the pit (layers 0 and 1 are the sides' ground: PlaceGrass reads layer 0)
+            // ragged border at z = 0, a band of sand along the pit's rims as on a river bank (pale on Radiant's side, Dire's
+            // darker sand on theirs), rock on the steep slopes, black in the depth of the pit (layers 0 and 1 are the sides'
+            // ground: PlaceGrass reads layer 0)
             data.terrainLayers = new[]
             {
                 Layer("Radiant_Grass", 5f), Layer("Dire_Ground", 6f), Layer("Cliff", 5f), Layer("Abyss", 5f), Layer("Path_Sand", 3f),
+                Layer("Dire_Path_Sand", 3f),
             };
             int aRes = data.alphamapResolution;
-            var alpha = new float[aRes, aRes, 5];
+            var alpha = new float[aRes, aRes, 6];
             for (int z = 0; z < aRes; z++)
             for (int x = 0; x < aRes; x++)
             {
@@ -171,7 +173,8 @@ namespace PudgeWars.EditorTools
                 alpha[z, x, 1] = ground * (1f - sand) * dire;
                 alpha[z, x, 2] = (1f - abyss) * rock;
                 alpha[z, x, 3] = abyss;
-                alpha[z, x, 4] = ground * sand;
+                alpha[z, x, 4] = ground * sand * (1f - dire);
+                alpha[z, x, 5] = ground * sand * dire;
             }
             TerrainPaint.WriteAlphamaps(data, alpha);
             PlaceGrass(arena, data, alpha);
@@ -308,7 +311,7 @@ namespace PudgeWars.EditorTools
         }
 
         static readonly string[] GroundLayers =
-            { "Radiant_Grass", "Radiant_Flowers", "Radiant_Stones", "Dire_Ground", "Dire_Patches", "Path_Sand", "Cliff", "Abyss" };
+            { "Radiant_Grass", "Radiant_Flowers", "Radiant_Stones", "Dire_Ground", "Dire_Patches", "Path_Sand", "Dire_Path_Stone", "Dire_Path_Sand", "Cliff", "Abyss" };
 
         /// <summary>A ground texture's import settings and its terrain layer asset (<see cref="PrepareAssets"/>).</summary>
         static void PrepareLayer(string name)
@@ -321,6 +324,12 @@ namespace PudgeWars.EditorTools
             ti.mipmapEnabled = true;
             ti.sRGBTexture = true;
             ti.SaveAndReimport();
+            if (AssetImporter.GetAtPath($"{TerrainDir}/{name}_normal.png") is TextureImporter normal)
+            {
+                normal.textureType = TextureImporterType.NormalMap;
+                normal.wrapMode = TextureWrapMode.Repeat;
+                normal.SaveAndReimport();
+            }
             var path = $"{TerrainDir}/{name}.terrainlayer";
             if (AssetDatabase.LoadAssetAtPath<TerrainLayer>(path) == null) AssetDatabase.CreateAsset(new TerrainLayer(), path);
         }
@@ -333,6 +342,7 @@ namespace PudgeWars.EditorTools
             if (texture == null) Debug.LogError("[LandscapeBuilder] no 2D texture in " + texturePath);
             var layer = AssetDatabase.LoadAssetAtPath<TerrainLayer>($"{TerrainDir}/{name}.terrainlayer");
             layer.diffuseTexture = texture;
+            layer.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{TerrainDir}/{name}_normal.png"); // most have none: blank in the export
             layer.tileSize = new Vector2(tile, tile);
             layer.metallic = 0f;
             // matte: by default the smoothness comes from the texture's alpha, which is 1 in these images (wet look)

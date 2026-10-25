@@ -134,13 +134,13 @@ namespace PudgeWars.EditorTools
             fog = new Color(0.68f, 0.74f, 0.82f),
         };
 
-        /// <summary>Dusk over Dire's cracked ground with patchy dirt and a sand path, its trees, no grass: a red, smoky
+        /// <summary>Dusk over Dire's cracked ground with patchy dirt and a rocky slab path, its trees, no grass: a red, smoky
         /// sky, a low orange sun, dark reddish haze.</summary>
         static MenuLandscape.Look DireLook(Material sky) => new()
         {
             ground = LandscapeBuilder.Layer("Dire_Ground", 6f),
             patches = LandscapeBuilder.Layer("Dire_Patches", 6f),
-            path = LandscapeBuilder.Layer("Path_Sand", 3f),
+            path = LandscapeBuilder.Layer("Dire_Path_Stone", 3f),
             landmark = LandscapeBuilder.MenuTreeOf(LandscapeBuilder.DireTrees[0]),
             trees = LandscapeBuilder.DireTrees.Select(LandscapeBuilder.MenuTreeOf).ToArray(),
             sky = sky,
