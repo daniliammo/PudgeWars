@@ -125,7 +125,10 @@ namespace PudgeWars.EditorTools
 
         static Terrain BuildTerrain(Arena arena, Transform parent, System.Random rng)
         {
-            var data = new TerrainData { heightmapResolution = HeightmapResolution }; // resolution first: it resets the size
+            // saved first, filled after: a terrain data filled before it is saved loses its alphamaps on saving
+            var data = new TerrainData();
+            SaveTerrainData(data, TerrainDir + "/ArenaTerrain.asset");
+            data.heightmapResolution = HeightmapResolution; // resolution first: it resets the size
             data.size = new Vector3(TerrainSize, TerrainHeight, TerrainSize);
             data.alphamapResolution = 256;
             data.baseMapResolution = 512;
@@ -170,9 +173,9 @@ namespace PudgeWars.EditorTools
                 alpha[z, x, 3] = abyss;
                 alpha[z, x, 4] = ground * sand;
             }
-            WriteAlphamaps(data, alpha);
+            TerrainPaint.WriteAlphamaps(data, alpha);
             PlaceGrass(arena, data, alpha);
-            SaveTerrainData(data, TerrainDir + "/ArenaTerrain.asset");
+            MarkTerrainDirty(data);
 
             var go = Terrain.CreateTerrainGameObject(data);
             go.name = "Terrain";
@@ -195,33 +198,20 @@ namespace PudgeWars.EditorTools
         /// How the ground layers blend, written into the terrain's alphamap textures themselves: SetAlphamaps alone
         /// reaches only the GPU's copy, the saved asset kept the first layer everywhere (Radiant's grass on Dire's side).
         /// </summary>
-        /// <summary>A terrain data built in memory, saved as an asset in place of the old one at once.</summary>
+        /// <summary>
+        /// A new terrain data saved as an asset in place of the old one, before it is filled: filled first, it loses its
+        /// alphamaps when it is saved (the first layer everywhere).
+        /// </summary>
         internal static void SaveTerrainData(TerrainData data, string path)
         {
             AssetDatabase.DeleteAsset(path);
             AssetDatabase.CreateAsset(data, path);
-            AssetDatabase.SaveAssetIfDirty(data);
         }
 
-        internal static void WriteAlphamaps(TerrainData data, float[,,] alpha)
+        /// <summary>A filled terrain data and its alphamap textures, to be saved.</summary>
+        internal static void MarkTerrainDirty(TerrainData data)
         {
-            data.SetAlphamaps(0, 0, alpha);
-            int res = alpha.GetLength(0), layers = alpha.GetLength(2);
-            var textures = data.alphamapTextures;
-            for (int t = 0; t < textures.Length; t++)
-            {
-                var pixels = new Color[res * res];
-                for (int z = 0; z < res; z++)
-                for (int x = 0; x < res; x++)
-                {
-                    float Channel(int c) => t * 4 + c < layers ? alpha[z, x, t * 4 + c] : 0f;
-                    pixels[z * res + x] = new Color(Channel(0), Channel(1), Channel(2), Channel(3));
-                }
-                textures[t].SetPixels(pixels);
-                textures[t].Apply(true);
-                EditorUtility.SetDirty(textures[t]);
-            }
-            data.SetBaseMapDirty();
+            foreach (var texture in data.alphamapTextures) EditorUtility.SetDirty(texture);
             EditorUtility.SetDirty(data);
         }
 
@@ -402,22 +392,11 @@ namespace PudgeWars.EditorTools
             public readonly float scale, turn;
 
             public TreeSpot(string model, Vector2 at, float scale, System.Random rng)
-                : this(model, at, scale, Range(rng, 0f, 2f * Mathf.PI)) { }
-
-            TreeSpot(string model, Vector2 at, float scale, float turn)
             {
                 this.model = model;
                 this.at = at;
                 this.scale = scale;
-                this.turn = turn;
-            }
-
-            /// <summary>The same tree turned so that its front looks at <paramref name="viewer"/> (a one-sided tree).</summary>
-            public TreeSpot Facing(Vector2 viewer)
-            {
-                var to = viewer - at;
-                float want = Mathf.Atan2(to.x, to.y) * Mathf.Rad2Deg;
-                return new TreeSpot(model, at, scale, Mathf.Repeat(want - FrontYaw(model), 360f) * Mathf.Deg2Rad);
+                turn = Range(rng, 0f, 2f * Mathf.PI);
             }
         }
 
@@ -497,23 +476,17 @@ namespace PudgeWars.EditorTools
         /// The terrain's detail prototypes of grass clumps (Grass/Prefabs: the baked mesh on the prefab's root, as a
         /// detail mesh wants it), drawn instanced with their own materials, a little bigger or smaller at random.
         /// </summary>
-        internal static DetailPrototype[] GrassPrototypes(IEnumerable<string> models)
+        internal static DetailPrototype[] GrassPrototypes(IEnumerable<string> models) =>
+            GrassPrefabs(models).Select(TerrainPaint.Grass).ToArray();
+
+        /// <summary>The grass clumps' prefabs (<see cref="PrepareAssets"/>).</summary>
+        internal static GameObject[] GrassPrefabs(IEnumerable<string> models) => models.Select(m => Prefab(GrassDir, m)).ToArray();
+
+        /// <summary>A tree of the main menu's forest: its prefab and, for a one-sided relief, which way its front looks.</summary>
+        internal static MenuLandscape.MenuTree MenuTreeOf(string model)
         {
-            return models.Select(model =>
-            {
-                var grass = new DetailPrototype
-                {
-                    prototype = Prefab(GrassDir, model),
-                    usePrototypeMesh = true,
-                    useInstancing = true,
-                    renderMode = DetailRenderMode.VertexLit,
-                    minWidth = 0.8f, maxWidth = 1.25f, minHeight = 0.8f, maxHeight = 1.3f,
-                    noiseSpread = 0.4f,
-                    healthyColor = Color.white, dryColor = new Color(0.9f, 0.9f, 0.8f),
-                };
-                if (!grass.Validate(out var error)) Debug.LogError($"[LandscapeBuilder] {model}: {error}");
-                return grass;
-            }).ToArray();
+            bool oneSided = OneSidedTrees.Contains(model);
+            return new MenuLandscape.MenuTree { prefab = Prefab(TreeDir, model), oneSided = oneSided, frontYaw = oneSided ? FrontYaw(model) : 0f };
         }
 
         static GameObject GrassPrefab(string model)
