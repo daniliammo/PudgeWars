@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
@@ -27,7 +28,9 @@ namespace PudgeWars.Gameplay
     /// An owner caught by an ally's hook is only carried home: its own hook goes on as usual (flies, pulls its catch,
     /// comes back to it); only an enemy's hook, the pit or death breaks it off or leaves it on a taut chain.
     /// On a network client (<see cref="Simulation.IsProxy"/>) the server throws the hook: a cast becomes a
-    /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends.
+    /// <see cref="CastRequested"/> request, and the head and the chain only show the state the server sends —
+    /// interpolated on the same delayed timeline as the heroes' positions (<see cref="ShowRemote"/>), so the head and
+    /// the hero it drags move together and smoothly.
     /// </summary>
     public class HookAbility : MonoBehaviour
     {
@@ -113,8 +116,15 @@ namespace PudgeWars.Gameplay
         bool caughtThisCast;
         float ropeLength;
         // network client: what the server last sent
-        bool remoteBusy, remoteFlying;
-        Vector3 remoteHead, remoteDirection;
+        bool remoteBusy;
+        struct RemoteHead
+        {
+            public double time;
+            public bool visible, flying;
+            public Vector3 position, direction;
+        }
+        readonly List<RemoteHead> remoteHeads = new(); // the server's head over (server) time, oldest first
+        const int RemoteHeadLimit = 32;
         float pendingCastUntil;
         Vector3 direction;
         Hookable target, self;
@@ -203,11 +213,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
-            if (Simulation.IsProxy)
-            {
-                ShowRemote();
-                return;
-            }
+            if (Simulation.IsProxy) return; // the network side shows the server's head (ShowRemote)
             switch (state)
             {
                 case State.Turning:
@@ -648,32 +654,51 @@ namespace PudgeWars.Gameplay
         /// <summary>Network client: the server's hook caught <paramref name="target"/> (for the camera's shake).</summary>
         public void ApplyRemoteCatch(Hookable target) => TargetCaught?.Invoke(target);
 
-        /// <summary>Network client: the hook's state on the server.</summary>
+        /// <summary>Network client: whether the server's hook is busy and its cooldown (the UI and casts use them at once).</summary>
         /// <param name="cooldownLeft">Seconds until ready, counted from now (ignored while busy).</param>
-        public void ApplyRemoteState(bool busy, float cooldownLeft, bool visible, bool flying, Vector3 head, Vector3 headDirection)
+        public void ApplyRemoteState(bool busy, float cooldownLeft)
         {
             if (busy != remoteBusy) pendingCastUntil = 0f;
             remoteBusy = busy;
             readyAt = Time.time + Mathf.Max(0f, cooldownLeft);
-            remoteFlying = flying;
-            remoteHead = head;
-            remoteDirection = headDirection;
-            if (visible == HeadVisible) return;
-            SetHookVisible(visible);
-            if (!visible) return;
-            spin = 0f;
-            hookHead.position = head; // appears where the server has it, then follows smoothly
         }
 
-        /// <summary>Network client: moves the head toward the server's position (it comes ~30 times a second).</summary>
-        void ShowRemote()
+        /// <summary>
+        /// Network client: the server's head as it was at <paramref name="serverTime"/>; shown later, by
+        /// <see cref="ShowRemote"/>, between the two snapshots around the client's (delayed) time.
+        /// </summary>
+        public void AddRemoteHead(double serverTime, bool visible, bool flying, Vector3 position, Vector3 direction)
         {
-            if (!HeadVisible) return;
-            float speed = Mathf.Max(flySpeed, pullSpeed, returnSpeed, tetherReelSpeed) * 1.5f;
-            hookHead.position = Vector3.MoveTowards(hookHead.position, remoteHead, speed * Time.deltaTime);
-            var dir = remoteDirection.sqrMagnitude > 1e-6f ? remoteDirection : transform.forward;
-            if (remoteFlying) spin = Mathf.Repeat(spin + spinSpeed * Time.deltaTime, 360f);
-            hookHead.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(0f, 0f, remoteFlying ? spin : 0f);
+            var snapshot = new RemoteHead { time = serverTime, visible = visible, flying = flying, position = position, direction = direction };
+            if (remoteHeads.Count > 0 && serverTime <= remoteHeads[^1].time) remoteHeads[^1] = snapshot; // same moment, newer data
+            else remoteHeads.Add(snapshot);
+            if (remoteHeads.Count > RemoteHeadLimit) remoteHeads.RemoveAt(0);
+        }
+
+        /// <summary>
+        /// Network client: shows the head as the server had it at <paramref name="time"/> on the server's clock — the
+        /// timeline the heroes' positions are shown on (Mirror's interpolated time), so a dragged hero stays at the head.
+        /// Between two snapshots the head moves in a straight line; it appears and disappears when the server's did.
+        /// </summary>
+        public void ShowRemote(double time)
+        {
+            while (remoteHeads.Count > 1 && remoteHeads[1].time <= time) remoteHeads.RemoveAt(0);
+            if (remoteHeads.Count == 0 || time < remoteHeads[0].time) return; // nothing that old yet: as it is
+            var from = remoteHeads[0];
+            var to = remoteHeads.Count > 1 ? remoteHeads[1] : from;
+            if (from.visible != HeadVisible)
+            {
+                SetHookVisible(from.visible);
+                spin = 0f;
+            }
+            if (!from.visible) return;
+            float t = to.time > from.time ? Mathf.Clamp01((float)((time - from.time) / (to.time - from.time))) : 0f;
+            if (!to.visible) t = 0f; // it vanishes there: no sliding toward a stale position
+            hookHead.position = Vector3.Lerp(from.position, to.position, t);
+            var dir = Vector3.Lerp(from.direction, to.direction, t);
+            if (dir.sqrMagnitude < 1e-6f) dir = transform.forward;
+            if (from.flying) spin = Mathf.Repeat(spin + spinSpeed * Time.deltaTime, 360f);
+            hookHead.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(0f, 0f, from.flying ? spin : 0f);
             UpdateChain();
         }
 

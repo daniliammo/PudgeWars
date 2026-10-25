@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using Unity.Profiling;
 using UnityEngine;
@@ -11,7 +12,8 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// FPS counter in the top-left corner plus an extended debug panel toggled by F11 (graphics API, GPU,
-    /// draw calls, vertices, triangles, memory, frame timings). Spawns itself on startup in the editor and in
+    /// draw calls, vertices, triangles, memory, frame timings, and the network: ping and delay, see
+    /// <see cref="NetworkStats"/>). Spawns itself on startup in the editor and in
     /// builds, and caps the frame rate at the display's refresh rate (on Android first switching to the fastest mode).
     /// </summary>
     public class FrameStatsOverlay : MonoBehaviour
@@ -42,6 +44,9 @@ namespace PudgeWars.Gameplay
             DontDestroyOnLoad(go);
             go.AddComponent<FrameStatsOverlay>();
         }
+
+        /// <summary>Lines about the network for the panel (ping and the like), set by the network side; null without it.</summary>
+        public static Func<string> NetworkStats;
 
         /// <summary>Rate of the display mode requested from Android; zero if none was requested.</summary>
         static float requestedRefreshRate;
@@ -199,6 +204,7 @@ namespace PudgeWars.Gameplay
 
             sb.Clear();
             sb.Append("F11 — скрыть\n\n");
+            if (NetworkStats != null) sb.Append(NetworkStats()).Append('\n');
             sb.Append("Графический API: ").Append(SystemInfo.graphicsDeviceType).Append('\n');
             sb.Append("  ").Append(SystemInfo.graphicsDeviceVersion).Append('\n');
             sb.Append("GPU: ").Append(SystemInfo.graphicsDeviceName).Append(" (").Append(SystemInfo.graphicsMemorySize).Append(" МБ)\n");

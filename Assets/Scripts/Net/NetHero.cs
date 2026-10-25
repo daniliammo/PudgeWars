@@ -64,7 +64,7 @@ namespace PudgeWars.Net
             anim = GetComponent<PudgeAnimation>();
             netTransform = GetComponent<NetworkTransformBase>();
             prefabs = NetPrefabs.Load();
-            syncInterval = 1f / 30f;
+            syncInterval = 0f; // with every server send, as NetworkTransform: the hook's head is interpolated from it
         }
 
         /// <summary>Server, before spawning: whose hero this is.</summary>
@@ -240,9 +240,17 @@ namespace PudgeWars.Net
                 Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);
                 Arena.Instance.ApplyRemoteHeroScore(hookable, new HeroScore { kills = kills, deaths = deaths, rescues = rescues, rescued = rescued });
             }
-            if (hook != null)
-                hook.ApplyRemoteState((hookFlags & BusyFlag) != 0, (float)(hookReadyAt - NetworkTime.time),
-                    (hookFlags & VisibleFlag) != 0, (hookFlags & FlyingFlag) != 0, hookHead, hookDirection);
+            if (hook != null) hook.ApplyRemoteState((hookFlags & BusyFlag) != 0, (float)(hookReadyAt - NetworkTime.time));
+        }
+
+        public override void OnDeserialize(NetworkReader reader, bool initialState)
+        {
+            base.OnDeserialize(reader, initialState);
+            if (isServer || hook == null || NetworkClient.connection == null) return;
+            // stamped as NetworkTransform stamps the heroes' positions (the send time plus one send interval), so the
+            // head is shown on their timeline and a dragged hero stays at it
+            hook.AddRemoteHead(NetworkClient.connection.remoteTimeStamp + NetworkServer.sendInterval,
+                (hookFlags & VisibleFlag) != 0, (hookFlags & FlyingFlag) != 0, hookHead, hookDirection);
         }
 
         [ClientRpc]
@@ -278,6 +286,7 @@ namespace PudgeWars.Net
             else if (isClient)
             {
                 Show();
+                if (hook != null) hook.ShowRemote(NetworkTime.unscaledTime); // the time NetworkTransform shows the heroes at
                 if (isLocalPlayer && motor != null) SendInput();
             }
         }

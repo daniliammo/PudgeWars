@@ -87,11 +87,45 @@ namespace PudgeWars.Net
             manager.transport = kcp;
             manager.prefabs = prefabs;
             manager.autoCreatePlayer = false; // heroes are made by OnJoin, not from playerPrefab
-            manager.sendRate = 30;
+            // 60 a second: a client shows the match about two send intervals behind (snapshot interpolation), so a
+            // higher rate is a shorter delay; the state of 6 heroes is small even for a phone's connection
+            manager.sendRate = 60;
             manager.maxConnections = 16;
             manager.headlessStartMode = HeadlessStartOptions.DoNothing; // see Start: tests run headless too
             go.AddComponent<NetMenu>();
+            FrameStatsOverlay.NetworkStats = NetworkStatsText;
             go.SetActive(true);
+        }
+
+        /// <summary>
+        /// Lines for the F11 panel: on a client the round trip to the server (ping), how much it jitters and how far
+        /// behind the server the client shows the match; on the host every client's ping.
+        /// </summary>
+        static string NetworkStatsText()
+        {
+            var sb = new System.Text.StringBuilder();
+            int rate = singleton != null ? singleton.sendRate : 0;
+            if (NetworkServer.active)
+            {
+                sb.Append(NetworkClient.active ? "Сеть: хост" : "Сеть: сервер").Append(", отправка ").Append(rate).Append(" Гц\n");
+                foreach (var conn in NetworkServer.connections.Values)
+                {
+                    if (conn is LocalConnectionToClient) continue;
+                    var hero = conn.identity != null ? conn.identity.GetComponent<Hookable>() : null;
+                    sb.Append("  ").Append(hero != null ? hero.Nickname : conn.address)
+                      .Append(": пинг ").Append((conn.rtt * 1000).ToString("0")).Append(" мс\n");
+                }
+                return sb.ToString();
+            }
+            if (!NetworkClient.isConnected) return "Сеть: нет (без сети)\n";
+            double jitter = Math.Sqrt(Math.Max(0, NetworkTime.rttVariance));
+            sb.Append("Пинг: ").Append((NetworkTime.rtt * 1000).ToString("0")).Append(" мс (±").Append((jitter * 1000).ToString("0")).Append(")\n");
+            sb.Append("Буфер сглаживания: ").Append((NetworkClient.bufferTime * 1000).ToString("0"))
+              .Append(" мс (×").Append(NetworkClient.bufferTimeMultiplier.ToString("0.0")).Append("), отправка ").Append(rate).Append(" Гц\n");
+            // what the player sees lags the server by half the round trip, one send interval and the buffer
+            double behind = NetworkTime.rtt / 2 + NetworkServer.sendInterval + NetworkClient.bufferTime;
+            sb.Append("Отставание картинки: ~").Append((behind * 1000).ToString("0")).Append(" мс\n");
+            return sb.ToString();
         }
 
         public override void Start()
