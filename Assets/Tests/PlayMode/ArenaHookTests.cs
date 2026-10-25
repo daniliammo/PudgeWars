@@ -738,6 +738,9 @@ namespace PudgeWars.Tests
             var hud = Object.FindAnyObjectByType<ScoreHud>();
             yield return null;
             Assert.IsNotNull(hud.RadiantWorth, "no net worth under the score");
+            var coin = hud.RadiantWorth.transform.parent.Find("GoldIcon");
+            Assert.IsNotNull(coin, "no gold icon between the teams' net worth");
+            Assert.IsNotNull(coin.GetComponent<Image>().sprite, "the gold icon has no picture");
             foreach (var h in Hookable.All) h.GetComponent<HeroInventory>().AddGold(-h.GetComponent<HeroInventory>().Gold, popup: false);
             var lens = Object.FindAnyObjectByType<ShopUI>().rows[0].item;
             var inventory = player.GetComponent<HeroInventory>();

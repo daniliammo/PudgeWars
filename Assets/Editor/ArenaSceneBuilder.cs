@@ -263,7 +263,9 @@ namespace PudgeWars.EditorTools
             var font = fonts.cyrillic != null ? fonts.cyrillic : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
             var score = Label(canvasGo.transform, "Score", font, 56, new Vector2(40f, -30f), TextAnchor.UpperLeft);
-            canvasGo.AddComponent<ScoreHud>().label = score;
+            var scoreHud = canvasGo.AddComponent<ScoreHud>();
+            scoreHud.label = score;
+            scoreHud.goldIcon = AbilityBarBuilder.Sprite(CoinIcon);
             TouchControlsBuilder.Build(canvasGo.transform); // before the shop: its open panel covers the sticks
             ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
             AbilityBarBuilder.Build(canvasGo.transform, font);

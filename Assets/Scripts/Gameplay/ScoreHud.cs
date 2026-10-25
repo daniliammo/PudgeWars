@@ -7,7 +7,7 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Score on the HUD: in the corner the local player's own kills, deaths and rescues, and on a smaller line under
     /// them its team's (the team's bots included); at the top centre the teams' kills as on Dota's top bar — Radiant
-    /// green on the left, Dire red on the right, the own team's name in bold — and under it the teams' net worth (the
+    /// green on the left, Dire red on the right, the own team's name in bold — and under it the teams' net worth around a gold coin (the
     /// gold and the items of all their heroes, <see cref="HeroInventory.NetWorth"/>; every hero's are known on a network
     /// client too), the leading team's in bold with its lead. The team line and the top bar are built at runtime under
     /// the same canvas.
@@ -22,7 +22,8 @@ namespace PudgeWars.Gameplay
         public string radiantName = "RADIANT", direName = "DIRE";
         public Color radiantColor = new(0.35f, 0.85f, 0.3f);
         public Color direColor = new(0.9f, 0.25f, 0.18f);
-        public Color worthColor = new(1f, 0.84f, 0.35f); // the caption, gold
+        [Tooltip("Gold coin between the teams' net worth (Shop_Game/Gold of the original); the gold popups' coin if empty.")]
+        public Sprite goldIcon;
         [Tooltip("How often the net worth is counted again, seconds.")]
         public float worthInterval = 0.25f;
 
@@ -160,7 +161,19 @@ namespace PudgeWars.Gameplay
             worthBg.color = new Color(0.05f, 0.06f, 0.08f, 0.65f);
             worthBg.raycastTarget = false;
             RadiantWorth = Make(worth, "RadiantNetWorth", font, 22, new Vector2(-155f, 0f), new Vector2(200f, 30f), TextAnchor.MiddleRight, radiantColor);
-            Make(worth, "Caption", font, 14, Vector2.zero, new Vector2(110f, 30f), TextAnchor.MiddleCenter, worthColor).text = "NET WORTH";
+            if (goldIcon == null)
+            {
+                var popups = FindAnyObjectByType<GoldPopups>();
+                if (popups != null) goldIcon = popups.coinSprite;
+            }
+            var coin = new GameObject("GoldIcon", typeof(RectTransform)).GetComponent<RectTransform>();
+            coin.SetParent(worth, false);
+            coin.sizeDelta = new Vector2(26f, 26f);
+            var coinImage = coin.gameObject.AddComponent<Image>();
+            coinImage.sprite = goldIcon;
+            coinImage.preserveAspect = true;
+            coinImage.raycastTarget = false;
+            if (goldIcon == null) coinImage.color = new Color(1f, 0.84f, 0.35f); // a plain gold square rather than nothing
             DireWorth = Make(worth, "DireNetWorth", font, 22, new Vector2(155f, 0f), new Vector2(200f, 30f), TextAnchor.MiddleLeft, direColor);
             ShowWorth();
         }
