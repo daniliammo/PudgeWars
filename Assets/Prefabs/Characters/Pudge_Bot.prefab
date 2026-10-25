@@ -305,6 +305,8 @@ MonoBehaviour:
   maxHealth: 670
   radius: 0.6
   gravity: 20
+  allyMarkerColor: {r: 0.2, g: 0.9, b: 0.3, a: 1}
+  enemyMarkerColor: {r: 0.95, g: 0.15, b: 0.1, a: 1}
 --- !u!114 &1385268436013105734
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -353,12 +355,16 @@ MonoBehaviour:
   returnSpeed: 15
   castDelay: 0.29
   cooldown: 1
+  hitsAllies: 1
   resetCooldownOnHit: 1
   hitRadius: 0.65
+  headScale: 1.8
+  spinSpeed: 900
   flightHeight: 1.1
   dropCarry: 0.35
   tetherReelSpeed: 8
   tetherTimeout: 4
+  heldPullFactor: 0.5
   hookHead: {fileID: 622831098110076516}
   chain: {fileID: 1845111777243046267}
   chainOrigin: {fileID: 6835857273942954902}
@@ -485,6 +491,10 @@ MonoBehaviour:
   leadChance: 0.5
   aimError: 7
   rangeFraction: 0.95
+  allyClearance: 0.3
+  rescueChance: 0.5
+  rescueReaction: {x: 0.15, y: 0.35}
+  stuckTime: 0.75
 --- !u!114 &8265682135997580674
 MonoBehaviour:
   m_ObjectHideFlags: 0
