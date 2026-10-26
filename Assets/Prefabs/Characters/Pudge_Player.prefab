@@ -181,6 +181,7 @@ MonoBehaviour:
   turnRate: 0.7
   keepOffPit: 0
   pitGap: 0.1
+  separationSpeed: 1.5
 --- !u!114 &8504431647334658573
 MonoBehaviour:
   m_ObjectHideFlags: 0
