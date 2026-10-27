@@ -8,7 +8,7 @@ namespace PudgeWars.Gameplay
         None,
         /// <summary>Tango: eats a tree (it is cut down) and regenerates health for a while.</summary>
         EatTree,
-        /// <summary>Iron Branch: plants a tree that stands for a while.</summary>
+        /// <summary>Iron Branch: plants a tree (for good, or for a while).</summary>
         PlantTree,
         /// <summary>Quelling Blade: cuts a tree down.</summary>
         ChopTree,
@@ -42,7 +42,7 @@ namespace PudgeWars.Gameplay
         public float regenDuration;
         [Tooltip("Tango: a planted tree (Iron Branch) feeds this many times more.")]
         public float plantedTreeBonus = 1f;
-        [Tooltip("Iron Branch: seconds the planted tree stands.")]
+        [Tooltip("Iron Branch: seconds the planted tree stands; 0 — for good.")]
         public float treeLifetime;
 
         public bool IsUsable => action != ItemAction.None;

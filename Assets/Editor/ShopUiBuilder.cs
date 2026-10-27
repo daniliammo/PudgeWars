@@ -86,11 +86,11 @@ namespace PudgeWars.EditorTools
             item.plantedTreeBonus = 2f;
         });
 
-        /// <summary>Iron Branch: 50 gold, plants a tree for 20 s within 200 units (Dota 2's Happy Little Tree), used up.</summary>
+        /// <summary>Iron Branch: 50 gold, plants a tree for good (by request; Dota 2's Happy Little Tree stands 20 s) within 200 units, used up.</summary>
         public static ItemDef IronBranch() => Item("IronBranch", "branches", item =>
         {
             item.displayName = "Iron Branch";
-            item.description = "Посадить дерево на 20 секунд";
+            item.description = "Посадить дерево (навсегда)";
             item.cost = 50;
             item.unique = false;
             item.action = ItemAction.PlantTree;
@@ -98,7 +98,7 @@ namespace PudgeWars.EditorTools
             item.stacks = false;
             item.castRange = 2f;
             item.cooldown = 0f;
-            item.treeLifetime = 20f;
+            item.treeLifetime = 0f;
         });
 
         /// <summary>Quelling Blade: 100 gold as in Dota 2, cuts a tree down within 350 units, cooldown 4 s.</summary>

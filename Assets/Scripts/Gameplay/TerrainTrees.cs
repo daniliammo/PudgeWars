@@ -13,8 +13,9 @@ namespace PudgeWars.Gameplay
     /// The parts come from Dota's models: the stump and the cut-off top (*_destruction) of each prototype; a tree
     /// without them falls whole and leaves nothing. The terrain plays on a copy of its data: the asset stays as built.
     /// A tree can also be planted (Iron Branch, <see cref="Plant(Vector3, float)"/>): it is a model of its own, not a
-    /// terrain instance, stands for a while and then goes; cut down it falls whole and never grows back. Trees are
-    /// named by a handle: a terrain tree by its index, a planted one by <see cref="PlantedBase"/> + its number.
+    /// terrain instance, and stands for good (or a while, if given a lifetime); cut down it falls whole and never grows
+    /// back. Trees are named by a handle: a terrain tree by its index, a planted one by <see cref="PlantedBase"/> + its
+    /// number.
     /// </summary>
     [RequireComponent(typeof(Terrain))]
     public class TerrainTrees : MonoBehaviour
@@ -171,7 +172,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Server / offline: plants a tree at <paramref name="position"/> that stands <paramref name="lifetime"/>
-        /// seconds; it takes after the nearest terrain tree (the side's kind), a little smaller. Its handle, or -1.
+        /// seconds (for good if not positive); it takes after the nearest terrain tree (the side's kind), a little
+        /// smaller. Its handle, or -1.
         /// </summary>
         public int Plant(Vector3 position, float lifetime)
         {
@@ -189,7 +191,7 @@ namespace PudgeWars.Gameplay
             }
             int handle = PlantedBase + nextPlanted++;
             Plant(handle, position, prototype, UnityEngine.Random.Range(0f, Mathf.PI * 2f), scale);
-            if (planted.TryGetValue(handle, out var tree)) tree.expiry = StartCoroutine(ExpireLater(handle, lifetime));
+            if (lifetime > 0f && planted.TryGetValue(handle, out var tree)) tree.expiry = StartCoroutine(ExpireLater(handle, lifetime));
             return handle;
         }
 
