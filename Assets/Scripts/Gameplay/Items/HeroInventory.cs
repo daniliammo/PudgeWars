@@ -5,9 +5,10 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Gold and items of a hero in six slots (Z X C V B N). A usable item takes the first free slot from the left, a
-    /// passive one (Aether Lens) the first from the right, out of the way of the keys. Items with charges (Tango, Iron
-    /// Branch) are used up and leave their slot empty; a stacking one bought again adds its charges to the slot it has. A usable item (<see cref="ItemDef.action"/>) is used on a
+    /// Gold and items of a hero in six slots (Z X C V B N). Usable items keep to the left, nearest Z, passive ones
+    /// (Aether Lens) to the right, out of the way of the keys: when an item is used up or sold, the others close up
+    /// (<see cref="Compact"/>). A stacking item bought again adds its charges to the slot it has. An item sells for
+    /// half its cost (of the charges left, <see cref="SellValue"/>). A usable item (<see cref="ItemDef.action"/>) is used on a
     /// tree or a point of the ground by <see cref="TryUse"/>. On a network client (<see cref="Simulation.IsProxy"/>)
     /// the server keeps them: a purchase or a use becomes a <see cref="BuyRequested"/> / <see cref="UseRequested"/>
     /// request and the result arrives with <see cref="ApplyRemoteState"/>.
@@ -40,6 +41,8 @@ namespace PudgeWars.Gameplay
         public event Action<int, Vector3, int> UseRequested;
         /// <summary>An item was used (its slot before it was used up, the item).</summary>
         public event Action<int, ItemDef> Used;
+        /// <summary>Network client: the player sells the item in a slot; the server decides.</summary>
+        public event Action<int> SellRequested;
 
         Unit self;
 
@@ -172,13 +175,56 @@ namespace PudgeWars.Gameplay
             readyAt[slot] = Time.time + item.cooldown;
             if (item.charges > 0 && --charges[slot] <= 0)
             {
-                slots[slot] = null; // the slot stays empty: the others keep their keys
+                slots[slot] = null;
                 charges[slot] = 0;
-                Reindex();
+                Compact();
             }
             Used?.Invoke(slot, item);
             Changed?.Invoke();
             return true;
+        }
+
+        /// <summary>Gold the item in a slot sells for: half its cost, of the charges left for a used-up kind.</summary>
+        public int SellValue(int slot)
+        {
+            var item = ItemIn(slot);
+            if (item == null) return 0;
+            int worth = item.charges > 0 ? item.cost * charges[slot] / item.charges : item.cost;
+            return worth / 2;
+        }
+
+        /// <summary>Sells the item in a slot for <see cref="SellValue"/>; the others close up. False for an empty slot.</summary>
+        public bool TrySell(int slot)
+        {
+            if (ItemIn(slot) == null) return false;
+            if (Simulation.IsProxy)
+            {
+                SellRequested?.Invoke(slot);
+                return true;
+            }
+            gold += SellValue(slot);
+            slots[slot] = null;
+            charges[slot] = 0;
+            Compact();
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>
+        /// Usable items close up to the left (toward Z), passive ones to the right, each in its order; charges and
+        /// cooldowns go with them.
+        /// </summary>
+        void Compact()
+        {
+            var items = new (ItemDef item, int charges, float readyAt)[SlotCount];
+            int left = 0, right = SlotCount - 1;
+            for (int i = 0; i < SlotCount; i++)
+                if (slots[i] is { IsUsable: true }) items[left++] = (slots[i], charges[i], readyAt[i]);
+            for (int i = SlotCount - 1; i >= 0; i--)
+                if (slots[i] is { IsUsable: false }) items[right--] = (slots[i], charges[i], readyAt[i]);
+            for (int i = 0; i < SlotCount; i++)
+                (slots[i], charges[i], readyAt[i]) = items[i];
+            Reindex();
         }
 
         /// <summary>The target (a trunk of <paramref name="targetRadius"/>) is within the item's reach of the hero's edge.</summary>

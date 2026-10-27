@@ -42,6 +42,7 @@ namespace PudgeWars.EditorTools
             }
             item.displayName = "Aether Lens";
             item.description = "+275 к дальности способностей";
+            item.details = "Пассивно: хук летит на 275 дальше (на 2.75 м). Вторая линза не складывается с первой.";
             item.icon = AssetDatabase.LoadAssetAtPath<Sprite>(AetherLensIcon);
             item.cost = 2275;
             item.castRangeBonus = 2.75f;
@@ -74,6 +75,10 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Tango";
             item.description = "Съесть дерево: +7 здоровья в секунду 16 с (посаженное веткой — вдвое). 3 штуки";
+            item.details = "Пудж съедает выбранное дерево — оно падает, а здоровье восстанавливается на 7 в секунду 16 секунд "
+                           + "(112 за всё время). Дерево, посаженное веткой, вдвое сытнее: 14 в секунду. Несколько съеденных деревьев "
+                           + "лечат одновременно; смерть прерывает лечение. Срубленное дерево отрастает через 20 секунд. "
+                           + "Повторная покупка добавляет ещё 3 штуки в тот же слот.";
             item.cost = 70;
             item.unique = false;
             item.action = ItemAction.EatTree;
@@ -91,6 +96,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Iron Branch";
             item.description = "Посадить дерево (навсегда)";
+            item.details = "Сажает дерево в выбранной точке рядом с Пуджем. Дерево стоит навсегда: герои его обходят, "
+                           + "хук пролетает насквозь. Его можно съесть танго (вдвое сытнее обычного) или срубить топориком — "
+                           + "тогда оно уже не отрастёт. Нельзя сажать над ямой, на другое дерево и на героя. Ветка одноразовая.";
             item.cost = 50;
             item.unique = false;
             item.action = ItemAction.PlantTree;
@@ -106,6 +114,8 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Quelling Blade";
             item.description = "Срубить дерево (перезарядка 4 с)";
+            item.details = "Срубает выбранное дерево: остаётся пень, крона разлетается, а через 20 секунд дерево вырастает снова. "
+                           + "Дерево, посаженное веткой, срубается насовсем. Если дерево дальше 350, Пудж сначала подойдёт к нему.";
             item.cost = 100;
             item.unique = true;
             item.action = ItemAction.ChopTree;

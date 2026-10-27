@@ -270,7 +270,9 @@ namespace PudgeWars.Gameplay
         Vector3 WalkToPendingTarget()
         {
             var trees = TerrainTrees.Instance;
-            bool gone = inventory == null || inventory.ItemIn(pendingSlot) != pendingItem
+            // the item may have moved to another slot meanwhile (another one used up or sold)
+            if (inventory != null && inventory.ItemIn(pendingSlot) != pendingItem) pendingSlot = inventory.SlotOf(pendingItem);
+            bool gone = inventory == null || pendingSlot < 0
                         || trees == null || (pendingItem.TargetsTree && !trees.IsStanding(pendingTree))
                         || (self != null && !self.IsControllable);
             if (gone)

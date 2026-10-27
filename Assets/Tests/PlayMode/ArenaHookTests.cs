@@ -1262,7 +1262,7 @@ namespace PudgeWars.Tests
             int next = trees.Nearest(player.transform.position, 100f);
             player.transform.position = trees.Position(next) + Vector3.back * 3f;
             int bladeSlot = inventory.SlotOf(blade);
-            Assert.AreEqual(2, bladeSlot, "the used-up branch must leave its slot empty: the blade keeps its key");
+            Assert.AreEqual(1, bladeSlot, "a used-up branch's slot is closed up: the blade moves toward Z");
             Assert.IsTrue(inventory.TryUse(bladeSlot, trees.Position(next), next));
             Assert.IsFalse(trees.IsStanding(next));
             Assert.Greater(inventory.CooldownLeft(bladeSlot), 3.9f);
@@ -1287,6 +1287,30 @@ namespace PudgeWars.Tests
             yield return new WaitForSeconds(0.6f);
             Assert.IsFalse(trees.IsStanding(shortLived), "the planted tree did not go after its time");
             Assert.AreEqual(obstacles - 1, Obstacle.All.Count, "planted trees must leave no obstacles behind");
+
+            // hovering a slot tells all about its item; a right click sells it for half (Tango: of the charges left)
+            var lens = TestItem(ItemAction.None, 2000, 0, stacks: false, range: 0f);
+            lens.castRangeBonus = 2.75f;
+            inventory.AddGold(lens.cost, popup: false);
+            Assert.IsTrue(inventory.TryBuy(lens));
+            int lensSlot = inventory.SlotOf(lens);
+            Assert.AreEqual(HeroInventory.SlotCount - 1, lensSlot, "a passive item keeps to the far slot");
+            var tangoPointer = shop.slots[0].GetComponent<ItemSlotPointer>();
+            Assert.IsNotNull(tangoPointer, "the slot does not listen to the pointer");
+            tangoPointer.OnPointerEnter(new PointerEventData(EventSystem.current));
+            Assert.IsNotNull(shop.Tooltip, "no description over a hovered slot");
+            StringAssert.Contains("EatTree", shop.Tooltip.text);
+            StringAssert.Contains($"Продать за {tango.cost * 4 / 3 / 2}", shop.Tooltip.text, "the sale price is half the charges left");
+            tangoPointer.OnPointerExit(new PointerEventData(EventSystem.current));
+            Assert.IsNull(shop.Tooltip, "the description stayed after the pointer left");
+            int gold = inventory.Gold;
+            int value = inventory.SellValue(bladeSlot);
+            Assert.AreEqual(blade.cost / 2, value);
+            shop.slots[bladeSlot].GetComponent<ItemSlotPointer>().OnPointerClick(new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Right });
+            Assert.AreEqual(gold + value, inventory.Gold, "a right click must sell the item for half its cost");
+            Assert.IsFalse(inventory.Owns(blade));
+            Assert.AreEqual(lensSlot, inventory.SlotOf(lens), "selling a usable item must not move the passive one");
+            Assert.IsNull(inventory.ItemIn(bladeSlot), "the sold item's slot must be free (nothing after it to close up)");
             player.StartFalling(Vector3.zero);
             yield return new WaitUntil(() => !player.IsAlive);
             Assert.AreEqual(0f, player.HealthRegen, 1e-4f, "Tango's regeneration must end with death");
@@ -2120,8 +2144,14 @@ namespace PudgeWars.Tests
             foreach (var text in fonts.GetComponentsInChildren<Text>(true))
             {
                 Assert.AreEqual(HudFonts.HasCyrillic(text.text) ? fonts.cyrillic : fonts.latin, text.font, text.name + ": " + text.text);
-                Assert.IsTrue(text.TryGetComponent<Outline>(out var outline), text.name + " has no outline");
-                Assert.AreEqual(0f, outline.effectColor.r + outline.effectColor.g + outline.effectColor.b, 1e-3f, text.name + "'s outline is not black");
+                // a solid outline (TextOutline), or uGUI's on the labels that set their own
+                var solid = text.GetComponent<TextOutline>();
+                var plain = text.GetComponent<Outline>();
+                Assert.IsTrue(solid != null || plain != null, text.name + " has no outline");
+                var outlineColor = solid != null ? solid.color : plain.effectColor;
+                Assert.AreEqual(0f, outlineColor.r + outlineColor.g + outlineColor.b, 1e-3f, text.name + "'s outline is not black");
+                if (solid != null && plain == null && HudFonts.IsNumber(text.text) && text.transform.IsChildOf(shop.goldLabel.transform.parent))
+                    Assert.Greater(solid.bold, 0f, text.name + ": numbers must be drawn bold");
             }
             Assert.AreEqual("У/С/С 0/0/0", Object.FindAnyObjectByType<ScoreHud>().label.text, "short own score in the corner");
 

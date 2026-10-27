@@ -18,6 +18,8 @@ namespace PudgeWars.Gameplay
         public Text shortageLabel;
         public string shortageFormat = "Не хватает: {0} золота";
         public Color shortageColor = new(1f, 0.35f, 0.3f);
+        /// <summary>The shop that shows the item's full description while the row is hovered (set by it).</summary>
+        [System.NonSerialized] public ShopUI shop;
 
         HeroInventory buyer;
         bool hovered;
@@ -37,12 +39,14 @@ namespace PudgeWars.Gameplay
             // the shop closed under the mouse: no exit event comes, the hint must not wait for the next opening
             hovered = false;
             ShowShortage();
+            if (shop != null) shop.HideTooltip();
         }
 
         public void OnPointerEnter(PointerEventData eventData)
         {
             hovered = true;
             ShowShortage();
+            if (shop != null) shop.ShowTooltip(item, -1, (RectTransform)transform);
         }
 
         public void OnPointerExit(PointerEventData eventData)
@@ -50,6 +54,7 @@ namespace PudgeWars.Gameplay
             // moving onto a child (the buy button) also sends an exit here: still over the row then
             hovered = eventData.pointerCurrentRaycast.gameObject != null && eventData.pointerCurrentRaycast.gameObject.transform.IsChildOf(transform);
             ShowShortage();
+            if (!hovered && shop != null) shop.HideTooltip();
         }
 
         public void Refresh(HeroInventory buyer)

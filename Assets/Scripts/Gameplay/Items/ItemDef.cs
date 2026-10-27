@@ -20,6 +20,8 @@ namespace PudgeWars.Gameplay
     {
         public string displayName;
         [TextArea] public string description;
+        [Tooltip("The full description shown when the item is hovered (in the shop and in a slot).")]
+        [TextArea(3, 8)] public string details;
         public Sprite icon;
         public int cost;
         [Tooltip("Bonus to ability range, metres (Dota units / 100).")]

@@ -13,7 +13,9 @@ namespace PudgeWars.Gameplay
     /// on the bar, so its gold and items can be seen, a tab over the bar says whose they are ("Осмотр: Бот
     /// Мясник") and a panel over the tab shows its stats (<see cref="HeroStatsPanel"/>); purchases are still the
     /// player's own. A click (tap) on a slot of the player's own bar picks its item for use (<see cref="ItemSlotClicked"/>,
-    /// <see cref="PlayerInputController"/>); a slot of a usable item shows its key (Z X C V B N; passive items keep to the
+    /// <see cref="PlayerInputController"/>), a right click (on a phone, holding a finger on it) sells it for half its
+    /// cost, and hovering a slot or a row of the shop shows the item's full description beside it
+    /// (<see cref="ShowTooltip"/>); a slot of a usable item shows its key (Z X C V B N; passive items keep to the
     /// far slots and show none) and the item's charges in the corners,
     /// a dark radial shade with the seconds left over its cooldown (as on the ability bar) and is outlined while its
     /// item waits for a target.
@@ -64,6 +66,11 @@ namespace PudgeWars.Gameplay
         [NonSerialized] Text[] chargeLabels, cooldownLabels, keyLabels;
         [NonSerialized] Image[] cooldownShades, slotFrames;
         Color slotFrameColor;
+        RectTransform tooltip;
+        Text tooltipText;
+        ItemDef tooltipItem;
+        int tooltipSlot = -1;
+        RectTransform tooltipOver;
 
         void Start()
         {
@@ -90,8 +97,10 @@ namespace PudgeWars.Gameplay
             foreach (var row in rows)
             {
                 var r = row;
+                r.shop = this;
                 r.buyButton.onClick.AddListener(() => Buy(r.item));
             }
+            BuildTooltip();
             if (panel != null)
             {
                 panelRect = (RectTransform)panel.transform;
@@ -181,6 +190,103 @@ namespace PudgeWars.Gameplay
 
         public bool Buy(ItemDef item) => buyer != null && buyer.TryBuy(item);
 
+        /// <summary>Sells the player's own item in a slot for half its cost (not an inspected hero's).</summary>
+        public bool Sell(int slot) => !inspecting && buyer != null && buyer.TrySell(slot);
+
+        /// <summary>The item description shown now (null while hidden).</summary>
+        public Text Tooltip => tooltip != null && tooltip.gameObject.activeSelf ? tooltipText : null;
+
+        /// <summary>
+        /// The item's full description beside <paramref name="over"/>: above an inventory slot (<paramref name="slot"/>,
+        /// with its charges, key and sale price), left of a shop row (slot -1).
+        /// </summary>
+        public void ShowTooltip(ItemDef item, int slot, RectTransform over)
+        {
+            if (tooltip == null || item == null || over == null) return;
+            tooltipItem = item;
+            tooltipSlot = slot;
+            tooltipOver = over;
+            tooltipText.text = Describe(item, slot >= 0 ? Shown : null, slot);
+            float height = tooltipText.preferredHeight;
+            tooltip.sizeDelta = new Vector2(tooltip.sizeDelta.x, height + 24f);
+            var corners = new Vector3[4];
+            over.GetWorldCorners(corners); // bottom-left, top-left, top-right, bottom-right
+            float gap = 8f * tooltip.lossyScale.x;
+            if (slot >= 0)
+            {
+                tooltip.pivot = new Vector2(1f, 0f); // over the slot, toward the screen's middle
+                tooltip.position = corners[2] + Vector3.up * gap;
+            }
+            else
+            {
+                tooltip.pivot = new Vector2(1f, 0.5f); // left of the shop's row
+                tooltip.position = (corners[0] + corners[1]) / 2f + Vector3.left * gap;
+            }
+            tooltip.gameObject.SetActive(true);
+            tooltip.SetAsLastSibling();
+        }
+
+        public void HideTooltip()
+        {
+            if (tooltip != null) tooltip.gameObject.SetActive(false);
+            tooltipItem = null;
+            tooltipSlot = -1;
+        }
+
+        /// <summary>Name, price, the short and the full description and the numbers; for an owned slot its charges, key and sale.</summary>
+        static string Describe(ItemDef item, HeroInventory owner, int slot)
+        {
+            var ci = CultureInfo.InvariantCulture;
+            var text = new System.Text.StringBuilder();
+            text.Append($"<b><size=28>{item.displayName}</size></b>\n<color=#FFD040>{item.cost} золота</color>");
+            if (!string.IsNullOrEmpty(item.description)) text.Append($"\n\n{item.description}");
+            if (!string.IsNullOrEmpty(item.details)) text.Append($"\n\n<color=#D8DCE0>{item.details}</color>");
+            text.Append("\n<color=#A8B4C0>");
+            if (item.castRangeBonus > 0f) text.Append($"\nДальность способностей: +{(item.castRangeBonus * 100f).ToString("0", ci)}");
+            if (item.IsUsable) text.Append($"\nДальность применения: {(item.castRange * 100f).ToString("0", ci)}");
+            if (item.cooldown > 0f) text.Append($"\nПерезарядка: {item.cooldown.ToString("0.#", ci)} с");
+            if (item.charges > 0) text.Append(owner != null ? $"\nЗарядов осталось: {owner.ChargesAt(slot)}" : $"\nЗарядов: {item.charges}");
+            text.Append("</color>");
+            if (owner != null && item.IsUsable && slot < SlotKeys.Length)
+                text.Append($"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — выбрать, клик по цели — применить");
+            if (owner != null && owner == LocalHeroInventory())
+                text.Append($"\n<color=#E8A860>Продать за {owner.SellValue(slot)} золота: правая кнопка мыши (на телефоне — удерживать слот)</color>");
+            return text.ToString();
+        }
+
+        /// <summary>A dark panel with the description's text, made at start and shown over a hovered item.</summary>
+        void BuildTooltip()
+        {
+            var canvas = goldLabel != null ? goldLabel.canvas : GetComponentInParent<Canvas>();
+            if (canvas == null) return;
+            var old = canvas.transform.Find("ItemTooltip");
+            if (old != null) Destroy(old.gameObject); // left from an earlier start
+            tooltip = new GameObject("ItemTooltip", typeof(RectTransform)).GetComponent<RectTransform>();
+            tooltip.SetParent(canvas.transform, false);
+            tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 0.5f);
+            tooltip.sizeDelta = new Vector2(460f, 200f);
+            var bg = tooltip.gameObject.AddComponent<Image>();
+            bg.color = new Color(0.04f, 0.05f, 0.07f, 0.95f);
+            bg.raycastTarget = false;
+            var textRt = new GameObject("Text", typeof(RectTransform)).GetComponent<RectTransform>();
+            textRt.SetParent(tooltip, false);
+            textRt.anchorMin = Vector2.zero;
+            textRt.anchorMax = Vector2.one;
+            textRt.offsetMin = new Vector2(14f, 12f);
+            textRt.offsetMax = new Vector2(-14f, -12f);
+            tooltipText = textRt.gameObject.AddComponent<Text>();
+            tooltipText.font = goldLabel != null ? goldLabel.font : null;
+            tooltipText.fontSize = 20;
+            tooltipText.supportRichText = true;
+            tooltipText.alignment = TextAnchor.UpperLeft;
+            tooltipText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            tooltipText.verticalOverflow = VerticalWrapMode.Overflow;
+            tooltipText.color = Color.white;
+            tooltipText.raycastTarget = false;
+            TextOutline.Add(tooltipText.gameObject, 1.2f); // thin: on a dark plate (a long text gets fewer copies)
+            tooltip.gameObject.SetActive(false);
+        }
+
         /// <summary>Each slot clickable, with its charges label, cooldown shade and frame for the selection.</summary>
         void BuildSlotParts()
         {
@@ -200,14 +306,21 @@ namespace PudgeWars.Gameplay
                     var old = icon.transform.Find(part);
                     if (old != null) Destroy(old.gameObject);
                 }
-                if (!icon.TryGetComponent<Button>(out var button)) button = icon.gameObject.AddComponent<Button>();
-                button.onClick.RemoveAllListeners(); // runtime listeners only; the scene has none on the slots
-                button.targetGraphic = icon;
-                button.transition = Selectable.Transition.None;
-                button.onClick.AddListener(() =>
+                if (icon.TryGetComponent<ItemSlotPointer>(out var earlier)) Destroy(earlier);
+                var pointer = icon.gameObject.AddComponent<ItemSlotPointer>();
+                pointer.slot = slot;
+                pointer.Clicked += s =>
                 {
-                    if (!inspecting) ItemSlotClicked?.Invoke(slot);
-                });
+                    if (!inspecting) ItemSlotClicked?.Invoke(s);
+                };
+                pointer.Sold += s => Sell(s);
+                pointer.Hovered += s =>
+                {
+                    var shown = Shown;
+                    var item = shown != null ? shown.ItemIn(s) : null;
+                    if (item != null) ShowTooltip(item, s, (RectTransform)slots[s].transform);
+                };
+                pointer.Unhovered += HideTooltip;
                 icon.raycastTarget = true;
 
                 // as on the ability bar: a radial shade masked by the item's own picture, running out clockwise from the top
@@ -240,9 +353,7 @@ namespace PudgeWars.Gameplay
                 time.color = Color.white;
                 time.raycastTarget = false;
                 time.horizontalOverflow = HorizontalWrapMode.Overflow;
-                var timeOutline = timeRt.gameObject.AddComponent<Outline>();
-                timeOutline.effectColor = Color.black;
-                timeOutline.effectDistance = new Vector2(2f, -2f);
+                TextOutline.Add(time.gameObject, 2f, bold: 0.7f);
                 cooldownLabels[i] = time;
 
                 var keyRt = new GameObject("Key", typeof(RectTransform)).GetComponent<RectTransform>();
@@ -258,7 +369,7 @@ namespace PudgeWars.Gameplay
                 key.color = new Color(1f, 1f, 1f, 0.85f);
                 key.raycastTarget = false;
                 key.text = i < SlotKeys.Length ? SlotKeys[i] : "";
-                keyRt.gameObject.AddComponent<Outline>().effectColor = Color.black;
+                TextOutline.Add(key.gameObject, 1.4f, bold: 0.5f);
                 keyRt.gameObject.SetActive(false); // shown over a usable item (Refresh)
                 keyLabels[i] = key;
 
@@ -274,9 +385,7 @@ namespace PudgeWars.Gameplay
                 label.alignment = TextAnchor.LowerRight;
                 label.color = Color.white;
                 label.raycastTarget = false;
-                var outline = labelRt.gameObject.AddComponent<Outline>();
-                outline.effectColor = Color.black;
-                outline.effectDistance = new Vector2(1.5f, -1.5f);
+                TextOutline.Add(label.gameObject, 1.6f, bold: 0.6f);
                 chargeLabels[i] = label;
 
                 slotFrames[i] = icon.transform.parent != null ? icon.transform.parent.GetComponent<Image>() : null;
@@ -370,6 +479,13 @@ namespace PudgeWars.Gameplay
                     chargeLabels[i].text = item != null && (item.charges > 1 || item.stacks) ? shown.ChargesAt(i).ToString() : "";
             }
             foreach (var row in rows) row.Refresh(buyer);
+            // the hovered slot changed under the mouse (used, sold, a charge less): show it anew or hide
+            if (tooltipSlot >= 0)
+            {
+                var item = shown != null ? shown.ItemIn(tooltipSlot) : null;
+                if (item == null) HideTooltip();
+                else ShowTooltip(item, tooltipSlot, tooltipOver);
+            }
         }
     }
 }
