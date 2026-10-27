@@ -12,7 +12,10 @@ namespace PudgeWars.Gameplay
     /// multi-kill ("×3", kills within the multi-kill window, from Double Kill on) in orange to the left of the circle. Follows each hero on screen (never leaving it at the top, where the far
     /// heroes stand), or its body while it has one (<see cref="Corpse"/>), and hides behind the camera.
     /// Lost health shows as in Dota: the fill drops at once, a white trail stays where it was and after a moment runs
-    /// down to it. A dead hero's bar stays a while at 0 (the trail running out), then fades away until the respawn.
+    /// down to it. Regeneration shows the other way: a dark strip (dark green for allies, dark red for enemies) runs
+    /// ahead of the fill over the health the next <see cref="regenPreviewSeconds"/> bring back, and "+2.5" (health per
+    /// second) stands at the bar's right end. A dead hero's bar stays a while at 0 (the trail running out), then fades
+    /// away until the respawn.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
     public class HealthBars : MonoBehaviour
@@ -46,18 +49,28 @@ namespace PudgeWars.Gameplay
         [Tooltip("Seconds the trail stays where the health was before it runs down (each new hit starts it again).")]
         public float trailHold = 0.35f;
         [Tooltip("How fast the trail runs down, bars per second.")] public float trailSpeed = 1.1f;
+        [Header("Regeneration")]
+        [Tooltip("The strip ahead of the fill shows the health regenerated over this many seconds.")]
+        public float regenPreviewSeconds = 10f;
+        public Color playerRegenColor = new(0.1f, 0.34f, 0.07f);
+        public Color enemyRegenColor = new(0.36f, 0.06f, 0.04f);
+        [Tooltip("{0} = health regenerated per second; shown at the bar's right end.")]
+        public string regenFormat = "+{0:0.#}";
+        public int regenFontSize = 16;
+        public Color regenTextColor = new(0.65f, 1f, 0.5f);
         [Tooltip("Seconds a dead hero's bar stays shown at 0, its fading included.")] public float deadShowTime = 2f;
         [Tooltip("Seconds of fading at the end of that.")] public float deadFadeTime = 0.4f;
 
         class Bar
         {
-            public RectTransform root, fill, trail;
+            public RectTransform root, fill, trail, regen;
             public CanvasGroup group;
             public float trailFraction, lastFraction, holdUntil;
             public float deadSince = -1f; // -1 while alive
-            public Image fillImage;
-            public Text name, health, level, multiKill;
+            public Image fillImage, regenImage;
+            public Text name, health, level, multiKill, regenText;
             public int shownHealth = -1, shownMax = -1, shownLevel = -1, shownMultiKill = -1;
+            public float shownRegen = -1f;
         }
 
         readonly Dictionary<Pudge, Bar> bars = new();
@@ -91,6 +104,12 @@ namespace PudgeWars.Gameplay
         /// <summary>The lost health's white trail behind a hero's fill (null if it has no bar yet).</summary>
         public RectTransform Trail(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.trail : null;
 
+        /// <summary>The regeneration strip ahead of a hero's fill (null if it has no bar yet).</summary>
+        public RectTransform RegenStrip(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.regen : null;
+
+        /// <summary>The "+2.5" regeneration label at the right end of a hero's bar (null if it has no bar yet; inactive without regeneration).</summary>
+        public Text RegenLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.regenText : null;
+
         /// <summary>The "current / max" health label on a hero's bar (null if it has none yet).</summary>
         public Text HealthLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.health : null;
 
@@ -114,8 +133,11 @@ namespace PudgeWars.Gameplay
                     continue;
                 }
                 bar.name.text = hero.DisplayName;
-                bar.fillImage.color = hero.team == LocalPlayer.Team ? playerColor : enemyColor; // teams may change in a network game
+                bool ally = hero.team == LocalPlayer.Team; // teams may change in a network game
+                bar.fillImage.color = ally ? playerColor : enemyColor;
+                bar.regenImage.color = ally ? playerRegenColor : enemyRegenColor;
                 ShowFill(hero, bar);
+                ShowRegen(hero, bar);
                 ShowHealth(hero, bar);
                 ShowLevel(hero, bar);
                 ShowMultiKill(hero, bar);
@@ -140,6 +162,20 @@ namespace PudgeWars.Gameplay
             else if (now >= bar.holdUntil) bar.trailFraction = Mathf.MoveTowards(bar.trailFraction, fraction, trailSpeed * Time.deltaTime);
             bar.fill.anchorMax = new Vector2(fraction, 1f);
             bar.trail.anchorMax = new Vector2(bar.trailFraction, 1f);
+        }
+
+        /// <summary>The strip over the health coming back in <see cref="regenPreviewSeconds"/>, and the regeneration per second.</summary>
+        void ShowRegen(Pudge hero, Bar bar)
+        {
+            float regen = hero.IsAlive ? Mathf.Max(0f, hero.healthRegen) : 0f;
+            float ahead = hero.maxHealth > 0f
+                ? Mathf.Clamp01((Mathf.Max(0f, hero.Health) + regen * regenPreviewSeconds) / hero.maxHealth)
+                : 0f;
+            bar.regen.anchorMax = new Vector2(ahead, 1f);
+            if (Mathf.Approximately(regen, bar.shownRegen)) return;
+            bar.shownRegen = regen;
+            bar.regenText.text = string.Format(regenFormat, regen);
+            bar.regenText.gameObject.SetActive(regen > 0f);
         }
 
         /// <summary>Rebuilds the text only when the numbers change (no garbage every frame).</summary>
@@ -202,6 +238,13 @@ namespace PudgeWars.Gameplay
 
             var inner = Rect(root, "Inner", size);
             Img(inner, emptyColor);
+            bool ally = hero.team == LocalPlayer.Team;
+            // the health regeneration brings back, under the trail and the fill: only its part ahead of the fill shows
+            var regen = Rect(inner, "Regen", Vector2.zero);
+            regen.anchorMin = Vector2.zero;
+            regen.anchorMax = Vector2.one;
+            regen.pivot = new Vector2(0f, 0.5f);
+            var regenImage = Img(regen, ally ? playerRegenColor : enemyRegenColor);
             // the lost health's trail, under the fill
             var trail = Rect(inner, "Trail", Vector2.zero);
             trail.anchorMin = Vector2.zero;
@@ -212,7 +255,7 @@ namespace PudgeWars.Gameplay
             fill.anchorMin = Vector2.zero;
             fill.anchorMax = Vector2.one;
             fill.pivot = new Vector2(0f, 0.5f);
-            var fillImage = Img(fill, hero.team == LocalPlayer.Team ? playerColor : enemyColor);
+            var fillImage = Img(fill, ally ? playerColor : enemyColor);
 
             // gloss on the upper half of the fill, as on Dota's bars
             var gloss = Rect(fill, "Gloss", Vector2.zero);
@@ -294,13 +337,32 @@ namespace PudgeWars.Gameplay
             multiKillOutline.effectColor = Color.black;
             multiKillOutline.effectDistance = new Vector2(1.5f, -1.5f);
 
+            // regeneration per second: "+2.5" just right of the bar
+            var regenTextRt = Rect(root, "RegenRate", new Vector2(80f, size.y + 6f));
+            regenTextRt.pivot = new Vector2(0f, 0.5f);
+            regenTextRt.anchoredPosition = new Vector2(size.x / 2f + border + 4f, 0f);
+            var regenText = regenTextRt.gameObject.AddComponent<Text>();
+            regenText.font = font;
+            regenText.fontSize = regenFontSize;
+            regenText.fontStyle = FontStyle.Bold;
+            regenText.alignment = TextAnchor.MiddleLeft;
+            regenText.color = regenTextColor;
+            regenText.raycastTarget = false;
+            regenText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            regenText.verticalOverflow = VerticalWrapMode.Overflow;
+            var regenOutline = regenTextRt.gameObject.AddComponent<Outline>();
+            regenOutline.effectColor = Color.black;
+            regenOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
             float fraction = Fraction(hero);
             var bar = new Bar
             {
-                root = root, fill = fill, trail = trail, group = group, trailFraction = fraction, lastFraction = fraction,
-                fillImage = fillImage, name = name, health = health, level = level, multiKill = multiKill,
+                root = root, fill = fill, trail = trail, regen = regen, group = group, trailFraction = fraction,
+                lastFraction = fraction, fillImage = fillImage, regenImage = regenImage, name = name, health = health,
+                level = level, multiKill = multiKill, regenText = regenText,
             };
             ShowFill(hero, bar);
+            ShowRegen(hero, bar);
             ShowHealth(hero, bar);
             ShowLevel(hero, bar);
             ShowMultiKill(hero, bar);

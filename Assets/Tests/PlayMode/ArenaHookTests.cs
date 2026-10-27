@@ -1408,6 +1408,39 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HealthBarShowsRegenerationAheadOfTheFillAndItsRate()
+        {
+            var bars = Object.FindAnyObjectByType<HealthBars>();
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            yield return null;
+            foreach (var hero in new[] { bot, player })
+            {
+                var label = bars.RegenLabel(hero);
+                Assert.IsTrue(label.gameObject.activeSelf, "no regeneration shown next to the bar");
+                Assert.AreEqual("+2.5", label.text, "the bar shows health regenerated per second");
+                Assert.Greater(label.transform.localPosition.x, bars.Of(hero).fill.parent.localPosition.x + bars.size.x / 2f - 1f, "the rate stands right of the bar");
+                Assert.AreEqual(hero.team == LocalPlayer.Team ? bars.playerRegenColor : bars.enemyRegenColor,
+                    bars.RegenStrip(hero).GetComponent<Image>().color, "dark green for allies, dark red for enemies");
+            }
+
+            // a hurt hero: the dark strip runs ahead of the fill over the health the next seconds bring back
+            bot.Damage(300f, null);
+            yield return null;
+            float fill = bars.Of(bot).fill.anchorMax.x, strip = bars.RegenStrip(bot).anchorMax.x;
+            Assert.AreEqual(bot.healthRegen * bars.regenPreviewSeconds / bot.maxHealth, strip - fill, 0.005f,
+                "the strip must cover the health regenerated in regenPreviewSeconds");
+            Assert.Less(bars.RegenStrip(bot).GetSiblingIndex(), bars.Of(bot).fill.GetSiblingIndex(), "the strip lies under the fill");
+            CaptureScreen("health_regen");
+
+            // nothing comes back to the dead
+            bot.StartFalling(Vector3.zero);
+            yield return new WaitUntil(() => !bot.IsAlive);
+            yield return null;
+            Assert.IsFalse(bars.RegenLabel(bot).gameObject.activeSelf, "a dead hero does not regenerate");
+            Assert.AreEqual(0f, bars.RegenStrip(bot).anchorMax.x, 1e-4f);
+        }
+
+        [UnityTest]
         public IEnumerator HeroesHaveNicknamesAndDotaHealthBars()
         {
             var bars = Object.FindAnyObjectByType<HealthBars>();
