@@ -12,6 +12,9 @@ namespace PudgeWars.Gameplay
     /// not stop anyone. The tree grows back after <see cref="regrowTime"/> once nobody stands in its place.
     /// The parts come from Dota's models: the stump and the cut-off top (*_destruction) of each prototype; a tree
     /// without them falls whole and leaves nothing. The terrain plays on a copy of its data: the asset stays as built.
+    /// A tree can also be planted (Iron Branch, <see cref="Plant(Vector3, float)"/>): it is a model of its own, not a
+    /// terrain instance, stands for a while and then goes; cut down it falls whole and never grows back. Trees are
+    /// named by a handle: a terrain tree by its index, a planted one by <see cref="PlantedBase"/> + its number.
     /// </summary>
     [RequireComponent(typeof(Terrain))]
     public class TerrainTrees : MonoBehaviour
@@ -35,12 +38,38 @@ namespace PudgeWars.Gameplay
         const float BounceAngle = 7f;   // it bounces back this much as it hits the ground
         const float BounceTime = 0.3f;
 
-        public static TerrainTrees Instance { get; private set; }
+        /// <summary>Handles of planted trees start here (terrain trees are their indices below it).</summary>
+        public const int PlantedBase = 1 << 20;
 
-        /// <summary>A tree was cut down (its index, where it was cut from); the server's trees tell the clients.</summary>
+        public static TerrainTrees Instance { get; private set; }
+        public static bool IsPlanted(int tree) => tree >= PlantedBase;
+
+        [Tooltip("A planted tree is this tall relative to the tree it takes after (the nearest one).")]
+        public float plantedScale = 0.75f;
+
+        /// <summary>A tree was cut down (its handle, where it was cut from); the server's trees tell the clients.</summary>
         public event Action<int, Vector3> Felled;
         /// <summary>A cut tree grew back.</summary>
         public event Action<int> Regrown;
+        /// <summary>A tree was planted: its handle, foot, prototype, rotation (radians) and scale.</summary>
+        public event Action<int, Vector3, int, float, float> Planted;
+        /// <summary>A planted tree is gone: its time ran out or it was cut down (after <see cref="Felled"/>).</summary>
+        public event Action<int> Unplanted;
+
+        /// <summary>Where a tree stands and how it looks (a terrain instance or a planted tree).</summary>
+        struct Spot
+        {
+            public Vector3 position;
+            public int prototype;
+            public float rotation, widthScale, heightScale;
+        }
+
+        class PlantedTree
+        {
+            public Spot spot;
+            public GameObject model;
+            public Coroutine expiry;
+        }
 
         Terrain terrain;
         TerrainData data;
@@ -48,9 +77,15 @@ namespace PudgeWars.Gameplay
         bool[] down;
         GameObject[] stumpsUp;
         Coroutine[] regrowing;
+        readonly Dictionary<int, PlantedTree> planted = new();
+        int nextPlanted;
 
+        /// <summary>Trees of the terrain (planted ones not counted).</summary>
         public int Count => trees.Length;
-        public bool IsStanding(int index) => !down[index];
+        public bool IsStanding(int tree) =>
+            IsPlanted(tree) ? planted.ContainsKey(tree) : tree >= 0 && tree < trees.Length && !down[tree];
+        /// <summary>Handles of the planted trees standing now.</summary>
+        public IEnumerable<int> PlantedTrees => planted.Keys;
 
         void Awake()
         {
@@ -82,24 +117,118 @@ namespace PudgeWars.Gameplay
             if (data != null) Destroy(data);
         }
 
-        /// <summary>World position of a tree's foot.</summary>
-        public Vector3 Position(int index) => terrain.transform.position + Vector3.Scale(trees[index].position, data.size);
+        /// <summary>World position of a tree's foot (a terrain tree's or a planted one's).</summary>
+        public Vector3 Position(int tree) =>
+            IsPlanted(tree) ? planted.TryGetValue(tree, out var p) ? p.spot.position : Vector3.zero
+                : terrain.transform.position + Vector3.Scale(trees[tree].position, data.size);
 
-        /// <summary>The standing tree nearest to <paramref name="p"/> on the ground plane within <paramref name="within"/>, or -1.</summary>
+        Spot SpotOf(int index)
+        {
+            var tree = trees[index];
+            return new Spot
+            {
+                position = Position(index), prototype = tree.prototypeIndex, rotation = tree.rotation,
+                widthScale = tree.widthScale, heightScale = tree.heightScale,
+            };
+        }
+
+        /// <summary>The standing tree (terrain or planted) nearest to <paramref name="p"/> on the ground plane within <paramref name="within"/>, or -1.</summary>
         public int Nearest(Vector3 p, float within)
         {
             int best = -1;
             float bestSqr = within * within;
+            void Consider(int tree, Vector3 at)
+            {
+                var d = at - p;
+                d.y = 0f;
+                if (d.sqrMagnitude >= bestSqr) return;
+                bestSqr = d.sqrMagnitude;
+                best = tree;
+            }
+            for (int i = 0; i < trees.Length; i++)
+                if (!down[i]) Consider(i, Position(i));
+            foreach (var (handle, tree) in planted) Consider(handle, tree.spot.position);
+            return best;
+        }
+
+        /// <summary>
+        /// A tree may be planted here: on the arena's ground (not over the pit), clear of the trees and the heroes.
+        /// </summary>
+        public bool CanPlant(Vector3 p)
+        {
+            var arena = Arena.Instance;
+            if (arena != null && arena.IsOverPit(p)) return false;
+            if (Obstacle.Blocks(p, radius)) return false;
+            foreach (var h in Pudge.All)
+            {
+                var d = h.transform.position - p;
+                d.y = 0f;
+                float r = h.radius + radius;
+                if (h.IsAlive && !h.IsFalling && d.sqrMagnitude < r * r) return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Server / offline: plants a tree at <paramref name="position"/> that stands <paramref name="lifetime"/>
+        /// seconds; it takes after the nearest terrain tree (the side's kind), a little smaller. Its handle, or -1.
+        /// </summary>
+        public int Plant(Vector3 position, float lifetime)
+        {
+            if (!CanPlant(position)) return -1;
+            int prototype = 0;
+            float scale = plantedScale, bestSqr = float.MaxValue;
             for (int i = 0; i < trees.Length; i++)
             {
-                if (down[i]) continue;
-                var d = Position(i) - p;
+                var d = Position(i) - position;
                 d.y = 0f;
                 if (d.sqrMagnitude >= bestSqr) continue;
                 bestSqr = d.sqrMagnitude;
-                best = i;
+                prototype = trees[i].prototypeIndex;
+                scale = trees[i].heightScale * plantedScale;
             }
-            return best;
+            int handle = PlantedBase + nextPlanted++;
+            Plant(handle, position, prototype, UnityEngine.Random.Range(0f, Mathf.PI * 2f), scale);
+            if (planted.TryGetValue(handle, out var tree)) tree.expiry = StartCoroutine(ExpireLater(handle, lifetime));
+            return handle;
+        }
+
+        /// <summary>A planted tree as the server made it (a client's copy); false if it stands already.</summary>
+        public bool Plant(int handle, Vector3 position, int prototype, float rotation, float scale)
+        {
+            if (!IsPlanted(handle) || planted.ContainsKey(handle)) return false;
+            if (data.treePrototypes.Length == 0) return false;
+            prototype = Mathf.Clamp(prototype, 0, data.treePrototypes.Length - 1);
+            var spot = new Spot
+            {
+                position = new Vector3(position.x, terrain.SampleHeight(position) + terrain.transform.position.y, position.z),
+                prototype = prototype, rotation = rotation, widthScale = scale, heightScale = scale,
+            };
+            var prefab = data.treePrototypes[prototype].prefab;
+            var tree = new PlantedTree { spot = spot, model = prefab != null ? Place(prefab, spot, transform) : null };
+            planted[handle] = tree;
+            nextPlanted = Mathf.Max(nextPlanted, handle - PlantedBase + 1);
+            UpdateObstacles();
+            Planted?.Invoke(handle, spot.position, prototype, rotation, scale);
+            return true;
+        }
+
+        /// <summary>A planted tree goes without falling (its time ran out); false if there is none.</summary>
+        public bool Unplant(int handle)
+        {
+            if (!planted.Remove(handle, out var tree)) return false;
+            if (tree.expiry != null) StopCoroutine(tree.expiry);
+            if (tree.model != null) Destroy(tree.model);
+            UpdateObstacles();
+            Unplanted?.Invoke(handle);
+            return true;
+        }
+
+        IEnumerator ExpireLater(int handle, float lifetime)
+        {
+            yield return new WaitForSeconds(lifetime);
+            if (planted.TryGetValue(handle, out var tree)) tree.expiry = null;
+            Unplant(handle);
         }
 
         /// <summary>
@@ -108,6 +237,7 @@ namespace PudgeWars.Gameplay
         /// </summary>
         public bool Fell(int index, Vector3 from, bool animate = true)
         {
+            if (IsPlanted(index)) return FellPlanted(index, from, animate);
             if (index < 0 || index >= trees.Length || down[index]) return false;
             down[index] = true;
             var hidden = trees[index];
@@ -115,17 +245,28 @@ namespace PudgeWars.Gameplay
             data.SetTreeInstance(index, hidden);
             UpdateObstacles();
 
-            var tree = trees[index];
-            var stump = Part(stumps, tree.prototypeIndex);
-            if (stump != null) stumpsUp[index] = Place(stump, index, transform);
-            if (animate) StartCoroutine(Fall(index, from));
+            var spot = SpotOf(index);
+            var stump = Part(stumps, spot.prototype);
+            if (stump != null) stumpsUp[index] = Place(stump, spot, transform);
+            if (animate) StartCoroutine(Fall(spot, from, whole: false));
             // a client's trees grow back when the server's do
             if (!Simulation.IsProxy) regrowing[index] = StartCoroutine(RegrowLater(index));
             Felled?.Invoke(index, from);
             return true;
         }
 
-        /// <summary>A cut tree stands again; its stump goes.</summary>
+        /// <summary>A planted tree is cut down: it falls whole, leaves no stump and is gone for good.</summary>
+        bool FellPlanted(int handle, Vector3 from, bool animate)
+        {
+            if (!planted.TryGetValue(handle, out var tree)) return false;
+            if (tree.model != null) tree.model.SetActive(false); // the falling copy takes its place
+            if (animate) StartCoroutine(Fall(tree.spot, from, whole: true));
+            Felled?.Invoke(handle, from);
+            Unplant(handle);
+            return true;
+        }
+
+        /// <summary>A cut tree stands again; its stump goes. Planted trees do not grow back.</summary>
         public bool Regrow(int index)
         {
             if (index < 0 || index >= trees.Length || !down[index]) return false;
@@ -166,21 +307,20 @@ namespace PudgeWars.Gameplay
         /// The top tips over about the foot of its trunk, faster and faster, bounces on the ground, lies there and sinks.
         /// It is set down on the stump (the files leave a gap between them).
         /// </summary>
-        IEnumerator Fall(int index, Vector3 from)
+        IEnumerator Fall(Spot tree, Vector3 from, bool whole)
         {
-            var tree = trees[index];
-            var top = Part(fallingParts, tree.prototypeIndex);
-            var stump = Part(stumps, tree.prototypeIndex);
-            if (top == null) top = data.treePrototypes[tree.prototypeIndex].prefab; // falls whole
+            var top = whole ? null : Part(fallingParts, tree.prototype);
+            var stump = whole ? null : Part(stumps, tree.prototype);
+            if (top == null) top = data.treePrototypes[tree.prototype].prefab; // falls whole
             if (top == null) yield break;
             float cut = MeshBounds(top).min.y;
             float foot = stump != null ? Mathf.Min(cut, MeshBounds(stump).max.y) : cut;
 
-            var at = Position(index);
+            var at = tree.position;
             var pivot = new GameObject("Falling tree").transform;
             pivot.SetParent(transform, false);
             pivot.position = at + Vector3.up * (foot * tree.heightScale);
-            var piece = Place(top, index, pivot);
+            var piece = Place(top, tree, pivot);
             piece.transform.position += Vector3.up * ((foot - cut) * tree.heightScale);
 
             var away = at - from;
@@ -212,11 +352,10 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>A part of a tree where the tree stands, turned and scaled as it.</summary>
-        GameObject Place(GameObject prefab, int index, Transform parent)
+        static GameObject Place(GameObject prefab, Spot tree, Transform parent)
         {
-            var tree = trees[index];
             var part = Instantiate(prefab, parent);
-            part.transform.SetPositionAndRotation(Position(index), Quaternion.Euler(0f, tree.rotation * Mathf.Rad2Deg, 0f));
+            part.transform.SetPositionAndRotation(tree.position, Quaternion.Euler(0f, tree.rotation * Mathf.Rad2Deg, 0f));
             part.transform.localScale = new Vector3(tree.widthScale, tree.heightScale, tree.widthScale);
             return part;
         }
@@ -245,6 +384,7 @@ namespace PudgeWars.Gameplay
             var circles = new List<ObstacleCircle>(trees.Length);
             for (int i = 0; i < trees.Length; i++)
                 if (!down[i]) circles.Add(new ObstacleCircle(Position(i), radius));
+            foreach (var tree in planted.Values) circles.Add(new ObstacleCircle(tree.spot.position, radius));
             Obstacle.Register(this, circles.ToArray());
         }
 

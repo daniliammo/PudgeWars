@@ -11,14 +11,25 @@ namespace PudgeWars.Net
         public Vector3 from;
     }
 
+    /// <summary>A tree planted in the match (Iron Branch): its handle and how it stands.</summary>
+    public struct PlantedTreeState
+    {
+        public int handle;
+        public Vector3 position;
+        public int prototype;
+        public float rotation, scale;
+    }
+
     /// <summary>
     /// Match-wide state of a network game, one per server: the score of both teams (rescues included), the
     /// kill-series announcements and rescues, which the server's <see cref="Arena"/> makes and clients' arenas only show,
-    /// and the trees cut down (<see cref="TerrainTrees"/>: they fall on the clients too, a joining client finds them cut).
+    /// and the trees cut down (<see cref="TerrainTrees"/>: they fall on the clients too, a joining client finds them cut)
+    /// or planted (they stand on the clients while they stand on the server).
     /// </summary>
     public class NetMatch : NetworkBehaviour
     {
         readonly SyncList<FelledTree> felledTrees = new();
+        readonly SyncList<PlantedTreeState> plantedTrees = new();
 
         [SyncVar] int playerKills;
         [SyncVar] int botsKills;
@@ -44,6 +55,8 @@ namespace PudgeWars.Net
             if (trees == null) return;
             trees.Felled += OnTreeFelled;
             trees.Regrown += OnTreeRegrown;
+            trees.Planted += OnTreePlanted;
+            trees.Unplanted += OnTreeUnplanted;
         }
 
         public override void OnStopServer()
@@ -52,6 +65,8 @@ namespace PudgeWars.Net
             {
                 trees.Felled -= OnTreeFelled;
                 trees.Regrown -= OnTreeRegrown;
+                trees.Planted -= OnTreePlanted;
+                trees.Unplanted -= OnTreeUnplanted;
             }
             if (arena == null) return;
             arena.ScoreChanged -= PublishScore;
@@ -60,7 +75,30 @@ namespace PudgeWars.Net
             arena.Rescued -= OnRescued;
         }
 
-        void OnTreeFelled(int index, Vector3 from) => felledTrees.Add(new FelledTree { index = index, from = from });
+        void OnTreeFelled(int index, Vector3 from)
+        {
+            // a planted tree is gone once cut (its removal follows): it only has to fall on the clients
+            if (TerrainTrees.IsPlanted(index)) RpcPlantedFelled(index, from);
+            else felledTrees.Add(new FelledTree { index = index, from = from });
+        }
+
+        [ClientRpc]
+        void RpcPlantedFelled(int handle, Vector3 from)
+        {
+            if (!isServer && TerrainTrees.Instance != null) TerrainTrees.Instance.Fell(handle, from);
+        }
+
+        void OnTreePlanted(int handle, Vector3 position, int prototype, float rotation, float scale) =>
+            plantedTrees.Add(new PlantedTreeState { handle = handle, position = position, prototype = prototype, rotation = rotation, scale = scale });
+
+        void OnTreeUnplanted(int handle)
+        {
+            int i = plantedTrees.FindIndex(t => t.handle == handle);
+            if (i >= 0) plantedTrees.RemoveAt(i);
+        }
+
+        static void Plant(PlantedTreeState tree) =>
+            TerrainTrees.Instance?.Plant(tree.handle, tree.position, tree.prototype, tree.rotation, tree.scale);
 
         void OnTreeRegrown(int index)
         {
@@ -80,9 +118,12 @@ namespace PudgeWars.Net
             {
                 if (TerrainTrees.Instance != null) TerrainTrees.Instance.Regrow(tree.index);
             };
+            plantedTrees.OnAdd += i => Plant(plantedTrees[i]);
+            plantedTrees.OnRemove += (_, tree) => TerrainTrees.Instance?.Unplant(tree.handle);
             // cut before this client joined: already lying, not falling now
             if (TerrainTrees.Instance != null)
                 foreach (var tree in felledTrees) TerrainTrees.Instance.Fell(tree.index, tree.from, animate: false);
+            foreach (var tree in plantedTrees) Plant(tree);
         }
 
         void PublishScore(int score, int deaths)
