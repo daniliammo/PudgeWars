@@ -37,6 +37,7 @@ namespace PudgeWars.Net
         [SyncVar] int botsDeaths;
         [SyncVar] int playerRescues;
         [SyncVar] int botsRescues;
+        [SyncVar] double startedAt; // NetworkTime of the match's start
 
         Arena arena;
         TerrainTrees trees;
@@ -50,6 +51,7 @@ namespace PudgeWars.Net
             arena.KillAnnounced += OnKillAnnounced;
             arena.SeriesEnded += OnSeriesEnded;
             arena.Rescued += OnRescued;
+            startedAt = NetworkTime.time - arena.MatchTime;
             PublishScore(arena.Score, arena.Deaths);
             trees = TerrainTrees.Instance;
             if (trees == null) return;
@@ -173,6 +175,7 @@ namespace PudgeWars.Net
         void Update()
         {
             if (isServer || !isClient || Arena.Instance == null) return;
+            if (startedAt > 0.0) Arena.Instance.ApplyRemoteMatchTime((float)(NetworkTime.time - startedAt));
             var score = (playerKills, botsKills, playerDeaths, botsDeaths, playerRescues, botsRescues);
             if (score == shown) return;
             shown = score;

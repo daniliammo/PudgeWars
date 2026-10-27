@@ -814,6 +814,23 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator MatchClockRunsOverTheScore()
+        {
+            var hud = Object.FindAnyObjectByType<ScoreHud>();
+            yield return null;
+            Assert.IsNotNull(hud.Clock, "no match clock");
+            Assert.Greater(hud.Clock.transform.parent.position.y, hud.RadiantKills.transform.parent.position.y, "the clock must stand over the score");
+            Assert.AreEqual("0:00", hud.Clock.text);
+            yield return new WaitForSeconds(1.2f);
+            Assert.AreEqual("0:01", hud.Clock.text);
+            Assert.AreEqual("12:05", ScoreHud.FormatClock(12 * 60 + 5));
+            Assert.AreEqual("1:02:03", ScoreHud.FormatClock(3600 + 2 * 60 + 3));
+            arena.ResetMatch();
+            yield return null;
+            Assert.AreEqual("0:00", hud.Clock.text, "a new match starts its clock anew");
+        }
+
+        [UnityTest]
         public IEnumerator BotDoesNotThrowThroughAnAlly()
         {
             var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();

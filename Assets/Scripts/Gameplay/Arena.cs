@@ -88,18 +88,22 @@ namespace PudgeWars.Gameplay
         public event Action<Pudge, Pudge> Rescued;
 
         public KillStreaks Streaks { get; private set; }
+        /// <summary>Seconds since the match began (the arena loaded, or the network game started; on a client, the server's).</summary>
+        public float MatchTime => Time.time - matchStartedAt;
 
         readonly int[] kills = new int[2], deaths = new int[2], rescues = new int[2];
         readonly Dictionary<Pudge, int> remoteRampages = new();
         readonly Dictionary<Pudge, int> remoteMultiKills = new();
         readonly Dictionary<Pudge, HeroScore> heroScores = new();
         float nextPassiveGold;
+        float matchStartedAt;
 
         void Awake()
         {
             Instance = this;
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
             nextPassiveGold = Time.time + passiveGoldInterval;
+            matchStartedAt = Time.time;
         }
 
         void OnDestroy()
@@ -224,8 +228,12 @@ namespace PudgeWars.Gameplay
             remoteMultiKills.Clear();
             heroScores.Clear();
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
+            matchStartedAt = Time.time;
             ScoreChanged?.Invoke(Score, Deaths);
         }
+
+        /// <summary>Network client: the match has gone on this long on the server.</summary>
+        public void ApplyRemoteMatchTime(float elapsed) => matchStartedAt = Time.time - elapsed;
 
         /// <summary>Rampages in a row of the hero's current multi-kill (as the server counted them on a client).</summary>
         public int RampageCount(Pudge hero) =>

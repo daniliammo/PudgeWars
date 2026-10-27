@@ -9,8 +9,8 @@ namespace PudgeWars.Gameplay
     /// them its team's (the team's bots included); at the top centre the teams' kills as on Dota's top bar — Radiant
     /// green on the left, Dire red on the right, the own team's name in bold — and under it the teams' net worth around a gold coin (the
     /// gold and the items of all their heroes, <see cref="HeroInventory.NetWorth"/>; every hero's are known on a network
-    /// client too), the leading team's in bold with its lead. The team line and the top bar are built at runtime under
-    /// the same canvas.
+    /// client too), the leading team's in bold with its lead; over the bar the match's time ("12:34", hours past an
+    /// hour). The team line and the top bar are built at runtime under the same canvas.
     /// </summary>
     public class ScoreHud : MonoBehaviour
     {
@@ -35,10 +35,13 @@ namespace PudgeWars.Gameplay
         /// <summary>The teams' net worth under the top bar.</summary>
         public Text RadiantWorth { get; private set; }
         public Text DireWorth { get; private set; }
+        /// <summary>The match's time over the top bar.</summary>
+        public Text Clock { get; private set; }
 
         Arena arena;
         Text radiantTitle, direTitle;
         float worthAt;
+        int shownSeconds = -1;
 
         void Start()
         {
@@ -60,6 +63,7 @@ namespace PudgeWars.Gameplay
 
         void Update()
         {
+            ShowClock();
             if (RadiantWorth == null || Time.unscaledTime < worthAt) return;
             worthAt = Time.unscaledTime + worthInterval;
             ShowWorth();
@@ -74,6 +78,19 @@ namespace PudgeWars.Gameplay
             RadiantWorth.fontStyle = radiant > dire ? FontStyle.Bold : FontStyle.Normal;
             DireWorth.fontStyle = dire > radiant ? FontStyle.Bold : FontStyle.Normal;
         }
+
+        /// <summary>The match's time, "m:ss" ("h:mm:ss" past an hour); the text changes once a second.</summary>
+        void ShowClock()
+        {
+            if (Clock == null) return;
+            int seconds = arena != null ? Mathf.Max(0, Mathf.FloorToInt(arena.MatchTime)) : 0;
+            if (seconds == shownSeconds) return;
+            shownSeconds = seconds;
+            Clock.text = FormatClock(seconds);
+        }
+
+        public static string FormatClock(int seconds) =>
+            seconds >= 3600 ? $"{seconds / 3600}:{seconds / 60 % 60:00}:{seconds % 60:00}" : $"{seconds / 60}:{seconds % 60:00}";
 
         /// <summary>The gold and the items of all the team's heroes, bots included.</summary>
         public static int NetWorthOf(Team team)
@@ -139,11 +156,23 @@ namespace PudgeWars.Gameplay
             var bar = new GameObject("TeamScore", typeof(RectTransform)).GetComponent<RectTransform>();
             bar.SetParent(label != null ? label.canvas.transform : transform, false);
             bar.anchorMin = bar.anchorMax = bar.pivot = new Vector2(0.5f, 1f);
-            bar.anchoredPosition = new Vector2(0f, -10f);
+            bar.anchoredPosition = new Vector2(0f, -46f); // under the clock
             bar.sizeDelta = new Vector2(520f, 76f);
             var bg = bar.gameObject.AddComponent<Image>();
             bg.color = new Color(0.05f, 0.06f, 0.08f, 0.8f);
             bg.raycastTarget = false;
+
+            // the match's clock: a small dark plate on top, over the score
+            var clock = new GameObject("MatchClock", typeof(RectTransform)).GetComponent<RectTransform>();
+            clock.SetParent(bar.parent, false);
+            clock.anchorMin = clock.anchorMax = clock.pivot = new Vector2(0.5f, 1f);
+            clock.anchoredPosition = new Vector2(0f, -8f);
+            clock.sizeDelta = new Vector2(130f, 36f);
+            var clockBg = clock.gameObject.AddComponent<Image>();
+            clockBg.color = new Color(0.05f, 0.06f, 0.08f, 0.8f);
+            clockBg.raycastTarget = false;
+            Clock = Make(clock, "Time", font, 28, Vector2.zero, clock.sizeDelta, TextAnchor.MiddleCenter, Color.white);
+            ShowClock();
 
             radiantTitle = Make(bar, "RadiantName", font, 24, new Vector2(-170f, 0f), new Vector2(170f, 40f), TextAnchor.MiddleCenter, radiantColor);
             RadiantKills = Make(bar, "RadiantKills", font, 52, new Vector2(-50f, 0f), new Vector2(90f, 70f), TextAnchor.MiddleRight, radiantColor);
