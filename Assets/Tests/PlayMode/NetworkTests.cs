@@ -147,8 +147,8 @@ namespace PudgeWars.Tests
 
                 ItemDef wanted = null;
                 inventory.BuyRequested += item => wanted = item;
-                var lens = Object.FindAnyObjectByType<ShopUI>().rows[0].item;
-                inventory.ApplyRemoteState(lens.cost, Enumerable.Empty<ItemDef>());
+                var lens = Object.FindAnyObjectByType<ShopUI>().rows.First(r => r.item.castRangeBonus > 0f).item; // Aether Lens
+                inventory.ApplyRemoteState(lens.cost, Enumerable.Empty<(ItemDef, int)>());
                 Assert.IsTrue(inventory.TryBuy(lens));
                 Assert.AreEqual(lens, wanted, "the purchase was not sent to the server");
                 Assert.AreEqual(lens.cost, inventory.Gold, "a client must not spend gold itself");

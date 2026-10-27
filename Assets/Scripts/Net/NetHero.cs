@@ -26,6 +26,7 @@ namespace PudgeWars.Net
         [SyncVar(hook = nameof(OnNicknameChanged))] string nickname;
         [SyncVar] byte heroFlags = AliveFlag;
         [SyncVar] float health;
+        [SyncVar] float regen;
         [SyncVar] int multiKill;
         [SyncVar] int kills;
         [SyncVar] int deaths;
@@ -110,7 +111,10 @@ namespace PudgeWars.Net
         void PublishInventory()
         {
             gold = inventory != null ? inventory.Gold : 0;
-            items = inventory != null && prefabs != null ? string.Join(",", inventory.Items.Select(prefabs.IndexOf)) : "";
+            // "index:charges" per slot
+            items = inventory != null && prefabs != null
+                ? string.Join(",", inventory.Items.Select((item, slot) => $"{prefabs.IndexOf(item)}:{inventory.ChargesAt(slot)}"))
+                : "";
         }
 
         void OnAnimationPlayed(string state, float fade, float lockSeconds)
@@ -138,6 +142,7 @@ namespace PudgeWars.Net
         {
             heroFlags = (byte)((hookable.IsAlive ? AliveFlag : 0) | (hookable.IsFalling ? FallingFlag : 0) | (hookable.IsHooked ? HookedFlag : 0));
             health = Mathf.Ceil(hookable.Health); // whole points, as the bars show it: not resent for every bit of regen
+            regen = Mathf.Round(hookable.HealthRegen * 10f) / 10f;
             multiKill = Arena.Instance != null ? Arena.Instance.Streaks.MultiKillCount(hookable) : 0;
             var score = Arena.Instance != null ? Arena.Instance.ScoreOf(hookable) : default;
             kills = score.kills;
@@ -180,6 +185,12 @@ namespace PudgeWars.Net
             if (item != null && inventory != null) inventory.TryBuy(item);
         }
 
+        [Command]
+        void CmdUseItem(int slot, Vector3 point, int tree)
+        {
+            if (inventory != null) inventory.TryUse(slot, point, tree);
+        }
+
         // clients /////////////////////////////////////////////////////////////
 
         public override void OnStartClient()
@@ -196,13 +207,21 @@ namespace PudgeWars.Net
             // the own hero gets the controls; on a pure client its casts and purchases go to the server
             if (!TryGetComponent<PlayerInputController>(out _)) gameObject.AddComponent<PlayerInputController>();
             if (hook != null) hook.CastRequested += CmdCast;
-            if (inventory != null) inventory.BuyRequested += RequestBuy;
+            if (inventory != null)
+            {
+                inventory.BuyRequested += RequestBuy;
+                inventory.UseRequested += CmdUseItem;
+            }
         }
 
         public override void OnStopLocalPlayer()
         {
             if (hook != null) hook.CastRequested -= CmdCast;
-            if (inventory != null) inventory.BuyRequested -= RequestBuy;
+            if (inventory != null)
+            {
+                inventory.BuyRequested -= RequestBuy;
+                inventory.UseRequested -= CmdUseItem;
+            }
         }
 
         void RequestBuy(ItemDef item)
@@ -227,9 +246,15 @@ namespace PudgeWars.Net
         void ApplyInventory()
         {
             if (isServer || inventory == null || prefabs == null) return;
-            var owned = string.IsNullOrEmpty(items)
-                ? Enumerable.Empty<ItemDef>()
-                : items.Split(',').Select(s => int.TryParse(s, out var i) ? prefabs.ItemAt(i) : null).Where(i => i != null);
+            var owned = new List<(ItemDef, int)>();
+            if (!string.IsNullOrEmpty(items))
+                foreach (var slot in items.Split(','))
+                {
+                    var parts = slot.Split(':');
+                    var item = int.TryParse(parts[0], out var i) ? prefabs.ItemAt(i) : null;
+                    int left = parts.Length > 1 && int.TryParse(parts[1], out var c) ? c : 0;
+                    if (item != null) owned.Add((item, left));
+                }
             inventory.ApplyRemoteState(gold, owned);
         }
 
@@ -238,6 +263,7 @@ namespace PudgeWars.Net
         {
             hookable.ApplyRemoteState((heroFlags & AliveFlag) != 0, (heroFlags & FallingFlag) != 0, (heroFlags & HookedFlag) != 0);
             hookable.ApplyRemoteHealth(health);
+            hookable.ApplyRemoteRegen(regen);
             if (Arena.Instance != null)
             {
                 Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);

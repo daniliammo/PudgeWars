@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -10,7 +11,9 @@ namespace PudgeWars.Gameplay
     /// and flies back out when closed. A hero picked with a click (<see cref="Inspect"/>) takes the player's place
     /// on the bar, so its gold and items can be seen, a tab over the bar says whose they are ("Осмотр: Бот
     /// Мясник") and a panel over the tab shows its stats (<see cref="HeroStatsPanel"/>); purchases are still the
-    /// player's own.
+    /// player's own. A click (tap) on a slot of the player's own bar picks its item for use (<see cref="ItemSlotClicked"/>,
+    /// <see cref="PlayerInputController"/>); a slot shows the item's charges in its corner, darkens over its cooldown
+    /// and is outlined while its item waits for a target.
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -31,7 +34,11 @@ namespace PudgeWars.Gameplay
         public HeroStatsPanel statsPanel;
         [Tooltip("Seconds the panel takes to fly in from beyond the screen edge (and back out).")]
         public float slideDuration = 0.25f;
+        public Color selectedSlotColor = new(0.55f, 0.95f, 0.45f, 1f);
+        public Color cooldownShadeColor = new(0f, 0f, 0f, 0.65f);
 
+        /// <summary>A slot of the player's own bar was clicked (its index).</summary>
+        public static event Action<int> ItemSlotClicked;
         /// <summary>True from the moment the shop is opened, also while the panel is still flying in.</summary>
         public bool IsOpen { get; private set; }
         public bool IsAnimating => panel != null && panel.activeSelf && slide != (IsOpen ? 1f : 0f);
@@ -45,6 +52,10 @@ namespace PudgeWars.Gameplay
         RectTransform panelRect;
         Vector2 shownPosition, hiddenPosition;
         float slide; // 0 = beyond the screen edge, 1 = in place
+        Text[] chargeLabels;
+        RectTransform[] cooldownShades;
+        Image[] slotFrames;
+        Color slotFrameColor;
 
         void Start()
         {
@@ -60,6 +71,7 @@ namespace PudgeWars.Gameplay
                 float top = tab.anchoredPosition.y + (1f - tab.pivot.y) * tab.sizeDelta.y;
                 statsPanel = HeroStatsPanel.Create(tab.parent, inspectLabel.font, new Vector2(tab.anchoredPosition.x, top + 6f), tab.sizeDelta.x);
             }
+            BuildSlotParts();
             if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             foreach (var row in rows)
@@ -112,6 +124,7 @@ namespace PudgeWars.Gameplay
         void Update()
         {
             Slide();
+            ShowSlotStates();
             if (inspecting && inspected == null) Inspect(null); // the hero left the game
             var kb = Keyboard.current;
             if (kb == null || OverlayInput.Captured) return;
@@ -154,6 +167,76 @@ namespace PudgeWars.Gameplay
         }
 
         public bool Buy(ItemDef item) => buyer != null && buyer.TryBuy(item);
+
+        /// <summary>Each slot clickable, with its charges label, cooldown shade and frame for the selection.</summary>
+        void BuildSlotParts()
+        {
+            chargeLabels = new Text[slots.Length];
+            cooldownShades = new RectTransform[slots.Length];
+            slotFrames = new Image[slots.Length];
+            for (int i = 0; i < slots.Length; i++)
+            {
+                var icon = slots[i];
+                if (icon == null) continue;
+                int slot = i;
+                if (!icon.TryGetComponent<Button>(out var button)) button = icon.gameObject.AddComponent<Button>();
+                button.targetGraphic = icon;
+                button.transition = Selectable.Transition.None;
+                button.onClick.AddListener(() =>
+                {
+                    if (!inspecting) ItemSlotClicked?.Invoke(slot);
+                });
+                icon.raycastTarget = true;
+
+                var shade = new GameObject("Cooldown", typeof(RectTransform)).GetComponent<RectTransform>();
+                shade.SetParent(icon.transform, false);
+                shade.anchorMin = Vector2.zero;
+                shade.anchorMax = new Vector2(1f, 0f);
+                shade.offsetMin = shade.offsetMax = Vector2.zero;
+                var shadeImage = shade.gameObject.AddComponent<Image>();
+                shadeImage.color = cooldownShadeColor;
+                shadeImage.raycastTarget = false;
+                cooldownShades[i] = shade;
+
+                var labelRt = new GameObject("Charges", typeof(RectTransform)).GetComponent<RectTransform>();
+                labelRt.SetParent(icon.transform, false);
+                labelRt.anchorMin = labelRt.anchorMax = labelRt.pivot = new Vector2(1f, 0f);
+                labelRt.anchoredPosition = new Vector2(-3f, 1f);
+                labelRt.sizeDelta = new Vector2(40f, 26f);
+                var label = labelRt.gameObject.AddComponent<Text>();
+                label.font = goldLabel != null ? goldLabel.font : null;
+                label.fontSize = 22;
+                label.fontStyle = FontStyle.Bold;
+                label.alignment = TextAnchor.LowerRight;
+                label.color = Color.white;
+                label.raycastTarget = false;
+                var outline = labelRt.gameObject.AddComponent<Outline>();
+                outline.effectColor = Color.black;
+                outline.effectDistance = new Vector2(1.5f, -1.5f);
+                chargeLabels[i] = label;
+
+                slotFrames[i] = icon.transform.parent != null ? icon.transform.parent.GetComponent<Image>() : null;
+                if (slotFrames[i] != null) slotFrameColor = slotFrames[i].color;
+            }
+        }
+
+        /// <summary>Cooldown shading (from the top down, as it runs out) and the frame of the item picked for use.</summary>
+        void ShowSlotStates()
+        {
+            if (cooldownShades == null) return;
+            var shown = Shown;
+            int selected = !inspecting && LocalPlayer.Input != null ? LocalPlayer.Input.SelectedItem : PlayerInputController.NoItem;
+            for (int i = 0; i < slots.Length; i++)
+            {
+                if (cooldownShades[i] != null)
+                {
+                    float total = shown != null ? shown.CooldownOf(i) : 0f;
+                    float left = shown != null && total > 0f ? Mathf.Clamp01(shown.CooldownLeft(i) / total) : 0f;
+                    cooldownShades[i].anchorMax = new Vector2(1f, left);
+                }
+                if (slotFrames[i] != null) slotFrames[i].color = i == selected ? selectedSlotColor : slotFrameColor;
+            }
+        }
 
         /// <summary>A dark tab sitting on the bar's top edge, over the gold.</summary>
         Text BuildInspectLabel()
@@ -212,6 +295,8 @@ namespace PudgeWars.Gameplay
                 var item = shown != null && i < shown.Items.Count ? shown.Items[i] : null;
                 slots[i].sprite = item != null ? item.icon : null;
                 slots[i].color = item != null ? Color.white : new Color(0f, 0f, 0f, 0.55f);
+                if (chargeLabels != null && chargeLabels[i] != null)
+                    chargeLabels[i].text = item != null && (item.charges > 1 || item.stacks) ? shown.ChargesAt(i).ToString() : "";
             }
             foreach (var row in rows) row.Refresh(buyer);
         }

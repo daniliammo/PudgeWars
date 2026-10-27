@@ -795,7 +795,7 @@ namespace PudgeWars.Tests
             Assert.IsNotNull(coin, "no gold icon between the teams' net worth");
             Assert.IsNotNull(coin.GetComponent<Image>().sprite, "the gold icon has no picture");
             foreach (var h in Pudge.All) h.GetComponent<HeroInventory>().AddGold(-h.GetComponent<HeroInventory>().Gold, popup: false);
-            var lens = Object.FindAnyObjectByType<ShopUI>().rows[0].item;
+            var lens = Object.FindAnyObjectByType<ShopUI>().rows.First(r => r.item.castRangeBonus > 0f).item; // Aether Lens
             var inventory = player.GetComponent<HeroInventory>();
             inventory.AddGold(lens.cost + 300, popup: false);
             Assert.IsTrue(inventory.TryBuy(lens));
@@ -1147,12 +1147,127 @@ namespace PudgeWars.Tests
             Assert.Less(Vector3.Angle(player.transform.forward, Vector3.forward), PudgeMotor.FacingTolerance + 1f);
         }
 
+        static ItemDef TestItem(ItemAction action, int cost, int charges, bool stacks, float range, float cooldown = 0f)
+        {
+            var item = ScriptableObject.CreateInstance<ItemDef>();
+            item.displayName = action.ToString();
+            item.action = action;
+            item.cost = cost;
+            item.charges = charges;
+            item.stacks = stacks;
+            item.unique = action == ItemAction.ChopTree;
+            item.castRange = range;
+            item.cooldown = cooldown;
+            item.regenBonus = 7f;
+            item.regenDuration = 16f;
+            item.plantedTreeBonus = 2f;
+            item.treeLifetime = 20f;
+            return item;
+        }
+
+        [UnityTest]
+        public IEnumerator ShopSellsTangoIronBranchAndQuellingBlade()
+        {
+            var shop = Object.FindAnyObjectByType<ShopUI>();
+            var sold = shop.rows.Select(r => r.item).ToList();
+            var tango = sold.FirstOrDefault(i => i.action == ItemAction.EatTree);
+            var branch = sold.FirstOrDefault(i => i.action == ItemAction.PlantTree);
+            var blade = sold.FirstOrDefault(i => i.action == ItemAction.ChopTree);
+            Assert.IsNotNull(tango, "no Tango in the shop: Pudge Wars → Build Test Arena");
+            Assert.IsNotNull(branch, "no Iron Branch in the shop: Pudge Wars → Build Test Arena");
+            Assert.IsNotNull(blade, "no Quelling Blade in the shop: Pudge Wars → Build Test Arena");
+            Assert.AreEqual(70, tango.cost);
+            Assert.AreEqual(50, branch.cost);
+            Assert.AreEqual(3, tango.charges);
+            Assert.IsTrue(sold.All(i => i.icon != null), "an item has no icon");
+            var net = PudgeWars.Net.NetPrefabs.Load();
+            Assert.IsTrue(sold.All(i => net.IndexOf(i) >= 0), "an item is missing from the network catalog: Pudge Wars → Build Test Arena");
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator TangoEatsATreeIronBranchPlantsOneAndQuellingBladeCutsOne()
+        {
+            var trees = TerrainTrees.Instance;
+            Assert.IsNotNull(trees, "the arena has no trees: Pudge Wars → Build Test Arena");
+            var inventory = player.GetComponent<HeroInventory>();
+            var tango = TestItem(ItemAction.EatTree, 70, 3, stacks: true, range: 1.65f);
+            var branch = TestItem(ItemAction.PlantTree, 50, 1, stacks: false, range: 2f);
+            var blade = TestItem(ItemAction.ChopTree, 100, 0, stacks: false, range: 3.5f, cooldown: 4f);
+            inventory.AddGold(1000, popup: false);
+
+            // Tango stacks its charges in one slot
+            Assert.IsTrue(inventory.TryBuy(tango));
+            Assert.IsTrue(inventory.TryBuy(tango));
+            Assert.AreEqual(1, inventory.Items.Count, "a second Tango must not take a slot");
+            Assert.AreEqual(6, inventory.ChargesAt(0));
+            Assert.IsTrue(inventory.TryBuy(branch));
+            Assert.IsTrue(inventory.TryBuy(blade));
+            Assert.IsFalse(inventory.TryBuy(blade), "one Quelling Blade is enough");
+
+            // a tree next to the player: out of reach first, then eaten
+            int tree = 0;
+            var foot = trees.Position(tree);
+            player.transform.position = foot + Vector3.right * 6f;
+            player.healthRegen = 0f;
+            player.Damage(300f, null);
+            Assert.IsFalse(inventory.TryUse(0, foot, tree), "a tree 6 m away is out of Tango's reach");
+            player.transform.position = foot + Vector3.right * 1.3f;
+            Assert.IsTrue(inventory.TryUse(0, foot, tree));
+            Assert.IsFalse(trees.IsStanding(tree), "the eaten tree still stands");
+            Assert.AreEqual(5, inventory.ChargesAt(0));
+            Assert.AreEqual(7f, player.HealthRegen, 1e-4f, "Tango regenerates 7 per second");
+            float health = player.Health;
+            yield return new WaitForSeconds(1f);
+            Assert.AreEqual(health + 7f, player.Health, 1.5f);
+
+            // Iron Branch plants a tree where it is clear; the branch is used up
+            var spot = Enumerable.Range(0, 16)
+                .Select(i => player.transform.position + Quaternion.Euler(0f, i * 22.5f, 0f) * Vector3.forward * 2f)
+                .FirstOrDefault(trees.CanPlant);
+            Assert.IsTrue(trees.CanPlant(spot), "no clear spot to plant a tree near the player");
+            int obstacles = Obstacle.All.Count;
+            Assert.IsTrue(inventory.TryUse(1, spot, HeroInventory.NoTree));
+            Assert.AreEqual(2, inventory.Items.Count, "the branch must be used up");
+            int planted = trees.Nearest(spot, 0.5f);
+            Assert.IsTrue(TerrainTrees.IsPlanted(planted), "no planted tree where the branch was used");
+            Assert.AreEqual(obstacles + 1, Obstacle.All.Count, "heroes must walk around the planted tree");
+            Assert.IsFalse(trees.CanPlant(spot), "a second tree on the same spot");
+            CaptureScreen("planted_tree");
+
+            // Tango on a planted tree feeds twice as much
+            Assert.IsTrue(inventory.TryUse(0, spot, planted));
+            Assert.IsFalse(trees.IsStanding(planted));
+            Assert.AreEqual(7f + 14f, player.HealthRegen, 1e-4f, "a planted tree must feed twice");
+
+            // Quelling Blade cuts a tree within 3.5 m, then needs 4 s
+            int next = trees.Nearest(player.transform.position, 100f);
+            player.transform.position = trees.Position(next) + Vector3.back * 3f;
+            int bladeSlot = inventory.Items.ToList().IndexOf(blade);
+            Assert.IsTrue(inventory.TryUse(bladeSlot, trees.Position(next), next));
+            Assert.IsFalse(trees.IsStanding(next));
+            Assert.Greater(inventory.CooldownLeft(bladeSlot), 3.9f);
+            int another = trees.Nearest(player.transform.position, 100f);
+            Assert.IsFalse(inventory.TryUse(bladeSlot, trees.Position(another), another), "Quelling Blade must wait out its cooldown");
+            Assert.IsTrue(inventory.Owns(blade), "Quelling Blade is not used up");
+
+            // a planted tree goes by itself; death ends Tango's regeneration
+            int shortLived = trees.Plant(spot, 0.3f);
+            Assert.IsTrue(trees.IsStanding(shortLived));
+            yield return new WaitForSeconds(0.6f);
+            Assert.IsFalse(trees.IsStanding(shortLived), "the planted tree did not go after its time");
+            Assert.AreEqual(obstacles - 1, Obstacle.All.Count, "planted trees must leave no obstacles behind");
+            player.StartFalling(Vector3.zero);
+            yield return new WaitUntil(() => !player.IsAlive);
+            Assert.AreEqual(0f, player.HealthRegen, 1e-4f, "Tango's regeneration must end with death");
+        }
+
         [UnityTest]
         public IEnumerator ShopSellsAetherLensThatExtendsHookRange()
         {
             var shop = Object.FindAnyObjectByType<ShopUI>();
             var inventory = player.GetComponent<HeroInventory>();
-            var row = shop.rows[0];
+            var row = shop.rows.First(r => r.item.castRangeBonus > 0f); // Aether Lens
             var lens = row.item;
             Assert.AreEqual(2275, lens.cost);
             Assert.IsNotNull(lens.icon, "item icon missing");
@@ -1802,7 +1917,7 @@ namespace PudgeWars.Tests
         {
             yield return null;
             var shop = Object.FindAnyObjectByType<ShopUI>();
-            var lens = shop.rows[0].item;
+            var lens = shop.rows.First(r => r.item.castRangeBonus > 0f).item; // Aether Lens
             var bot = Pudge.All.First(h => h.team == Team.Bots);
             var botWallet = bot.GetComponent<HeroInventory>();
             botWallet.AddGold(lens.cost + 300, popup: false);

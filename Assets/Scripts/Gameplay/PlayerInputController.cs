@@ -18,17 +18,26 @@ namespace PudgeWars.Gameplay
     /// In first person on a phone three fingers play: the left stick runs relative to the look, the right stick aims
     /// the hook relative to it (a tap throws at the crosshair), and a finger dragging over the empty screen turns the
     /// view (TopDownCamera); the camera button in the top-left corner switches the views.
+    /// Items: 1–6 or a click (tap) on a slot of the shop bar picks a usable item (Tango, Iron Branch, Quelling Blade) and
+    /// a ring around the hero shows its reach; a click on a tree (Tango, Quelling Blade) or on the ground (Iron Branch)
+    /// uses it — out of reach the hero first walks up to the target, as in Dota (any move order cancels that).
     /// </summary>
     public class PlayerInputController : MonoBehaviour
     {
         public const int NoAbility = -1;
         public const int HookSlot = 0;
+        public const int NoItem = -1;
+        [Tooltip("A click this close to a tree's foot picks the tree, metres.")]
+        public float treePickRadius = 1.5f;
+        public Color itemRangeColor = new(0.55f, 0.95f, 0.45f, 0.8f);
 
         public Camera viewCamera;
         public HookAimIndicator aimIndicator;
 
         /// <summary>Ability waiting for a target (Dota-style quick cast is off), or NoAbility.</summary>
         public int SelectedAbility { get; private set; } = NoAbility;
+        /// <summary>Inventory slot whose item waits for a target, or NoItem.</summary>
+        public int SelectedItem { get; private set; } = NoItem;
         /// <summary>The player asked for the hook while it is on cooldown (the hero says "not yet").</summary>
         public event System.Action AbilityNotReady;
 
@@ -37,12 +46,20 @@ namespace PudgeWars.Gameplay
         Pudge self;
         TopDownCamera follow;
         ShopUI shop;
+        HeroInventory inventory;
+        LineRenderer itemRange;
+        // an item ordered on a target out of reach: the hero walks up to it first
+        int pendingSlot = NoItem, pendingTree = HeroInventory.NoTree;
+        ItemDef pendingItem;
+        Vector3 pendingPoint;
+        static readonly Key[] ItemKeys = { Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5, Key.Digit6 };
 
         void Awake()
         {
             motor = GetComponent<PudgeMotor>();
             hook = GetComponent<HookAbility>();
             self = GetComponent<Pudge>();
+            inventory = GetComponent<HeroInventory>();
             if (aimIndicator == null) aimIndicator = GetComponentInChildren<HookAimIndicator>();
             if (viewCamera == null) viewCamera = Camera.main;
             if (viewCamera != null) follow = viewCamera.GetComponent<TopDownCamera>();
@@ -55,13 +72,17 @@ namespace PudgeWars.Gameplay
         {
             TouchControls.HookPressed += OnHookStickPressed;
             TouchControls.HookReleased += OnHookStickReleased;
+            ShopUI.ItemSlotClicked += OnItemSlotClicked;
         }
 
         void OnDisable()
         {
             TouchControls.HookPressed -= OnHookStickPressed;
             TouchControls.HookReleased -= OnHookStickReleased;
+            ShopUI.ItemSlotClicked -= OnItemSlotClicked;
             Deselect();
+            DeselectItem();
+            CancelPendingUse();
             motor.SetLookDirection(null);
         }
 
@@ -74,8 +95,46 @@ namespace PudgeWars.Gameplay
                 if (SelectedAbility == NoAbility) AbilityNotReady?.Invoke();
                 return false;
             }
+            DeselectItem();
+            CancelPendingUse();
             SelectedAbility = slot;
             return true;
+        }
+
+        /// <summary>Picks the usable item in an inventory slot for targeting (again: drops it).</summary>
+        public bool SelectItem(int slot)
+        {
+            if (inventory == null || slot < 0 || slot >= inventory.Items.Count || !inventory.Items[slot].IsUsable) return false;
+            if (SelectedItem == slot)
+            {
+                DeselectItem();
+                return false;
+            }
+            if (!inventory.CanUse(slot))
+            {
+                if (inventory.CooldownLeft(slot) > 0f) AbilityNotReady?.Invoke();
+                return false;
+            }
+            Deselect();
+            SelectedItem = slot;
+            return true;
+        }
+
+        public void DeselectItem()
+        {
+            SelectedItem = NoItem;
+            if (itemRange != null) itemRange.enabled = false;
+        }
+
+        void CancelPendingUse()
+        {
+            pendingSlot = NoItem;
+            pendingItem = null;
+        }
+
+        void OnItemSlotClicked(int slot)
+        {
+            if (!OverlayInput.Captured) SelectItem(slot);
         }
 
         public void Deselect()
@@ -105,13 +164,21 @@ namespace PudgeWars.Gameplay
             }
             if (touch != null && touch.Move != Vector2.zero) move += touch.Move.normalized; // Dota heroes have no walk
             bool firstPerson = follow != null && follow.IsFirstPerson;
-            motor.SetMoveInput(CameraRelative(move));
+            if (move != Vector2.zero) CancelPendingUse(); // a move order replaces walking up to an item's target
+            motor.SetMoveInput(pendingSlot != NoItem ? WalkToPendingTarget() : CameraRelative(move));
             motor.SetLookDirection(firstPerson ? follow.MoveForward : null);
 
             if (kb != null && kb.qKey.wasPressedThisFrame) SelectAbility(HookSlot);
+            for (int i = 0; kb != null && i < ItemKeys.Length; i++)
+                if (kb[ItemKeys[i]].wasPressedThisFrame) SelectItem(i);
             bool stickAiming = touch != null && touch.hookStick != null && touch.hookStick.IsHeld;
             if (stickAiming && SelectedAbility == NoAbility && hook.IsReady) SelectAbility(HookSlot); // held through the cooldown
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+            if (SelectedItem != NoItem)
+            {
+                TargetItem(kb, mouse, firstPerson, overUi || (touch != null && touch.AnyHeld));
+                return;
+            }
             if (SelectedAbility == NoAbility)
             {
                 Inspect(firstPerson, overUi || (touch != null && touch.AnyHeld));
@@ -144,6 +211,98 @@ namespace PudgeWars.Gameplay
                          && (firstPerson ? follow.CursorCaptured && !follow.ClickConsumed : !overUi);
             bool cast = click || (kb != null && kb.spaceKey.wasPressedThisFrame);
             if (cast && hook.TryCast(point)) Deselect();
+        }
+
+        /// <summary>
+        /// An item waits for its target: the ring shows its reach; a click on a tree or the ground orders the use
+        /// (walking up first if out of reach); right button, Escape, or the hero caught drops it.
+        /// </summary>
+        void TargetItem(Keyboard kb, Mouse mouse, bool firstPerson, bool overUi)
+        {
+            int slot = SelectedItem;
+            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)
+                || (self != null && !self.IsControllable) || inventory == null || slot >= inventory.Items.Count
+                || !inventory.Items[slot].IsUsable)
+            {
+                DeselectItem();
+                return;
+            }
+            var item = inventory.Items[slot];
+            ShowItemRange(item);
+            var pointer = Pointer.current;
+            bool click = firstPerson
+                ? mouse != null && mouse.leftButton.wasPressedThisFrame && follow.CursorCaptured && !follow.ClickConsumed
+                : pointer != null && pointer.press.wasPressedThisFrame && !overUi;
+            if (!click) return;
+            var screen = firstPerson || pointer == null
+                ? new Vector2(Screen.width / 2f, Screen.height / 2f) // the crosshair
+                : pointer.position.ReadValue();
+            if (!TryGetGroundPoint(screen, out var point)) return;
+            int tree = HeroInventory.NoTree;
+            var trees = TerrainTrees.Instance;
+            if (item.TargetsTree)
+            {
+                tree = trees != null ? trees.Nearest(point, treePickRadius) : HeroInventory.NoTree;
+                if (tree < 0) return; // not on a tree: still waiting for one
+                point = trees.Position(tree);
+            }
+            DeselectItem();
+            if (!inventory.TryUse(slot, point, tree))
+            {
+                // out of reach (or blocked for now): walk up and try there
+                pendingSlot = slot;
+                pendingItem = item;
+                pendingPoint = point;
+                pendingTree = tree;
+            }
+        }
+
+        /// <summary>Walking up to an ordered item's target; uses the item once within reach.</summary>
+        Vector3 WalkToPendingTarget()
+        {
+            var trees = TerrainTrees.Instance;
+            bool gone = inventory == null || pendingSlot >= inventory.Items.Count || inventory.Items[pendingSlot] != pendingItem
+                        || trees == null || (pendingItem.TargetsTree && !trees.IsStanding(pendingTree))
+                        || (self != null && !self.IsControllable);
+            if (gone)
+            {
+                CancelPendingUse();
+                return Vector3.zero;
+            }
+            if (inventory.InReach(pendingPoint, trees.radius, pendingItem))
+            {
+                inventory.TryUse(pendingSlot, pendingPoint, pendingTree);
+                CancelPendingUse(); // used, or cannot be (a hero on the spot): either way the order is done
+                return Vector3.zero;
+            }
+            var to = pendingPoint - transform.position;
+            to.y = 0f;
+            return to.normalized;
+        }
+
+        /// <summary>A thin ring on the ground around the hero: how far the item reaches (to a trunk's edge).</summary>
+        void ShowItemRange(ItemDef item)
+        {
+            if (itemRange == null)
+            {
+                itemRange = new GameObject("ItemRange").AddComponent<LineRenderer>();
+                itemRange.transform.SetParent(transform, false);
+                itemRange.useWorldSpace = true; // whatever the hero's scale
+                itemRange.loop = true;
+                itemRange.widthMultiplier = 0.06f;
+                itemRange.positionCount = 64;
+                var source = aimIndicator != null ? aimIndicator.left : null;
+                itemRange.sharedMaterial = source != null ? source.sharedMaterial : new Material(Shader.Find("Sprites/Default"));
+                itemRange.startColor = itemRange.endColor = itemRangeColor;
+            }
+            float r = item.castRange + (self != null ? self.radius : 0f) + (TerrainTrees.Instance != null ? TerrainTrees.Instance.radius : 0f);
+            var centre = transform.position;
+            for (int i = 0; i < itemRange.positionCount; i++)
+            {
+                float a = i * Mathf.PI * 2f / itemRange.positionCount;
+                itemRange.SetPosition(i, centre + new Vector3(Mathf.Cos(a) * r, 0.08f, Mathf.Sin(a) * r));
+            }
+            itemRange.enabled = true;
         }
 
         void OnHookStickPressed()

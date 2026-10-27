@@ -5,7 +5,8 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Anything on the arena with a side, a name and health: the base of <see cref="Pudge"/> and of whatever other
-    /// creatures come later. Health regenerates while alive and runs out from <see cref="Damage"/>, which ends in
+    /// creatures come later. Health regenerates while alive (<see cref="HealthRegen"/>: the unit's own and what items add
+    /// for a while, <see cref="AddRegen"/>) and runs out from <see cref="Damage"/>, which ends in
     /// <see cref="OnHealthDepleted"/>. On a network client (<see cref="Simulation.IsProxy"/>) health is only shown as
     /// the server sends it.
     /// </summary>
@@ -37,6 +38,22 @@ namespace PudgeWars.Gameplay
         public float Health { get; private set; }
         public bool IsAlive { get; protected set; } = true;
 
+        /// <summary>Health regenerated per second now: the unit's own and the bonuses still running (Tango).</summary>
+        public float HealthRegen
+        {
+            get
+            {
+                if (Simulation.IsProxy && remoteRegen >= 0f) return remoteRegen;
+                float regen = healthRegen;
+                foreach (var bonus in regenBonuses)
+                    if (bonus.until > Time.time) regen += bonus.perSecond;
+                return regen;
+            }
+        }
+
+        readonly List<(float perSecond, float until)> regenBonuses = new();
+        float remoteRegen = -1f;
+
         protected virtual void Awake()
         {
             IsBot = GetComponent<BotBrain>() != null;
@@ -48,8 +65,16 @@ namespace PudgeWars.Gameplay
 
         protected virtual void Update()
         {
-            if (IsAlive && !Simulation.IsProxy && healthRegen > 0f)
-                Health = Mathf.Min(maxHealth, Health + healthRegen * Time.deltaTime);
+            regenBonuses.RemoveAll(b => b.until <= Time.time);
+            float regen = HealthRegen;
+            if (IsAlive && !Simulation.IsProxy && regen > 0f)
+                Health = Mathf.Min(maxHealth, Health + regen * Time.deltaTime);
+        }
+
+        /// <summary>Regenerates <paramref name="perSecond"/> more for <paramref name="duration"/> seconds (Tango); death ends it.</summary>
+        public void AddRegen(float perSecond, float duration)
+        {
+            if (IsAlive && perSecond > 0f && duration > 0f) regenBonuses.Add((perSecond, Time.time + duration));
         }
 
         /// <summary>
@@ -69,10 +94,17 @@ namespace PudgeWars.Gameplay
         /// <summary>Back to full health (a respawn).</summary>
         protected void RestoreHealth() => Health = maxHealth;
 
-        /// <summary>Death without damage (falling into the pit): health shows as zero.</summary>
-        protected void ClearHealth() => Health = 0f;
+        /// <summary>Death (falling into the pit or damage): health shows as zero, the regeneration bonuses end.</summary>
+        protected void ClearHealth()
+        {
+            Health = 0f;
+            regenBonuses.Clear();
+        }
 
         /// <summary>Network client: the health the server keeps.</summary>
         public void ApplyRemoteHealth(float health) => Health = Mathf.Clamp(health, 0f, maxHealth);
+
+        /// <summary>Network client: the regeneration per second the server counts (bonuses included).</summary>
+        public void ApplyRemoteRegen(float regen) => remoteRegen = regen;
     }
 }

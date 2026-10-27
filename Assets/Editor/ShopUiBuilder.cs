@@ -1,4 +1,5 @@
 using System.IO;
+using System.Linq;
 using PudgeWars.Gameplay;
 using UnityEditor;
 using UnityEngine;
@@ -13,6 +14,7 @@ namespace PudgeWars.EditorTools
     {
         const string ItemDir = "Assets/ScriptableObjects/Items";
         const string AetherLensIcon = "Assets/Art/UI/Items/aether_lens.jpg";
+        const string DotaIcons = "Assets/Art/UI/Items/Dota";
 
         internal static readonly Color Panel = new(0.07f, 0.08f, 0.10f, 0.92f);
         internal static readonly Color Frame = new(0.16f, 0.17f, 0.20f, 1f);
@@ -44,6 +46,88 @@ namespace PudgeWars.EditorTools
             item.cost = 2275;
             item.castRangeBonus = 2.75f;
             item.unique = true;
+            EditorUtility.SetDirty(item);
+            AssetDatabase.SaveAssets();
+            return item;
+        }
+
+        /// <summary>
+        /// The arena shop in its order (cheap consumables first, as in Dota); the network catalog keeps Aether Lens
+        /// first and the rest after it, so the indices the clients know stay valid.
+        /// </summary>
+        public static ItemDef[] Catalog()
+        {
+            var lens = AetherLens();
+            var catalog = new[] { Tango(), IronBranch(), QuellingBlade(), lens };
+            var net = Net.NetPrefabs.Load();
+            if (net != null)
+            {
+                net.catalog = new[] { lens }.Concat(catalog.Where(i => i != lens)).ToArray();
+                EditorUtility.SetDirty(net);
+                AssetDatabase.SaveAssets();
+            }
+            return catalog;
+        }
+
+        /// <summary>Tango: 70 gold (by request; 90 in Dota 2), 3 charges, eats a tree for +7 health per second over 16 s, twice from a planted one.</summary>
+        public static ItemDef Tango() => Item("Tango", "tango", item =>
+        {
+            item.displayName = "Tango";
+            item.description = "Съесть дерево: +7 здоровья в секунду 16 с (посаженное веткой — вдвое). 3 штуки";
+            item.cost = 70;
+            item.unique = false;
+            item.action = ItemAction.EatTree;
+            item.charges = 3;
+            item.stacks = true;
+            item.castRange = 1.65f;
+            item.cooldown = 0f;
+            item.regenBonus = 7f;
+            item.regenDuration = 16f;
+            item.plantedTreeBonus = 2f;
+        });
+
+        /// <summary>Iron Branch: 50 gold, plants a tree for 20 s within 200 units (Dota 2's Happy Little Tree), used up.</summary>
+        public static ItemDef IronBranch() => Item("IronBranch", "branches", item =>
+        {
+            item.displayName = "Iron Branch";
+            item.description = "Посадить дерево на 20 секунд";
+            item.cost = 50;
+            item.unique = false;
+            item.action = ItemAction.PlantTree;
+            item.charges = 1;
+            item.stacks = false;
+            item.castRange = 2f;
+            item.cooldown = 0f;
+            item.treeLifetime = 20f;
+        });
+
+        /// <summary>Quelling Blade: 100 gold as in Dota 2, cuts a tree down within 350 units, cooldown 4 s.</summary>
+        public static ItemDef QuellingBlade() => Item("QuellingBlade", "quelling_blade", item =>
+        {
+            item.displayName = "Quelling Blade";
+            item.description = "Срубить дерево (перезарядка 4 с)";
+            item.cost = 100;
+            item.unique = true;
+            item.action = ItemAction.ChopTree;
+            item.charges = 0;
+            item.stacks = false;
+            item.castRange = 3.5f;
+            item.cooldown = 4f;
+        });
+
+        /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
+        static ItemDef Item(string asset, string icon, System.Action<ItemDef> fill)
+        {
+            Directory.CreateDirectory(ItemDir);
+            var path = $"{ItemDir}/{asset}.asset";
+            var item = AssetDatabase.LoadAssetAtPath<ItemDef>(path);
+            if (item == null)
+            {
+                item = ScriptableObject.CreateInstance<ItemDef>();
+                AssetDatabase.CreateAsset(item, path);
+            }
+            item.icon = AssetDatabase.LoadAssetAtPath<Sprite>($"{DotaIcons}/{icon}.png");
+            fill(item);
             EditorUtility.SetDirty(item);
             AssetDatabase.SaveAssets();
             return item;

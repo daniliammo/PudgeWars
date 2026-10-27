@@ -167,7 +167,7 @@ namespace PudgeWars.Gameplay
         /// <summary>The strip over the health coming back in <see cref="regenPreviewSeconds"/>, and the regeneration per second.</summary>
         void ShowRegen(Pudge hero, Bar bar)
         {
-            float regen = hero.IsAlive ? Mathf.Max(0f, hero.healthRegen) : 0f;
+            float regen = hero.IsAlive ? Mathf.Max(0f, hero.HealthRegen) : 0f;
             float ahead = hero.maxHealth > 0f
                 ? Mathf.Clamp01((Mathf.Max(0f, hero.Health) + regen * regenPreviewSeconds) / hero.maxHealth)
                 : 0f;

@@ -267,7 +267,7 @@ namespace PudgeWars.EditorTools
             scoreHud.label = score;
             scoreHud.goldIcon = AbilityBarBuilder.Sprite(CoinIcon);
             TouchControlsBuilder.Build(canvasGo.transform); // before the shop: its open panel covers the sticks
-            ShopUiBuilder.Build(canvasGo.transform, font, new[] { ShopUiBuilder.AetherLens() });
+            ShopUiBuilder.Build(canvasGo.transform, font, ShopUiBuilder.Catalog());
             AbilityBarBuilder.Build(canvasGo.transform, font);
             GoldPopupLayer(canvasGo.transform, font);
             HealthBarLayer(canvasGo.transform, font);
