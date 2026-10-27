@@ -147,7 +147,7 @@ namespace PudgeWars.EditorTools
             goldCaption.color = GoldColor;
             shop.goldLabel = Txt(bar, "Gold", font, 34, "0", TextAnchor.MiddleLeft, new Vector2(0f, 1f), new Vector2(140f, -10f), new Vector2(160f, 44f));
             shop.goldLabel.color = GoldColor;
-            shop.toggleButton = Btn(bar, "ShopButton", font, "Магазин (B)", new Vector2(1f, 1f), new Vector2(-12f, -10f), new Vector2(210f, 44f));
+            shop.toggleButton = Btn(bar, "ShopButton", font, "Магазин (F4)", new Vector2(1f, 1f), new Vector2(-12f, -10f), new Vector2(210f, 44f));
             shop.slots = new Image[HeroInventory.SlotCount];
             for (int i = 0; i < shop.slots.Length; i++)
             {

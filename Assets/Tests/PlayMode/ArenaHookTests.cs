@@ -1161,7 +1161,7 @@ namespace PudgeWars.Tests
             item.regenBonus = 7f;
             item.regenDuration = 16f;
             item.plantedTreeBonus = 2f;
-            item.treeLifetime = 20f;
+            item.treeLifetime = 0f;
             return item;
         }
 
@@ -1179,6 +1179,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(70, tango.cost);
             Assert.AreEqual(50, branch.cost);
             Assert.AreEqual(3, tango.charges);
+            Assert.AreEqual(0f, branch.treeLifetime, "the branch's tree stands for good: Pudge Wars → Build Test Arena");
             Assert.IsTrue(sold.All(i => i.icon != null), "an item has no icon");
             var net = PudgeWars.Net.NetPrefabs.Load();
             Assert.IsTrue(sold.All(i => net.IndexOf(i) >= 0), "an item is missing from the network catalog: Pudge Wars → Build Test Arena");
@@ -1247,6 +1248,17 @@ namespace PudgeWars.Tests
             Assert.IsTrue(inventory.TryUse(bladeSlot, trees.Position(next), next));
             Assert.IsFalse(trees.IsStanding(next));
             Assert.Greater(inventory.CooldownLeft(bladeSlot), 3.9f);
+            // the slot shows its key and a dark radial shade with the seconds left, as the ability bar does
+            var shop = Object.FindAnyObjectByType<ShopUI>();
+            yield return null;
+            var slotIcon = shop.slots[bladeSlot].transform;
+            Assert.AreEqual(ShopUI.SlotKeys[bladeSlot], slotIcon.Find("Key").GetComponent<Text>().text);
+            var shade = slotIcon.Find("Cooldown").GetComponent<Image>();
+            Assert.IsTrue(shade.enabled, "no cooldown shade over the slot");
+            Assert.AreEqual(Image.FillMethod.Radial360, shade.fillMethod, "the shade must run round as on the ability bar");
+            Assert.Greater(shade.fillAmount, 0.9f);
+            Assert.GreaterOrEqual(shade.color.a, 0.8f, "the shade must be dark enough to see");
+            StringAssert.IsMatch(@"^\d+\.\d$", slotIcon.Find("CooldownTime").GetComponent<Text>().text);
             int another = trees.Nearest(player.transform.position, 100f);
             Assert.IsFalse(inventory.TryUse(bladeSlot, trees.Position(another), another), "Quelling Blade must wait out its cooldown");
             Assert.IsTrue(inventory.Owns(blade), "Quelling Blade is not used up");
@@ -1723,6 +1735,18 @@ namespace PudgeWars.Tests
             yield return null;
             CaptureScreen("aim");
             aim.Hide();
+
+            // Q draws the reach ring around the hero, as an item does: the tip at full range
+            input.enabled = true;
+            Assert.IsTrue(input.SelectAbility(PlayerInputController.HookSlot));
+            yield return null;
+            var ring = input.RangeRing;
+            Assert.IsNotNull(ring, "no reach ring with the hook picked");
+            var edge = ring.GetPosition(0) - player.transform.position;
+            Assert.AreEqual(hook.AimLength, new Vector3(edge.x, 0f, edge.z).magnitude, 0.01f, "the ring must show how far the hook's tip reaches");
+            input.Deselect();
+            Assert.IsNull(input.RangeRing, "the ring stayed after the hook was dropped");
+            input.enabled = false;
 
             // a miss: the cooldown is written over the icon in seconds and milliseconds
             Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));

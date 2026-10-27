@@ -18,8 +18,9 @@ namespace PudgeWars.Gameplay
     /// In first person on a phone three fingers play: the left stick runs relative to the look, the right stick aims
     /// the hook relative to it (a tap throws at the crosshair), and a finger dragging over the empty screen turns the
     /// view (TopDownCamera); the camera button in the top-left corner switches the views.
-    /// Items: 1–6 or a click (tap) on a slot of the shop bar picks a usable item (Tango, Iron Branch, Quelling Blade) and
-    /// a ring around the hero shows its reach; a click on a tree (Tango, Quelling Blade) or on the ground (Iron Branch)
+    /// A ring around the hero shows the reach of whatever is picked: the hook's tip at full range, or an item's.
+    /// Items: Z X C V B N (as in Dota) or a click (tap) on a slot of the shop bar picks a usable item (Tango, Iron
+    /// Branch, Quelling Blade); a click on a tree (Tango, Quelling Blade) or on the ground (Iron Branch)
     /// uses it — out of reach the hero first walks up to the target, as in Dota (any move order cancels that).
     /// </summary>
     public class PlayerInputController : MonoBehaviour
@@ -29,7 +30,8 @@ namespace PudgeWars.Gameplay
         public const int NoItem = -1;
         [Tooltip("A click this close to a tree's foot picks the tree, metres.")]
         public float treePickRadius = 1.5f;
-        public Color itemRangeColor = new(0.55f, 0.95f, 0.45f, 0.8f);
+        [Tooltip("The reach ring around the hero (the hook's or an item's).")]
+        public Color rangeColor = new(0.55f, 0.95f, 0.45f, 0.8f);
 
         public Camera viewCamera;
         public HookAimIndicator aimIndicator;
@@ -47,12 +49,12 @@ namespace PudgeWars.Gameplay
         TopDownCamera follow;
         ShopUI shop;
         HeroInventory inventory;
-        LineRenderer itemRange;
+        LineRenderer rangeRing;
         // an item ordered on a target out of reach: the hero walks up to it first
         int pendingSlot = NoItem, pendingTree = HeroInventory.NoTree;
         ItemDef pendingItem;
         Vector3 pendingPoint;
-        static readonly Key[] ItemKeys = { Key.Digit1, Key.Digit2, Key.Digit3, Key.Digit4, Key.Digit5, Key.Digit6 };
+        static readonly Key[] ItemKeys = { Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N };
 
         void Awake()
         {
@@ -123,7 +125,12 @@ namespace PudgeWars.Gameplay
         public void DeselectItem()
         {
             SelectedItem = NoItem;
-            if (itemRange != null) itemRange.enabled = false;
+            if (SelectedAbility == NoAbility) HideRange();
+        }
+
+        void HideRange()
+        {
+            if (rangeRing != null) rangeRing.enabled = false;
         }
 
         void CancelPendingUse()
@@ -141,6 +148,7 @@ namespace PudgeWars.Gameplay
         {
             SelectedAbility = NoAbility;
             if (aimIndicator != null) aimIndicator.Hide();
+            if (SelectedItem == NoItem) HideRange();
         }
 
         void Update()
@@ -190,6 +198,7 @@ namespace PudgeWars.Gameplay
                 Deselect();
                 return;
             }
+            ShowRange(hook.AimLength); // as far as the aim lines: the tip at full range
             if (stickAiming) // thrown when the finger lets go (OnHookStickReleased)
             {
                 var stickDir = hook.AimDirection(StickAimPoint(touch.hookStick.Value));
@@ -228,7 +237,7 @@ namespace PudgeWars.Gameplay
                 return;
             }
             var item = inventory.Items[slot];
-            ShowItemRange(item);
+            ShowRange(item.castRange + (self != null ? self.radius : 0f) + (TerrainTrees.Instance != null ? TerrainTrees.Instance.radius : 0f));
             var pointer = Pointer.current;
             bool click = firstPerson
                 ? mouse != null && mouse.leftButton.wasPressedThisFrame && follow.CursorCaptured && !follow.ClickConsumed
@@ -280,29 +289,31 @@ namespace PudgeWars.Gameplay
             return to.normalized;
         }
 
-        /// <summary>A thin ring on the ground around the hero: how far the item reaches (to a trunk's edge).</summary>
-        void ShowItemRange(ItemDef item)
+        /// <summary>The reach ring this frame (its radius from the hero's centre), or null while nothing is picked.</summary>
+        public LineRenderer RangeRing => rangeRing != null && rangeRing.enabled ? rangeRing : null;
+
+        /// <summary>A thin ring on the ground around the hero, <paramref name="radius"/> from its centre: the reach of what is picked.</summary>
+        void ShowRange(float radius)
         {
-            if (itemRange == null)
+            if (rangeRing == null)
             {
-                itemRange = new GameObject("ItemRange").AddComponent<LineRenderer>();
-                itemRange.transform.SetParent(transform, false);
-                itemRange.useWorldSpace = true; // whatever the hero's scale
-                itemRange.loop = true;
-                itemRange.widthMultiplier = 0.06f;
-                itemRange.positionCount = 64;
+                rangeRing = new GameObject("RangeRing").AddComponent<LineRenderer>();
+                rangeRing.transform.SetParent(transform, false);
+                rangeRing.useWorldSpace = true; // whatever the hero's scale
+                rangeRing.loop = true;
+                rangeRing.widthMultiplier = 0.06f;
+                rangeRing.positionCount = 96;
                 var source = aimIndicator != null ? aimIndicator.left : null;
-                itemRange.sharedMaterial = source != null ? source.sharedMaterial : new Material(Shader.Find("Sprites/Default"));
-                itemRange.startColor = itemRange.endColor = itemRangeColor;
+                rangeRing.sharedMaterial = source != null ? source.sharedMaterial : new Material(Shader.Find("Sprites/Default"));
+                rangeRing.startColor = rangeRing.endColor = rangeColor;
             }
-            float r = item.castRange + (self != null ? self.radius : 0f) + (TerrainTrees.Instance != null ? TerrainTrees.Instance.radius : 0f);
             var centre = transform.position;
-            for (int i = 0; i < itemRange.positionCount; i++)
+            for (int i = 0; i < rangeRing.positionCount; i++)
             {
-                float a = i * Mathf.PI * 2f / itemRange.positionCount;
-                itemRange.SetPosition(i, centre + new Vector3(Mathf.Cos(a) * r, 0.08f, Mathf.Sin(a) * r));
+                float a = i * Mathf.PI * 2f / rangeRing.positionCount;
+                rangeRing.SetPosition(i, centre + new Vector3(Mathf.Cos(a) * radius, 0.08f, Mathf.Sin(a) * radius));
             }
-            itemRange.enabled = true;
+            rangeRing.enabled = true;
         }
 
         void OnHookStickPressed()

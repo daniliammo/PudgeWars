@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -6,14 +7,15 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// In-match shop (MagazinGame in the original): a panel toggled with B or the HUD button, plus an
+    /// In-match shop (MagazinGame in the original): a panel toggled with F4 (as in Dota; B is an item key) or the HUD button, plus an
     /// always visible bar with the player's gold and item slots. The panel flies in from the right screen edge
     /// and flies back out when closed. A hero picked with a click (<see cref="Inspect"/>) takes the player's place
     /// on the bar, so its gold and items can be seen, a tab over the bar says whose they are ("Осмотр: Бот
     /// Мясник") and a panel over the tab shows its stats (<see cref="HeroStatsPanel"/>); purchases are still the
     /// player's own. A click (tap) on a slot of the player's own bar picks its item for use (<see cref="ItemSlotClicked"/>,
-    /// <see cref="PlayerInputController"/>); a slot shows the item's charges in its corner, darkens over its cooldown
-    /// and is outlined while its item waits for a target.
+    /// <see cref="PlayerInputController"/>); a slot shows its key (Z X C V B N) and the item's charges in the corners,
+    /// a dark radial shade with the seconds left over its cooldown (as on the ability bar) and is outlined while its
+    /// item waits for a target.
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -35,7 +37,11 @@ namespace PudgeWars.Gameplay
         [Tooltip("Seconds the panel takes to fly in from beyond the screen edge (and back out).")]
         public float slideDuration = 0.25f;
         public Color selectedSlotColor = new(0.55f, 0.95f, 0.45f, 1f);
-        public Color cooldownShadeColor = new(0f, 0f, 0f, 0.65f);
+        public Color cooldownShadeColor = new(0f, 0f, 0f, 0.82f);
+        [Tooltip("Remaining cooldown over a slot.")] public string cooldownFormat = "0.0";
+
+        /// <summary>The item keys, slot by slot (PlayerInputController).</summary>
+        public static readonly string[] SlotKeys = { "Z", "X", "C", "V", "B", "N" };
 
         /// <summary>A slot of the player's own bar was clicked (its index).</summary>
         public static event Action<int> ItemSlotClicked;
@@ -52,8 +58,8 @@ namespace PudgeWars.Gameplay
         RectTransform panelRect;
         Vector2 shownPosition, hiddenPosition;
         float slide; // 0 = beyond the screen edge, 1 = in place
-        Text[] chargeLabels;
-        RectTransform[] cooldownShades;
+        Text[] chargeLabels, cooldownLabels;
+        Image[] cooldownShades;
         Image[] slotFrames;
         Color slotFrameColor;
 
@@ -72,7 +78,12 @@ namespace PudgeWars.Gameplay
                 statsPanel = HeroStatsPanel.Create(tab.parent, inspectLabel.font, new Vector2(tab.anchoredPosition.x, top + 6f), tab.sizeDelta.x);
             }
             BuildSlotParts();
-            if (toggleButton != null) toggleButton.onClick.AddListener(Toggle);
+            if (toggleButton != null)
+            {
+                toggleButton.onClick.AddListener(Toggle);
+                var caption = toggleButton.GetComponentInChildren<Text>();
+                if (caption != null) caption.text = "Магазин (F4)"; // a scene built before the move still says B
+            }
             if (closeButton != null) closeButton.onClick.AddListener(Close);
             foreach (var row in rows)
             {
@@ -128,7 +139,7 @@ namespace PudgeWars.Gameplay
             if (inspecting && inspected == null) Inspect(null); // the hero left the game
             var kb = Keyboard.current;
             if (kb == null || OverlayInput.Captured) return;
-            if (kb.bKey.wasPressedThisFrame) Toggle();
+            if (kb.f4Key.wasPressedThisFrame) Toggle();
             else if (kb.escapeKey.wasPressedThisFrame)
             {
                 Close();
@@ -172,7 +183,8 @@ namespace PudgeWars.Gameplay
         void BuildSlotParts()
         {
             chargeLabels = new Text[slots.Length];
-            cooldownShades = new RectTransform[slots.Length];
+            cooldownLabels = new Text[slots.Length];
+            cooldownShades = new Image[slots.Length];
             slotFrames = new Image[slots.Length];
             for (int i = 0; i < slots.Length; i++)
             {
@@ -188,15 +200,55 @@ namespace PudgeWars.Gameplay
                 });
                 icon.raycastTarget = true;
 
+                // as on the ability bar: a radial shade masked by the item's own picture, running out clockwise from the top
                 var shade = new GameObject("Cooldown", typeof(RectTransform)).GetComponent<RectTransform>();
                 shade.SetParent(icon.transform, false);
                 shade.anchorMin = Vector2.zero;
-                shade.anchorMax = new Vector2(1f, 0f);
+                shade.anchorMax = Vector2.one;
                 shade.offsetMin = shade.offsetMax = Vector2.zero;
                 var shadeImage = shade.gameObject.AddComponent<Image>();
                 shadeImage.color = cooldownShadeColor;
                 shadeImage.raycastTarget = false;
-                cooldownShades[i] = shade;
+                shadeImage.preserveAspect = true;
+                shadeImage.type = Image.Type.Filled;
+                shadeImage.fillMethod = Image.FillMethod.Radial360;
+                shadeImage.fillOrigin = (int)Image.Origin360.Top;
+                shadeImage.fillClockwise = false;
+                shadeImage.enabled = false;
+                cooldownShades[i] = shadeImage;
+
+                var timeRt = new GameObject("CooldownTime", typeof(RectTransform)).GetComponent<RectTransform>();
+                timeRt.SetParent(icon.transform, false);
+                timeRt.anchorMin = Vector2.zero;
+                timeRt.anchorMax = Vector2.one;
+                timeRt.offsetMin = timeRt.offsetMax = Vector2.zero;
+                var time = timeRt.gameObject.AddComponent<Text>();
+                time.font = goldLabel != null ? goldLabel.font : null;
+                time.fontSize = 26;
+                time.fontStyle = FontStyle.Bold;
+                time.alignment = TextAnchor.MiddleCenter;
+                time.color = Color.white;
+                time.raycastTarget = false;
+                time.horizontalOverflow = HorizontalWrapMode.Overflow;
+                var timeOutline = timeRt.gameObject.AddComponent<Outline>();
+                timeOutline.effectColor = Color.black;
+                timeOutline.effectDistance = new Vector2(2f, -2f);
+                cooldownLabels[i] = time;
+
+                var keyRt = new GameObject("Key", typeof(RectTransform)).GetComponent<RectTransform>();
+                keyRt.SetParent(icon.transform, false);
+                keyRt.anchorMin = keyRt.anchorMax = keyRt.pivot = new Vector2(0f, 1f);
+                keyRt.anchoredPosition = new Vector2(3f, -1f);
+                keyRt.sizeDelta = new Vector2(30f, 24f);
+                var key = keyRt.gameObject.AddComponent<Text>();
+                key.font = goldLabel != null ? goldLabel.font : null;
+                key.fontSize = 18;
+                key.fontStyle = FontStyle.Bold;
+                key.alignment = TextAnchor.UpperLeft;
+                key.color = new Color(1f, 1f, 1f, 0.85f);
+                key.raycastTarget = false;
+                key.text = i < SlotKeys.Length ? SlotKeys[i] : "";
+                keyRt.gameObject.AddComponent<Outline>().effectColor = Color.black;
 
                 var labelRt = new GameObject("Charges", typeof(RectTransform)).GetComponent<RectTransform>();
                 labelRt.SetParent(icon.transform, false);
@@ -231,8 +283,12 @@ namespace PudgeWars.Gameplay
                 if (cooldownShades[i] != null)
                 {
                     float total = shown != null ? shown.CooldownOf(i) : 0f;
-                    float left = shown != null && total > 0f ? Mathf.Clamp01(shown.CooldownLeft(i) / total) : 0f;
-                    cooldownShades[i].anchorMax = new Vector2(1f, left);
+                    float seconds = shown != null ? shown.CooldownLeft(i) : 0f;
+                    bool cooling = total > 0f && seconds > 0f;
+                    cooldownShades[i].enabled = cooling;
+                    cooldownShades[i].sprite = slots[i].sprite; // the shade covers exactly the picture
+                    cooldownShades[i].fillAmount = cooling ? Mathf.Clamp01(seconds / total) : 0f;
+                    cooldownLabels[i].text = cooling ? seconds.ToString(cooldownFormat, CultureInfo.InvariantCulture) : "";
                 }
                 if (slotFrames[i] != null) slotFrames[i].color = i == selected ? selectedSlotColor : slotFrameColor;
             }
