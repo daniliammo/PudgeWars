@@ -37,7 +37,7 @@ namespace PudgeWars.Gameplay
         [Tooltip("Seconds the panel takes to fly in from beyond the screen edge (and back out).")]
         public float slideDuration = 0.25f;
         public Color selectedSlotColor = new(0.55f, 0.95f, 0.45f, 1f);
-        public Color cooldownShadeColor = new(0f, 0f, 0f, 0.82f);
+        public Color slotCooldownColor = new(0f, 0f, 0f, 0.82f);
         [Tooltip("Remaining cooldown over a slot.")] public string cooldownFormat = "0.0";
 
         /// <summary>The item keys, slot by slot (PlayerInputController).</summary>
@@ -215,7 +215,7 @@ namespace PudgeWars.Gameplay
                 shade.anchorMax = Vector2.one;
                 shade.offsetMin = shade.offsetMax = Vector2.zero;
                 var shadeImage = shade.gameObject.AddComponent<Image>();
-                shadeImage.color = cooldownShadeColor;
+                shadeImage.color = slotCooldownColor;
                 shadeImage.raycastTarget = false;
                 shadeImage.preserveAspect = true;
                 shadeImage.type = Image.Type.Filled;
