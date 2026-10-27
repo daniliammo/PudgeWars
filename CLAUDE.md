@@ -46,7 +46,9 @@
 
 ## Код
 
-- `Scripts/Gameplay` (сборка PudgeWars.Gameplay) — механики: `HookAbility`, `Hookable`, `PudgeMotor`, `BotBrain`, `Arena`,
+- `Scripts/Gameplay` (сборка PudgeWars.Gameplay) — механики: `Unit` (база любой сущности: команда, имя, здоровье с регеном,
+  урон `Damage`, смерть `OnHealthDepleted`), `Pudge : Unit` (герой: хук ловит, тащит, падение в яму, тело), `HookAbility`
+  (урон хука: `hitDamage` при попадании + `damagePerMeter`), `PudgeMotor`, `BotBrain`, `Arena`,
   HUD (`ScoreHud`, `HealthBars`, `KillAnnouncer`, магазин в `Items/`), `TerrainTrees` (деревья террейна: препятствия, рубка),
   `MenuLandscape`, `GraphicsQuality` (пресеты), `Corpse` (тело-рэгдолл упавшего героя до возрождения), `BloodSplatter`
   (брызги и пятна крови; шейдер `Resources/Effects/Blood.shader`). `HeroVoice` — голос своего Пуджа (`Resources/Audio/Voice`),
