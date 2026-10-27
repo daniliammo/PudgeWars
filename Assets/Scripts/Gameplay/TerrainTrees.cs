@@ -12,8 +12,8 @@ namespace PudgeWars.Gameplay
     /// leaves its stump, its top falls away from whoever cut it, lies a moment and sinks into the ground; the stump does
     /// not stop anyone. The tree grows back after <see cref="regrowTime"/> once nobody stands in its place.
     /// The parts come from Dota's models: the stump and the cut-off top (*_destruction) of each prototype; a tree
-    /// without them falls whole and leaves nothing. The falling crown breaks up: the trunk tips over alone, and the
-    /// crown flies apart in several pieces that drift slowly down through the air around the tree, lie a moment and
+    /// without them falls whole and leaves nothing. The falling crown breaks up: the trunk tips over alone (Radiant's
+    /// tops are nearly all crown and have none left), and the crown flies apart in several pieces that drift slowly down through the air around the tree, lie a moment and
     /// sink as the trunk does (the pieces are cut from the mesh by sectors around the trunk, once per model).
     /// The terrain plays on a copy of its data: the asset stays as built.
     /// A tree can also be planted (Iron Branch, <see cref="Plant(Vector3, float)"/>): it is a model of its own, not a
