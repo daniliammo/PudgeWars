@@ -15,7 +15,7 @@ namespace PudgeWars.Gameplay
     /// Lost health shows as in Dota: the fill drops at once, a white trail stays where it was and after a moment runs
     /// down to it. Regeneration shows the other way: a dark strip (dark green for allies, dark red for enemies) runs
     /// ahead of the fill over the health the next <see cref="regenPreviewSeconds"/> bring back, and "+2.5" (health per
-    /// second) stands at the bar's right end. A dead hero's bar stays a while at 0 (the trail running out), then fades
+    /// second) stands inside the bar at its right end. A dead hero's bar stays a while at 0 (the trail running out), then fades
     /// away until the respawn.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -55,10 +55,15 @@ namespace PudgeWars.Gameplay
         public float regenPreviewSeconds = 10f;
         public Color playerRegenColor = new(0.1f, 0.34f, 0.07f);
         public Color enemyRegenColor = new(0.36f, 0.06f, 0.04f);
-        [Tooltip("{0} = health regenerated per second; shown at the bar's right end.")]
+        [Tooltip("{0} = health regenerated per second; shown inside the bar at its right end.")]
         public string regenFormat = "+{0:0.#}";
-        public int regenFontSize = 16;
+        public int regenFontSize = 13;
         public Color regenTextColor = new(0.65f, 1f, 0.5f);
+        [Header("First person")]
+        [Tooltip("In first person the own hero's bar stands at the bottom of the screen, its centre this high, canvas units (over the ability bar).")]
+        public float firstPersonY = 205f;
+        [Tooltip("And this many times bigger.")]
+        public float firstPersonScale = 1.8f;
         [Tooltip("Seconds a dead hero's bar stays shown at 0, its fading included.")] public float deadShowTime = 2f;
         [Tooltip("Seconds of fading at the end of that.")] public float deadFadeTime = 0.4f;
 
@@ -78,6 +83,7 @@ namespace PudgeWars.Gameplay
         readonly List<Pudge> gone = new();
         RectTransform rect;
         Canvas canvas;
+        TopDownCamera follow;
 
         public int Count => bars.Count;
 
@@ -205,6 +211,21 @@ namespace PudgeWars.Gameplay
             bar.multiKill.gameObject.SetActive(kills >= 2);
         }
 
+        /// <summary>The player's camera looks from the hero's eyes.</summary>
+        bool IsFirstPerson
+        {
+            get
+            {
+                var cam = Camera.main;
+                if (follow == null || follow.gameObject != (cam != null ? cam.gameObject : null))
+                    follow = cam != null ? cam.GetComponent<TopDownCamera>() : null;
+                return follow != null && follow.IsFirstPerson;
+            }
+        }
+
+        /// <summary>The bar of the local hero at the bottom of the screen (first person), or over its head.</summary>
+        public bool OwnBarAtBottom => LocalPlayer.Hero != null && IsFirstPerson;
+
         void Place(Pudge hero, Bar bar)
         {
             float now = Time.time;
@@ -212,6 +233,16 @@ namespace PudgeWars.Gameplay
             else if (bar.deadSince < 0f) bar.deadSince = now;
             float deadFor = bar.deadSince < 0f ? 0f : now - bar.deadSince;
             bar.group.alpha = Mathf.Clamp01((deadShowTime - deadFor) / Mathf.Max(deadFadeTime, 0.01f));
+
+            // first person: the own hero is not in the picture, its bar stands at the bottom of the screen
+            if (hero == LocalPlayer.Hero && IsFirstPerson)
+            {
+                bar.root.gameObject.SetActive(deadFor < deadShowTime);
+                bar.root.anchoredPosition = new Vector2(0f, rect.rect.yMin + firstPersonY);
+                bar.root.localScale = Vector3.one * firstPersonScale;
+                return;
+            }
+            bar.root.localScale = Vector3.one;
 
             // over the body while there is one: it took the hero's place, its head as high under the bar as the hero's was
             var body = hero.Body;
@@ -283,9 +314,7 @@ namespace PudgeWars.Gameplay
             health.raycastTarget = false;
             health.horizontalOverflow = HorizontalWrapMode.Overflow;
             health.verticalOverflow = VerticalWrapMode.Overflow;
-            var healthOutline = healthRt.gameObject.AddComponent<Outline>();
-            healthOutline.effectColor = Color.black;
-            healthOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            TextOutline.Add(health.gameObject, 1.6f);
 
             var nameRt = Rect(root, "Nickname", new Vector2(400f, nameFontSize * 1.4f));
             nameRt.anchoredPosition = new Vector2(0f, size.y / 2f + border + nameFontSize * 0.75f);
@@ -297,9 +326,7 @@ namespace PudgeWars.Gameplay
             name.color = Color.white;
             name.raycastTarget = false;
             name.text = hero.DisplayName;
-            var outline = nameRt.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.9f);
-            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            TextOutline.Add(name.gameObject, 1.6f, new Color(0f, 0f, 0f, 0.9f));
 
             // level: a dark circle with a gold rim hanging off the bar's left end, as on Dota's bars
             var circle = Rect(root, "Level", Vector2.one * levelSize);
@@ -317,9 +344,7 @@ namespace PudgeWars.Gameplay
             level.raycastTarget = false;
             level.horizontalOverflow = HorizontalWrapMode.Overflow;
             level.verticalOverflow = VerticalWrapMode.Overflow;
-            var levelOutline = levelRt.gameObject.AddComponent<Outline>();
-            levelOutline.effectColor = Color.black;
-            levelOutline.effectDistance = new Vector2(1f, -1f);
+            TextOutline.Add(level.gameObject, 1.2f);
 
             // multi-kill: orange "×N" right-aligned against the level circle's left side
             var multiKillRt = Rect(root, "MultiKill", new Vector2(80f, levelSize));
@@ -334,26 +359,20 @@ namespace PudgeWars.Gameplay
             multiKill.raycastTarget = false;
             multiKill.horizontalOverflow = HorizontalWrapMode.Overflow;
             multiKill.verticalOverflow = VerticalWrapMode.Overflow;
-            var multiKillOutline = multiKillRt.gameObject.AddComponent<Outline>();
-            multiKillOutline.effectColor = Color.black;
-            multiKillOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            TextOutline.Add(multiKill.gameObject, 1.6f);
 
-            // regeneration per second: "+2.5" just right of the bar
-            var regenTextRt = Rect(root, "RegenRate", new Vector2(80f, size.y + 6f));
-            regenTextRt.pivot = new Vector2(0f, 0.5f);
-            regenTextRt.anchoredPosition = new Vector2(size.x / 2f + border + 4f, 0f);
+            // regeneration per second: "+2.5" inside the bar at its right end, clear of the centred health
+            var regenTextRt = Rect(root, "RegenRate", new Vector2(size.x - 8f, size.y + 6f));
             var regenText = regenTextRt.gameObject.AddComponent<Text>();
             regenText.font = font;
             regenText.fontSize = regenFontSize;
             regenText.fontStyle = FontStyle.Bold;
-            regenText.alignment = TextAnchor.MiddleLeft;
+            regenText.alignment = TextAnchor.MiddleRight;
             regenText.color = regenTextColor;
             regenText.raycastTarget = false;
             regenText.horizontalOverflow = HorizontalWrapMode.Overflow;
             regenText.verticalOverflow = VerticalWrapMode.Overflow;
-            var regenOutline = regenTextRt.gameObject.AddComponent<Outline>();
-            regenOutline.effectColor = Color.black;
-            regenOutline.effectDistance = new Vector2(1.5f, -1.5f);
+            TextOutline.Add(regenText.gameObject, 1.4f);
 
             float fraction = Fraction(hero);
             var bar = new Bar

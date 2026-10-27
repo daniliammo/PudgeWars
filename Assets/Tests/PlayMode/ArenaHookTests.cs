@@ -1566,7 +1566,9 @@ namespace PudgeWars.Tests
                 var label = bars.RegenLabel(hero);
                 Assert.IsTrue(label.gameObject.activeSelf, "no regeneration shown next to the bar");
                 Assert.AreEqual("+2.5", label.text, "the bar shows health regenerated per second");
-                Assert.Greater(label.transform.localPosition.x, bars.Of(hero).fill.parent.localPosition.x + bars.size.x / 2f - 1f, "the rate stands right of the bar");
+                var labelRect = (RectTransform)label.transform;
+                Assert.LessOrEqual(Mathf.Abs(labelRect.localPosition.x) + labelRect.rect.width / 2f, bars.size.x / 2f + 0.01f, "the rate must stand inside the bar");
+                Assert.AreEqual(TextAnchor.MiddleRight, label.alignment, "the rate keeps to the bar's right end, clear of the health");
                 Assert.AreEqual(hero.team == LocalPlayer.Team ? bars.playerRegenColor : bars.enemyRegenColor,
                     bars.RegenStrip(hero).GetComponent<Image>().color, "dark green for allies, dark red for enemies");
             }
@@ -1586,6 +1588,27 @@ namespace PudgeWars.Tests
             yield return null;
             Assert.IsFalse(bars.RegenLabel(bot).gameObject.activeSelf, "a dead hero does not regenerate");
             Assert.AreEqual(0f, bars.RegenStrip(bot).anchorMax.x, 1e-4f);
+        }
+
+        [UnityTest]
+        public IEnumerator FirstPersonShowsTheOwnHealthBarAtTheBottom()
+        {
+            var bars = Object.FindAnyObjectByType<HealthBars>();
+            var view = Camera.main.GetComponent<TopDownCamera>();
+            yield return null;
+            var root = bars.Of(player).root;
+            while (!view.IsFirstPerson) view.NextView();
+            yield return null;
+            Assert.IsTrue(root.gameObject.activeSelf, "no own health bar in first person");
+            var area = ((RectTransform)bars.transform).rect;
+            Assert.AreEqual(area.yMin + bars.firstPersonY, root.anchoredPosition.y, 0.01f, "the own bar must stand at the bottom of the screen");
+            Assert.AreEqual(0f, root.anchoredPosition.x, 0.01f);
+            Assert.Greater(root.localScale.x, 1f, "the bottom bar should be bigger");
+            CaptureScreen("first_person_health");
+            while (view.IsFirstPerson) view.NextView();
+            yield return null;
+            Assert.AreEqual(1f, root.localScale.x, 1e-4f, "the bar went back over the head at its size");
+            Assert.AreNotEqual(area.yMin + bars.firstPersonY, root.anchoredPosition.y);
         }
 
         [UnityTest]
@@ -1617,7 +1640,10 @@ namespace PudgeWars.Tests
                 var health = bars.HealthLabel(hero);
                 Assert.AreEqual($"{Mathf.CeilToInt(hero.Health)}/{Mathf.CeilToInt(hero.maxHealth)}", health.text, "the bar shows current / max health");
                 Assert.AreEqual(Color.white, health.color);
-                Assert.AreEqual(Color.black, health.GetComponent<Outline>().effectColor, "the health digits need a black outline to read on any fill");
+                var outline = health.GetComponent<TextOutline>();
+                Assert.IsNotNull(outline, "the health digits need a solid outline (uGUI's Outline leaves gaps)");
+                Assert.AreEqual(Color.black, outline.color, "the health digits need a black outline to read on any fill");
+                Assert.IsNull(health.GetComponent<Outline>(), "a second, gappy outline");
                 Assert.Greater(health.transform.GetSiblingIndex(), root.Find("Inner").GetSiblingIndex(), "the digits must be drawn over the fill");
             }
             CaptureScreen("health_bars");
