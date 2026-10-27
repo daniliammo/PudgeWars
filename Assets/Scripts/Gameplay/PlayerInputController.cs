@@ -106,7 +106,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Picks the usable item in an inventory slot for targeting (again: drops it).</summary>
         public bool SelectItem(int slot)
         {
-            if (inventory == null || slot < 0 || slot >= inventory.Items.Count || !inventory.Items[slot].IsUsable) return false;
+            if (inventory == null || inventory.ItemIn(slot) is not { IsUsable: true }) return false;
             if (SelectedItem == slot)
             {
                 DeselectItem();
@@ -231,13 +231,12 @@ namespace PudgeWars.Gameplay
         {
             int slot = SelectedItem;
             if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)
-                || (self != null && !self.IsControllable) || inventory == null || slot >= inventory.Items.Count
-                || !inventory.Items[slot].IsUsable)
+                || (self != null && !self.IsControllable) || inventory == null || inventory.ItemIn(slot) is not { IsUsable: true })
             {
                 DeselectItem();
                 return;
             }
-            var item = inventory.Items[slot];
+            var item = inventory.ItemIn(slot);
             ShowRange(item.castRange + (self != null ? self.radius : 0f) + (TerrainTrees.Instance != null ? TerrainTrees.Instance.radius : 0f));
             var pointer = Pointer.current;
             bool click = firstPerson
@@ -271,7 +270,7 @@ namespace PudgeWars.Gameplay
         Vector3 WalkToPendingTarget()
         {
             var trees = TerrainTrees.Instance;
-            bool gone = inventory == null || pendingSlot >= inventory.Items.Count || inventory.Items[pendingSlot] != pendingItem
+            bool gone = inventory == null || inventory.ItemIn(pendingSlot) != pendingItem
                         || trees == null || (pendingItem.TargetsTree && !trees.IsStanding(pendingTree))
                         || (self != null && !self.IsControllable);
             if (gone)

@@ -1261,7 +1261,8 @@ namespace PudgeWars.Tests
             // Quelling Blade cuts a tree within 3.5 m, then needs 4 s
             int next = trees.Nearest(player.transform.position, 100f);
             player.transform.position = trees.Position(next) + Vector3.back * 3f;
-            int bladeSlot = inventory.Items.ToList().IndexOf(blade);
+            int bladeSlot = inventory.SlotOf(blade);
+            Assert.AreEqual(2, bladeSlot, "the used-up branch must leave its slot empty: the blade keeps its key");
             Assert.IsTrue(inventory.TryUse(bladeSlot, trees.Position(next), next));
             Assert.IsFalse(trees.IsStanding(next));
             Assert.Greater(inventory.CooldownLeft(bladeSlot), 3.9f);
@@ -1324,7 +1325,10 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0, inventory.Gold);
             Assert.IsTrue(inventory.Owns(lens));
             Assert.AreEqual(hook.range + 2.75f, hook.EffectiveRange, 1e-4f);
-            Assert.AreEqual(lens.icon, shop.slots[0].sprite);
+            int lensSlot = HeroInventory.SlotCount - 1;
+            Assert.AreEqual(lensSlot, inventory.SlotOf(lens), "a passive item goes to the far slot");
+            Assert.AreEqual(lens.icon, shop.slots[lensSlot].sprite);
+            Assert.IsFalse(shop.slots[lensSlot].transform.Find("Key").gameObject.activeSelf, "a passive item has no key to press");
             Assert.AreEqual("Куплено", row.buyLabel.text);
             Assert.IsFalse(row.ShortageShown, "an owned item lacks no gold");
             row.OnPointerExit(new PointerEventData(EventSystem.current));

@@ -13,7 +13,8 @@ namespace PudgeWars.Gameplay
     /// on the bar, so its gold and items can be seen, a tab over the bar says whose they are ("Осмотр: Бот
     /// Мясник") and a panel over the tab shows its stats (<see cref="HeroStatsPanel"/>); purchases are still the
     /// player's own. A click (tap) on a slot of the player's own bar picks its item for use (<see cref="ItemSlotClicked"/>,
-    /// <see cref="PlayerInputController"/>); a slot shows its key (Z X C V B N) and the item's charges in the corners,
+    /// <see cref="PlayerInputController"/>); a slot of a usable item shows its key (Z X C V B N; passive items keep to the
+    /// far slots and show none) and the item's charges in the corners,
     /// a dark radial shade with the seconds left over its cooldown (as on the ability bar) and is outlined while its
     /// item waits for a target.
     /// </summary>
@@ -60,7 +61,7 @@ namespace PudgeWars.Gameplay
         float slide; // 0 = beyond the screen edge, 1 = in place
         // made at runtime (BuildSlotParts); never restored by a script reload, where they would come back as empty
         // arrays (play mode entered without a domain or scene reload)
-        [NonSerialized] Text[] chargeLabels, cooldownLabels;
+        [NonSerialized] Text[] chargeLabels, cooldownLabels, keyLabels;
         [NonSerialized] Image[] cooldownShades, slotFrames;
         Color slotFrameColor;
 
@@ -185,6 +186,7 @@ namespace PudgeWars.Gameplay
         {
             chargeLabels = new Text[slots.Length];
             cooldownLabels = new Text[slots.Length];
+            keyLabels = new Text[slots.Length];
             cooldownShades = new Image[slots.Length];
             slotFrames = new Image[slots.Length];
             for (int i = 0; i < slots.Length; i++)
@@ -257,6 +259,8 @@ namespace PudgeWars.Gameplay
                 key.raycastTarget = false;
                 key.text = i < SlotKeys.Length ? SlotKeys[i] : "";
                 keyRt.gameObject.AddComponent<Outline>().effectColor = Color.black;
+                keyRt.gameObject.SetActive(false); // shown over a usable item (Refresh)
+                keyLabels[i] = key;
 
                 var labelRt = new GameObject("Charges", typeof(RectTransform)).GetComponent<RectTransform>();
                 labelRt.SetParent(icon.transform, false);
@@ -356,9 +360,12 @@ namespace PudgeWars.Gameplay
             for (int i = 0; i < slots.Length; i++)
             {
                 if (slots[i] == null) continue;
-                var item = shown != null && i < shown.Items.Count ? shown.Items[i] : null;
+                var item = shown != null ? shown.ItemIn(i) : null;
                 slots[i].sprite = item != null ? item.icon : null;
                 slots[i].color = item != null ? Color.white : new Color(0f, 0f, 0f, 0.55f);
+                // only a usable item has a key to press (and a slot to click)
+                if (keyLabels != null && i < keyLabels.Length && keyLabels[i] != null)
+                    keyLabels[i].gameObject.SetActive(item != null && item.IsUsable);
                 if (chargeLabels != null && i < chargeLabels.Length && chargeLabels[i] != null)
                     chargeLabels[i].text = item != null && (item.charges > 1 || item.stacks) ? shown.ChargesAt(i).ToString() : "";
             }

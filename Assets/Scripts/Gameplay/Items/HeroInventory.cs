@@ -5,8 +5,9 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Gold and items of a hero. Items with charges (Tango, Iron Branch) are used up and leave their slot; a stacking
-    /// one bought again adds its charges to the slot it has. A usable item (<see cref="ItemDef.action"/>) is used on a
+    /// Gold and items of a hero in six slots (Z X C V B N). A usable item takes the first free slot from the left, a
+    /// passive one (Aether Lens) the first from the right, out of the way of the keys. Items with charges (Tango, Iron
+    /// Branch) are used up and leave their slot empty; a stacking one bought again adds its charges to the slot it has. A usable item (<see cref="ItemDef.action"/>) is used on a
     /// tree or a point of the ground by <see cref="TryUse"/>. On a network client (<see cref="Simulation.IsProxy"/>)
     /// the server keeps them: a purchase or a use becomes a <see cref="BuyRequested"/> / <see cref="UseRequested"/>
     /// request and the result arrives with <see cref="ApplyRemoteState"/>.
@@ -18,12 +19,18 @@ namespace PudgeWars.Gameplay
         public const int NoTree = -1;
 
         [SerializeField] int gold;
-        [SerializeField] List<ItemDef> items = new();
-        [SerializeField] List<int> charges = new();
-        readonly List<float> readyAt = new(); // Time.time each slot can be used again
+        [SerializeField] ItemDef[] slots = new ItemDef[SlotCount];
+        [SerializeField] int[] charges = new int[SlotCount];
+        readonly float[] readyAt = new float[SlotCount]; // Time.time each slot can be used again
+        readonly List<ItemDef> owned = new();
 
         public int Gold => gold;
-        public IReadOnlyList<ItemDef> Items => items;
+        /// <summary>The items owned, in slot order (empty slots left out).</summary>
+        public IReadOnlyList<ItemDef> Items => owned;
+        /// <summary>The item in a slot, or null.</summary>
+        public ItemDef ItemIn(int slot) => slot >= 0 && slot < SlotCount ? slots[slot] : null;
+        /// <summary>The slot holding an item, or -1.</summary>
+        public int SlotOf(ItemDef item) => item != null ? Array.IndexOf(slots, item) : -1;
         public event Action Changed;
         /// <summary>Gold received with a popup (a kill reward): the amount, for the "+N" popup.</summary>
         public event Action<int> GoldAdded;
@@ -47,7 +54,7 @@ namespace PudgeWars.Gameplay
             get
             {
                 float bonus = 0f;
-                foreach (var item in items) bonus += item.castRangeBonus;
+                foreach (var item in owned) bonus += item.castRangeBonus;
                 return bonus;
             }
         }
@@ -58,8 +65,9 @@ namespace PudgeWars.Gameplay
             get
             {
                 int worth = gold;
-                for (int i = 0; i < items.Count; i++)
-                    worth += items[i].charges > 0 ? items[i].cost * ChargesAt(i) / items[i].charges : items[i].cost;
+                for (int i = 0; i < SlotCount; i++)
+                    if (slots[i] != null)
+                        worth += slots[i].charges > 0 ? slots[i].cost * charges[i] / slots[i].charges : slots[i].cost;
                 return worth;
             }
         }
@@ -72,20 +80,31 @@ namespace PudgeWars.Gameplay
             if (popup && amount > 0) GoldAdded?.Invoke(amount);
         }
 
-        public bool Owns(ItemDef item) => items.Contains(item);
+        public bool Owns(ItemDef item) => SlotOf(item) >= 0;
 
         /// <summary>Charges left in a slot (0 for an item that is not used up, or an empty slot).</summary>
-        public int ChargesAt(int slot) => slot >= 0 && slot < charges.Count ? charges[slot] : 0;
+        public int ChargesAt(int slot) => ItemIn(slot) != null ? charges[slot] : 0;
 
         /// <summary>Seconds until the item in a slot can be used again.</summary>
-        public float CooldownLeft(int slot) => slot >= 0 && slot < readyAt.Count ? Mathf.Max(0f, readyAt[slot] - Time.time) : 0f;
+        public float CooldownLeft(int slot) => ItemIn(slot) != null ? Mathf.Max(0f, readyAt[slot] - Time.time) : 0f;
 
         /// <summary>Cooldown of the item in a slot, seconds (for the slot's shading).</summary>
-        public float CooldownOf(int slot) => slot >= 0 && slot < items.Count ? items[slot].cooldown : 0f;
+        public float CooldownOf(int slot) => ItemIn(slot) != null ? slots[slot].cooldown : 0f;
+
+        /// <summary>Where a new item would go: usable ones from the left, passive ones from the right; -1 if full.</summary>
+        public int FreeSlotFor(ItemDef item)
+        {
+            for (int k = 0; k < SlotCount; k++)
+            {
+                int slot = item.IsUsable ? k : SlotCount - 1 - k;
+                if (slots[slot] == null) return slot;
+            }
+            return -1;
+        }
 
         public bool CanBuy(ItemDef item) =>
             item != null && gold >= item.cost && !(item.unique && Owns(item))
-            && (items.Count < SlotCount || (item.stacks && Owns(item)));
+            && ((item.stacks && Owns(item)) || FreeSlotFor(item) >= 0);
 
         public bool TryBuy(ItemDef item)
         {
@@ -96,22 +115,23 @@ namespace PudgeWars.Gameplay
                 return true;
             }
             gold -= item.cost;
-            int owned = items.IndexOf(item);
-            if (item.stacks && owned >= 0) charges[owned] += item.charges;
+            int had = SlotOf(item);
+            if (item.stacks && had >= 0) charges[had] += item.charges;
             else
             {
-                items.Add(item);
-                charges.Add(item.charges);
-                readyAt.Add(0f);
+                int slot = FreeSlotFor(item);
+                slots[slot] = item;
+                charges[slot] = item.charges;
+                readyAt[slot] = 0f;
             }
+            Reindex();
             Changed?.Invoke();
             return true;
         }
 
         /// <summary>The item in a slot can be used now (by a hero that is free to act).</summary>
         public bool CanUse(int slot) =>
-            slot >= 0 && slot < items.Count && items[slot].IsUsable && CooldownLeft(slot) <= 0f
-            && (items[slot].charges == 0 || ChargesAt(slot) > 0)
+            ItemIn(slot) is { IsUsable: true } item && CooldownLeft(slot) <= 0f && (item.charges == 0 || charges[slot] > 0)
             && !(self is Pudge hero && !hero.IsControllable) && (self == null || self.IsAlive);
 
         /// <summary>
@@ -122,7 +142,7 @@ namespace PudgeWars.Gameplay
         public bool TryUse(int slot, Vector3 point, int tree)
         {
             if (!CanUse(slot)) return false;
-            var item = items[slot];
+            var item = slots[slot];
             var trees = TerrainTrees.Instance;
             if (trees == null) return false;
             if (item.TargetsTree ? !trees.IsStanding(tree) || !InReach(trees.Position(tree), trees.radius, item)
@@ -152,9 +172,9 @@ namespace PudgeWars.Gameplay
             readyAt[slot] = Time.time + item.cooldown;
             if (item.charges > 0 && --charges[slot] <= 0)
             {
-                items.RemoveAt(slot);
-                charges.RemoveAt(slot);
-                readyAt.RemoveAt(slot);
+                slots[slot] = null; // the slot stays empty: the others keep their keys
+                charges[slot] = 0;
+                Reindex();
             }
             Used?.Invoke(slot, item);
             Changed?.Invoke();
@@ -170,36 +190,44 @@ namespace PudgeWars.Gameplay
             return d.magnitude - heroRadius - targetRadius <= item.castRange;
         }
 
-        /// <summary>Network client: gold, items and their charges as the server has them.</summary>
-        public void ApplyRemoteState(int gold, IEnumerable<(ItemDef item, int charges)> owned)
+        /// <summary>Network client: gold, and slot by slot the items and their charges as the server has them.</summary>
+        public void ApplyRemoteState(int gold, IEnumerable<(ItemDef item, int charges)> perSlot)
         {
             this.gold = gold;
-            var oldItems = new List<ItemDef>(items);
-            var oldReady = new List<float>(readyAt);
-            items.Clear();
-            charges.Clear();
-            readyAt.Clear();
-            foreach (var (item, left) in owned)
+            int slot = 0;
+            foreach (var (item, left) in perSlot)
             {
-                // a slot keeps its shading if the same item is still there
-                int was = oldItems.IndexOf(item);
-                items.Add(item);
-                charges.Add(left);
-                readyAt.Add(was >= 0 ? oldReady[was] : 0f);
-                if (was >= 0) oldItems[was] = null;
+                if (slot >= SlotCount) break;
+                if (slots[slot] != item) readyAt[slot] = 0f; // a slot keeps its shading while the same item is there
+                slots[slot] = item;
+                charges[slot] = item != null ? left : 0;
+                slot++;
             }
+            for (; slot < SlotCount; slot++)
+            {
+                slots[slot] = null;
+                charges[slot] = 0;
+            }
+            Reindex();
             Changed?.Invoke();
         }
 
         /// <summary>Network client: the server gave this hero gold with a popup.</summary>
         public void ShowGoldAdded(int amount) => GoldAdded?.Invoke(amount);
 
-        /// <summary>Charges and cooldowns for every slot (items may be set in the inspector or by older saves).</summary>
+        /// <summary>Six slots and their charges whatever was serialized (items may be set in the inspector).</summary>
         void SyncSlots()
         {
-            while (charges.Count < items.Count) charges.Add(items[charges.Count].charges);
-            if (charges.Count > items.Count) charges.RemoveRange(items.Count, charges.Count - items.Count);
-            while (readyAt.Count < items.Count) readyAt.Add(0f);
+            if (slots == null || slots.Length != SlotCount) Array.Resize(ref slots, SlotCount);
+            if (charges == null || charges.Length != SlotCount) Array.Resize(ref charges, SlotCount);
+            Reindex();
+        }
+
+        void Reindex()
+        {
+            owned.Clear();
+            foreach (var item in slots)
+                if (item != null) owned.Add(item);
         }
     }
 }

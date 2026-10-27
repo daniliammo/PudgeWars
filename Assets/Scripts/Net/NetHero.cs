@@ -111,9 +111,10 @@ namespace PudgeWars.Net
         void PublishInventory()
         {
             gold = inventory != null ? inventory.Gold : 0;
-            // "index:charges" per slot
+            // "index:charges" per slot, "-1:0" for an empty one (the slots keep their places)
             items = inventory != null && prefabs != null
-                ? string.Join(",", inventory.Items.Select((item, slot) => $"{prefabs.IndexOf(item)}:{inventory.ChargesAt(slot)}"))
+                ? string.Join(",", Enumerable.Range(0, HeroInventory.SlotCount)
+                    .Select(slot => $"{(inventory.ItemIn(slot) != null ? prefabs.IndexOf(inventory.ItemIn(slot)) : -1)}:{inventory.ChargesAt(slot)}"))
                 : "";
         }
 
@@ -253,7 +254,7 @@ namespace PudgeWars.Net
                     var parts = slot.Split(':');
                     var item = int.TryParse(parts[0], out var i) ? prefabs.ItemAt(i) : null;
                     int left = parts.Length > 1 && int.TryParse(parts[1], out var c) ? c : 0;
-                    if (item != null) owned.Add((item, left));
+                    owned.Add((item, left)); // an empty slot too: the places matter
                 }
             inventory.ApplyRemoteState(gold, owned);
         }
