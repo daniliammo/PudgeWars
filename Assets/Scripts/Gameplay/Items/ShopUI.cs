@@ -58,9 +58,10 @@ namespace PudgeWars.Gameplay
         RectTransform panelRect;
         Vector2 shownPosition, hiddenPosition;
         float slide; // 0 = beyond the screen edge, 1 = in place
-        Text[] chargeLabels, cooldownLabels;
-        Image[] cooldownShades;
-        Image[] slotFrames;
+        // made at runtime (BuildSlotParts); never restored by a script reload, where they would come back as empty
+        // arrays (play mode entered without a domain or scene reload)
+        [NonSerialized] Text[] chargeLabels, cooldownLabels;
+        [NonSerialized] Image[] cooldownShades, slotFrames;
         Color slotFrameColor;
 
         void Start()
@@ -191,7 +192,14 @@ namespace PudgeWars.Gameplay
                 var icon = slots[i];
                 if (icon == null) continue;
                 int slot = i;
+                // parts left from an earlier start (play mode entered without reloading the scene) are made anew
+                foreach (var part in new[] { "Cooldown", "CooldownTime", "Key", "Charges" })
+                {
+                    var old = icon.transform.Find(part);
+                    if (old != null) Destroy(old.gameObject);
+                }
                 if (!icon.TryGetComponent<Button>(out var button)) button = icon.gameObject.AddComponent<Button>();
+                button.onClick.RemoveAllListeners(); // runtime listeners only; the scene has none on the slots
                 button.targetGraphic = icon;
                 button.transition = Selectable.Transition.None;
                 button.onClick.AddListener(() =>
@@ -275,7 +283,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Cooldown shading (from the top down, as it runs out) and the frame of the item picked for use.</summary>
         void ShowSlotStates()
         {
-            if (cooldownShades == null) return;
+            if (cooldownShades == null || cooldownShades.Length < slots.Length) return;
             var shown = Shown;
             int selected = !inspecting && LocalPlayer.Input != null ? LocalPlayer.Input.SelectedItem : PlayerInputController.NoItem;
             for (int i = 0; i < slots.Length; i++)
@@ -351,7 +359,7 @@ namespace PudgeWars.Gameplay
                 var item = shown != null && i < shown.Items.Count ? shown.Items[i] : null;
                 slots[i].sprite = item != null ? item.icon : null;
                 slots[i].color = item != null ? Color.white : new Color(0f, 0f, 0f, 0.55f);
-                if (chargeLabels != null && chargeLabels[i] != null)
+                if (chargeLabels != null && i < chargeLabels.Length && chargeLabels[i] != null)
                     chargeLabels[i].text = item != null && (item.charges > 1 || item.stacks) ? shown.ChargesAt(i).ToString() : "";
             }
             foreach (var row in rows) row.Refresh(buyer);
