@@ -11,7 +11,7 @@ namespace PudgeWars.Gameplay
     /// darkens with a radial fill while the hook is out or on cooldown, like the ability icon. Shown on phones and
     /// on devices with a touchscreen; <see cref="showOnDesktop"/> shows them with the mouse too, for trying out in
     /// the editor. Hidden while an overlay window (the network menu) has the input.
-    /// Built at runtime next to them: a button in the top-left corner that switches the camera view like V, and in
+    /// Built at runtime next to them: a button in the top-left corner that switches the camera view like G, and in
     /// first person a zone over the rest of the screen where a third finger turns the view (<see cref="TakeLook"/>).
     /// </summary>
     public class TouchControls : MonoBehaviour

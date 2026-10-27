@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Player camera with views switched by V: from above behind the player's side looking slightly ahead
+    /// Player camera with views switched by G: from above behind the player's side looking slightly ahead
     /// toward the enemy, a view from behind the enemy side's back wall across the pit at the player (it follows the
     /// player only sideways, so every enemy stays in front of it however close the player comes), and first person with
     /// shooter controls (mouse look with a locked cursor and a crosshair; the cursor is freed while the shop is open).
@@ -115,7 +115,7 @@ namespace PudgeWars.Gameplay
         {
             ClickConsumed = false;
             var kb = Keyboard.current;
-            if (kb != null && kb.vKey.wasPressedThisFrame && !OverlayInput.Captured) NextView();
+            if (kb != null && kb.gKey.wasPressedThisFrame && !OverlayInput.Captured) NextView(); // G: V is an item key
             if (!IsFirstPerson) return;
 
             if (TouchLook)

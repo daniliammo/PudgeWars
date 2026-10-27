@@ -5,7 +5,7 @@ using UnityEngine.InputSystem;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Desktop controls for the test arena: WASD / arrows to move relative to the camera view (V switches it,
+    /// Desktop controls for the test arena: WASD / arrows to move relative to the camera view (G switches it,
     /// see TopDownCamera); Q selects the first ability (the hook) and shows where it will fly, left mouse
     /// button or Space casts it toward the cursor, right mouse button or Escape drops the selection. With no ability
     /// selected, a left click on a hero puts its gold and items on the shop bar in place of the player's
