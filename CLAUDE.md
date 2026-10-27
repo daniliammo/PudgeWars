@@ -49,7 +49,8 @@
 - `Scripts/Gameplay` (сборка PudgeWars.Gameplay) — механики: `HookAbility`, `Hookable`, `PudgeMotor`, `BotBrain`, `Arena`,
   HUD (`ScoreHud`, `HealthBars`, `KillAnnouncer`, магазин в `Items/`), `TerrainTrees` (деревья террейна: препятствия, рубка),
   `MenuLandscape`, `GraphicsQuality` (пресеты), `Corpse` (тело-рэгдолл упавшего героя до возрождения), `BloodSplatter`
-  (брызги и пятна крови; шейдер `Resources/Effects/Blood.shader`). `Simulation.IsProxy` — сетевой клиент только показывает состояние сервера.
+  (брызги и пятна крови; шейдер `Resources/Effects/Blood.shader`). `HeroVoice` — голос своего Пуджа (`Resources/Audio/Voice`),
+  звуки хука — `Resources/Audio/Hook` (подгружаются в `HookSounds.FillMissing`). `Simulation.IsProxy` — сетевой клиент только показывает состояние сервера.
 - `Scripts/Net` (PudgeWars.Net, Mirror) — `PudgeNetworkManager` (создаётся при старте, сцену не трогает; лобби в меню,
   `StartMatch` → `ServerChangeScene("Arena")`, герой спавнится когда игрок ready на арене), `NetHero`, `NetMatch`
   (счёт, объявления, срубленные деревья), `MainMenu` (uGUI строится кодом), `NetMenu` (F2 на арене, IMGUI).
