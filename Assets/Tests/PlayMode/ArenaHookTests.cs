@@ -1636,6 +1636,58 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator PickedHeroOrTreeIsMarkedWithASwayingRingAndRipples()
+        {
+            var input = player.GetComponent<PlayerInputController>();
+            var marker = SelectionMarker.Instance;
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            yield return null;
+            Assert.IsFalse(marker.IsShown, "nothing is picked yet");
+
+            // Space picks the own hero: green
+            input.PickOwnHero();
+            yield return null;
+            Assert.AreEqual(player, marker.SelectedUnit);
+            Assert.IsTrue(marker.IsShown, "no ring under the own hero");
+            Assert.AreEqual(marker.allyColor, marker.CurrentColor, "the own side's ring must be green");
+
+            // an enemy: red, see-through, swaying, with rings rippling out
+            marker.Select(bot);
+            yield return null;
+            Assert.AreEqual(marker.enemyColor, marker.CurrentColor, "an enemy's ring must be red");
+            var ring = marker.Ring;
+            Assert.Less(ring.startColor.a, 1f, "the ring must be see-through");
+            var centre = bot.transform.position;
+            float Radius(LineRenderer line, int i) => new Vector2(line.GetPosition(i).x - centre.x, line.GetPosition(i).z - centre.z).magnitude;
+            var around = Enumerable.Range(0, ring.positionCount).Select(i => Radius(ring, i)).ToList();
+            Assert.Greater(around.Max() - around.Min(), 0.01f, "the ring's edge does not sway");
+            float before = Radius(ring, 0);
+            float ripple = Radius(marker.Ripples[0], 0);
+            yield return new WaitForSeconds(0.2f);
+            Assert.AreNotEqual(before, Radius(ring, 0), "the ring stands still");
+            Assert.AreNotEqual(ripple, Radius(marker.Ripples[0], 0), "the ripple does not move");
+            Assert.IsTrue(marker.Ripples.All(r => r.enabled && r.startColor.a < ring.startColor.a + 1e-4f), "the ripples must be fainter than the ring");
+            Assert.Greater(marker.Ripples.Max(r => Radius(r, 0)), Radius(ring, 0), "the ripples must spread out of the ring");
+            CaptureScreen("selection_enemy");
+
+            // a tree: white
+            var trees = TerrainTrees.Instance;
+            marker.SelectTree(0);
+            yield return null;
+            Assert.AreEqual(marker.treeColor, marker.CurrentColor, "a tree's ring must be white");
+            Assert.Less(marker.CurrentColor.a, 1f);
+            trees.Fell(0, trees.Position(0) + Vector3.right);
+            yield return null;
+            Assert.IsFalse(marker.IsShown, "the ring stayed after the tree was cut down");
+
+            // a dead hero's ring goes
+            marker.Select(bot);
+            bot.StartFalling(Vector3.zero);
+            yield return null;
+            Assert.IsFalse(marker.IsShown, "a falling hero keeps its ring");
+        }
+
+        [UnityTest]
         public IEnumerator HeroesHaveNicknamesAndDotaHealthBars()
         {
             var bars = Object.FindAnyObjectByType<HealthBars>();

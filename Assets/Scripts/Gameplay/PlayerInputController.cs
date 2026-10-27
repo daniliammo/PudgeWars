@@ -9,7 +9,8 @@ namespace PudgeWars.Gameplay
     /// see TopDownCamera); Q selects the first ability (the hook) and shows where it will fly, left mouse
     /// button or Space casts it toward the cursor, right mouse button or Escape drops the selection. With no ability
     /// selected, a left click on a hero puts its gold and items on the shop bar in place of the player's
-    /// (<see cref="ShopUI.Inspect"/>); a click on empty ground or Escape brings the player's back.
+    /// (<see cref="ShopUI.Inspect"/>) and marks it on the ground (<see cref="SelectionMarker"/>: red, green; a tree
+    /// clicked is marked white); Space picks the own hero; a click on empty ground or Escape brings the player's back.
     /// In first person the controls are a shooter's: the hero faces where the camera looks, strafes with
     /// A / D and throws the hook at the crosshair.
     /// On a phone (<see cref="TouchControls"/>) the left stick runs at full speed; a finger on the right stick picks
@@ -189,7 +190,7 @@ namespace PudgeWars.Gameplay
             }
             if (SelectedAbility == NoAbility)
             {
-                Inspect(firstPerson, overUi || (touch != null && touch.AnyHeld));
+                Inspect(kb, firstPerson, overUi || (touch != null && touch.AnyHeld));
                 return;
             }
             if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame)
@@ -343,15 +344,44 @@ namespace PudgeWars.Gameplay
             return transform.position + dir * hook.EffectiveRange;
         }
 
-        /// <summary>Not aiming: a left click (or a tap) picks a hero to look at, or nobody (the player's own data again).</summary>
-        void Inspect(bool firstPerson, bool overUi)
+        /// <summary>
+        /// Not aiming: a left click (or a tap) picks a hero to look at — or a tree, or nothing (the player's own data
+        /// again); Space picks the own hero, Escape drops the pick. The pick is marked on the ground (<see cref="SelectionMarker"/>).
+        /// </summary>
+        void Inspect(Keyboard kb, bool firstPerson, bool overUi)
         {
+            if (kb != null && kb.spaceKey.wasPressedThisFrame)
+            {
+                PickOwnHero();
+                return;
+            }
+            if (kb != null && kb.escapeKey.wasPressedThisFrame) SelectionMarker.Instance.Clear();
             var pointer = Pointer.current; // the mouse, or the first finger on a touchscreen
             if (firstPerson || overUi || pointer == null || !pointer.press.wasPressedThisFrame) return;
+            var screen = pointer.position.ReadValue();
+            var hero = HeroPicker.PickAt(screen, viewCamera);
+            int? tree = null;
+            var trees = TerrainTrees.Instance;
+            if (hero == null && trees != null && TryGetGroundPoint(screen, out var ground))
+            {
+                int near = trees.Nearest(ground, treePickRadius);
+                if (near >= 0) tree = near;
+            }
+            Pick(hero, tree);
+        }
+
+        /// <summary>Space: the own hero is picked (marked, its own data on the bar).</summary>
+        public void PickOwnHero() => Pick(self, null);
+
+        /// <summary>Marks the picked hero (or tree, or nothing) and puts the hero's gold and items on the shop bar.</summary>
+        void Pick(Pudge hero, int? tree)
+        {
+            var marker = SelectionMarker.Instance;
+            if (hero != null) marker.Select(hero);
+            else if (tree is { } t) marker.SelectTree(t);
+            else marker.Clear();
             if (shop == null) shop = FindAnyObjectByType<ShopUI>();
-            if (shop == null) return;
-            var hero = HeroPicker.PickAt(pointer.position.ReadValue(), viewCamera);
-            shop.Inspect(hero != null ? hero.GetComponent<HeroInventory>() : null);
+            if (shop != null) shop.Inspect(hero != null ? hero.GetComponent<HeroInventory>() : null);
         }
 
         Vector3 CameraRelative(Vector2 move)
