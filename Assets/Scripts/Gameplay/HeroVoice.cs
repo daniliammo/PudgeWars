@@ -6,9 +6,10 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Pudge's Dota 2 voice (Russian, Resources/Audio/Voice) for the local player's hero, heard only by that player:
     /// spawn and "battle begins", hook hit and miss, a cast now and then, "not yet" for a hook on cooldown, caught by an
-    /// enemy, kills (first blood, big multi-kills laughing), death, respawn, a rescue made ("denied") and received
+    /// enemy, kills (first blood, big multi-kills laughing), respawn, a rescue made ("denied") and received
     /// ("thanks"), a purchase and now and then a move after standing. One line at a time: a more important one cuts a
-    /// lesser one off, one that matters no more than the line playing is dropped. Everything is read from the state the heroes
+    /// lesser one off, one that matters no more than the line playing is dropped. A falling or dead hero is silent:
+    /// its line is cut off at once and nothing is said until it is back. Everything is read from the state the heroes
     /// show (score, alive, inventory) and from the hook's events, so a network client hears the same as the host.
     /// </summary>
     public class HeroVoice : MonoBehaviour
@@ -26,7 +27,6 @@ namespace PudgeWars.Gameplay
         static readonly string[] RareKillLines = { "pud_rare" };
         static readonly string[] FirstBloodLines = { "pud_firstblood" };
         static readonly string[] BigStreakLines = { "pud_laugh", "pud_happy", "pud_inthebag" };
-        static readonly string[] DeathLines = { "pud_death" };
         static readonly string[] RescueLines = { "pud_deny" };
         static readonly string[] RescuedLines = { "pud_thanks" };
         static readonly string[] PurchaseLines = { "pud_purch" };
@@ -60,7 +60,7 @@ namespace PudgeWars.Gameplay
         PudgeMotor motor;
         HeroInventory inventory;
         Arena arena; // the arena whose events are listened to
-        bool wasAlive, spokeSpawn;
+        bool wasDown, spokeSpawn;
         HeroScore lastScore;
         int lastItems;
         float standingSince, nextMinorAt, battleBeginsAt = -1f;
@@ -71,6 +71,7 @@ namespace PudgeWars.Gameplay
 
         /// <summary>The topic of the last line started (for tests); null before any.</summary>
         public string LastTopic { get; private set; }
+        public bool IsSpeaking => source != null && source.isPlaying;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
@@ -137,7 +138,7 @@ namespace PudgeWars.Gameplay
             }
             if (input != null) input.AbilityNotReady += OnNotReady;
             ListenTo(Arena.Instance);
-            wasAlive = hero.IsAlive;
+            wasDown = IsDown;
             lastScore = arena != null ? arena.ScoreOf(hero) : default;
             lastItems = inventory != null ? inventory.Items.Count : 0;
             standingSince = Time.time;
@@ -162,6 +163,9 @@ namespace PudgeWars.Gameplay
             hook = null;
             input = null;
         }
+
+        /// <summary>The hero has gone over the edge or died: its body is flying, the hero says nothing.</summary>
+        bool IsDown => hero.IsFalling || !hero.IsAlive;
 
         void ListenTo(Arena next)
         {
@@ -195,11 +199,15 @@ namespace PudgeWars.Gameplay
                 Say(BattleBeginsLines, Weight.Minor);
             }
 
-            if (wasAlive != hero.IsAlive)
+            if (wasDown != IsDown)
             {
-                wasAlive = hero.IsAlive;
-                if (wasAlive) Say(RespawnLines, Weight.Normal);
-                else Say(DeathLines, Weight.Major);
+                wasDown = IsDown;
+                if (!wasDown) Say(RespawnLines, Weight.Normal);
+                else
+                {
+                    source.Stop(); // silent until the respawn
+                    pendingKills = 0;
+                }
             }
             if (arena != null)
             {
@@ -298,6 +306,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Starts a random line of the topics, not the one said last time; false if it could not be said now.</summary>
         bool Say(string[] lines, Weight weight)
         {
+            if (hero != null && IsDown) return false;
             if (source.isPlaying && weight <= playingWeight && weight != Weight.Major) return false;
             var clip = Pick(lines, out var topic);
             if (clip == null) return false;
