@@ -4,15 +4,28 @@ using UnityEngine;
 
 namespace PudgeWars.Gameplay
 {
-    /// <summary>Hook sounds as wired in the original Player_PW Blueprint.</summary>
+    /// <summary>
+    /// Hook sounds: the slots of the original Player_PW Blueprint, filled with Dota 2's Meat Hook sounds
+    /// (Resources/Audio/Hook) where the prefab leaves them empty.
+    /// </summary>
     [Serializable]
     public class HookSounds
     {
-        [Tooltip("Hook_Chain: Sounds/Chain/Hook")] public AudioClip cast;
-        [Tooltip("Hook_ChainReturn: Sounds/Chain/ReturnHook")] public AudioClip retract;
-        [Tooltip("BOTPopadanieSound: Sounds/Popal/PopalSound")] public AudioClip impact;
+        [Tooltip("The chain flying out (Hero_Pudge.AttackHookExtend); Resources/Audio/Hook/hook_throw if empty.")] public AudioClip cast;
+        [Tooltip("The chain coming back (Hero_Pudge.AttackHookRetract); goes on from the cast sound if it is the same clip. Resources/Audio/Hook/hook_throw if empty.")] public AudioClip retract;
+        [Tooltip("The hook hits a hero (Hero_Pudge.AttackHookImpact); Resources/Audio/Hook/hook_impact if empty.")] public AudioClip impact;
+        [Tooltip("The hook is back at Pudge (Hero_Pudge.AttackHookRetractStop); Resources/Audio/Hook/hook_retract_stop if empty.")] public AudioClip retractStop;
         [Tooltip("Popal (SoundCue Hook_Popodanie, random): Pud_1, Pud_2, Pud_3, TargetHook")] public AudioClip[] hitVoice = Array.Empty<AudioClip>();
         [Tooltip("NePopal (SoundCue Returne_Sound, random): Pud_anger, Pud_1")] public AudioClip[] missVoice = Array.Empty<AudioClip>();
+
+        /// <summary>Fills the empty sound slots with the Dota clips from Resources/Audio/Hook.</summary>
+        public void FillMissing()
+        {
+            if (cast == null) cast = Resources.Load<AudioClip>("Audio/Hook/hook_throw");
+            if (retract == null) retract = Resources.Load<AudioClip>("Audio/Hook/hook_throw");
+            if (impact == null) impact = Resources.Load<AudioClip>("Audio/Hook/hook_impact");
+            if (retractStop == null) retractStop = Resources.Load<AudioClip>("Audio/Hook/hook_retract_stop");
+        }
     }
 
     /// <summary>
@@ -76,6 +89,12 @@ namespace PudgeWars.Gameplay
         public HookSounds sounds = new();
 
         public event Action<Hookable> TargetCaught;
+        /// <summary>Any hero's hook caught someone (the hook, its catch); on a network client too.</summary>
+        public static event Action<HookAbility, Hookable> AnyTargetCaught;
+        /// <summary>The head has left the hand; on a network client when the server's head appears.</summary>
+        public event Action Launched;
+        /// <summary>The head reached its full range without catching anyone; on a network client too.</summary>
+        public event Action Missed;
         public event Action<Hookable> TargetDropped;
         /// <summary>Network client: the player casts toward this point; the server throws the hook.</summary>
         public event Action<Vector3> CastRequested;
@@ -132,6 +151,8 @@ namespace PudgeWars.Gameplay
         PudgeAnimation anim;
         PudgeMotor motor;
         HeroInventory inventory;
+        AudioSource chainAudio; // the chain's own sound, stopped when the hook is gone
+        bool remoteFlying, remoteCaught; // network client: the shown head flies out / caught someone this cast
 
         void Awake()
         {
@@ -139,6 +160,18 @@ namespace PudgeWars.Gameplay
             anim = GetComponent<PudgeAnimation>();
             motor = GetComponent<PudgeMotor>();
             inventory = GetComponent<HeroInventory>();
+            sounds ??= new HookSounds();
+            sounds.FillMissing();
+            if (audioSource != null)
+            {
+                chainAudio = gameObject.AddComponent<AudioSource>();
+                chainAudio.playOnAwake = false;
+                chainAudio.spatialBlend = audioSource.spatialBlend;
+                chainAudio.rolloffMode = audioSource.rolloffMode;
+                chainAudio.minDistance = audioSource.minDistance;
+                chainAudio.maxDistance = audioSource.maxDistance;
+                chainAudio.outputAudioMixerGroup = audioSource.outputAudioMixerGroup;
+            }
             if (hookHead != null) hookHead.localScale *= headScale;
             TipLength = MeasureTip();
             // the prefab keeps the head and the chain as children; in flight they must not follow the owner
@@ -251,7 +284,8 @@ namespace PudgeWars.Gameplay
             hookHead.SetPositionAndRotation(AimStart + direction * traveled, Quaternion.LookRotation(direction));
             state = State.Flying;
             SetHookVisible(true);
-            Play(sounds.cast);
+            PlayChain(sounds.cast, restart: true);
+            Launched?.Invoke();
         }
 
         void Fly()
@@ -272,7 +306,7 @@ namespace PudgeWars.Gameplay
                 else
                 {
                     BeginHold(hit);
-                    TargetCaught?.Invoke(hit);
+                    RaiseCaught(hit);
                 }
                 return;
             }
@@ -284,7 +318,7 @@ namespace PudgeWars.Gameplay
                 bool savedFromHook = !IsEnemy(target) && WouldSurelyBeCaught(target); // before it is on this hook
                 target.AttachTo(this);
                 if (savedFromHook) Arena.Instance?.ReportRescue(target, self);
-                TargetCaught?.Invoke(target);
+                RaiseCaught(target);
                 Play(sounds.impact);
                 Play(Pick(sounds.hitVoice));
                 // the owner was caught while the hook flew: the catch hangs on a taut chain behind the owner
@@ -294,11 +328,12 @@ namespace PudgeWars.Gameplay
             else if (traveled >= EffectiveRange)
             {
                 Play(Pick(sounds.missVoice));
+                Missed?.Invoke();
                 // a miss comes back even to an owner caught meanwhile (see OwnerLostControl); not to a falling or dead one
                 if (OwnerDown) Cancel();
                 else state = State.Returning;
             }
-            if (state == State.Returning) Play(sounds.retract);
+            if (state == State.Returning) PlayChain(sounds.retract);
         }
 
         void Return()
@@ -340,6 +375,7 @@ namespace PudgeWars.Gameplay
                 target = null;
             }
             SetHookVisible(false);
+            Play(sounds.retractStop);
             state = State.Ready;
             readyAt = Time.time + (caughtThisCast && resetCooldownOnHit ? 0f : cooldown);
             // an owner on someone's hook keeps its own animation
@@ -658,8 +694,13 @@ namespace PudgeWars.Gameplay
             return best;
         }
 
-        /// <summary>Network client: the server's hook caught <paramref name="target"/> (for the camera's shake).</summary>
-        public void ApplyRemoteCatch(Hookable target) => TargetCaught?.Invoke(target);
+        /// <summary>Network client: the server's hook caught <paramref name="target"/> (for the camera's shake and the sounds).</summary>
+        public void ApplyRemoteCatch(Hookable target)
+        {
+            remoteCaught = true;
+            Play(sounds.impact);
+            RaiseCaught(target);
+        }
 
         /// <summary>Network client: whether the server's hook is busy and its cooldown (the UI and casts use them at once).</summary>
         /// <param name="cooldownLeft">Seconds until ready, counted from now (ignored while busy).</param>
@@ -695,10 +736,26 @@ namespace PudgeWars.Gameplay
             var to = remoteHeads.Count > 1 ? remoteHeads[1] : from;
             if (from.visible != HeadVisible)
             {
+                // the server's hook is gone near the hand: it came back (not broken off far away)
+                bool back = !from.visible && Vector3.Distance(hookHead.position, Origin) < 1.5f;
                 SetHookVisible(from.visible);
                 spin = 0f;
+                if (from.visible)
+                {
+                    remoteFlying = true;
+                    remoteCaught = false;
+                    PlayChain(sounds.cast, restart: true);
+                    Launched?.Invoke();
+                }
+                else if (back) Play(sounds.retractStop);
             }
             if (!from.visible) return;
+            if (remoteFlying && !from.flying)
+            {
+                remoteFlying = false;
+                if (!remoteCaught) Missed?.Invoke();
+                PlayChain(sounds.retract);
+            }
             float t = to.time > from.time ? Mathf.Clamp01((float)((time - from.time) / (to.time - from.time))) : 0f;
             if (!to.visible) t = 0f; // it vanishes there: no sliding toward a stale position
             hookHead.position = Vector3.Lerp(from.position, to.position, t);
@@ -720,6 +777,7 @@ namespace PudgeWars.Gameplay
 
         void SetHookVisible(bool visible)
         {
+            if (!visible && chainAudio != null) chainAudio.Stop();
             if (hookHead != null) hookHead.gameObject.SetActive(visible);
             if (chain != null)
             {
@@ -731,6 +789,21 @@ namespace PudgeWars.Gameplay
         void Play(AudioClip clip)
         {
             if (clip != null && audioSource != null) audioSource.PlayOneShot(clip);
+        }
+
+        /// <summary>The chain's sound; one already playing the same clip goes on unless <paramref name="restart"/>.</summary>
+        void PlayChain(AudioClip clip, bool restart = false)
+        {
+            if (clip == null || chainAudio == null) return;
+            if (!restart && chainAudio.isPlaying && chainAudio.clip == clip) return;
+            chainAudio.clip = clip;
+            chainAudio.Play();
+        }
+
+        void RaiseCaught(Hookable target)
+        {
+            TargetCaught?.Invoke(target);
+            AnyTargetCaught?.Invoke(this, target);
         }
 
         static AudioClip Pick(AudioClip[] clips) =>
