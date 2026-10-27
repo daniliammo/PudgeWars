@@ -1744,6 +1744,30 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HookSoundsAndPudgeVoiceFollowTheHook()
+        {
+            Assert.IsNotNull(hook.sounds.cast, "no hook throw sound (Resources/Audio/Hook/hook_throw)");
+            Assert.IsNotNull(hook.sounds.impact, "no hook impact sound (Resources/Audio/Hook/hook_impact)");
+            Assert.IsNotNull(hook.sounds.retractStop, "no hook return sound (Resources/Audio/Hook/hook_retract_stop)");
+            foreach (var topic in new[] { "pud_spawn", "pud_ability_hook", "pud_ability_hook_miss", "pud_kill", "pud_death", "pud_respawn", "pud_laugh", "pudge_background" })
+                Assert.IsNotNull(HeroVoice.RandomLine(topic), $"no voice lines {topic} in Resources/Audio/Voice");
+            var voice = Object.FindAnyObjectByType<HeroVoice>();
+            Assert.IsNotNull(voice, "the hero's voice is not created at start");
+
+            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+            yield return new WaitForSeconds(0.5f); // the spawn line may go on: the hit cuts it off
+            Assert.IsTrue(hook.TryCast(bot.transform.position));
+            yield return new WaitUntil(() => bot.IsHooked);
+            yield return null;
+            Assert.AreEqual("pud_ability_hook", voice.LastTopic, "Pudge says nothing when the hook hits an enemy");
+            yield return new WaitUntil(() => arena.ScoreOf(player).kills == 1);
+            yield return new WaitForSeconds(0.5f);
+            StringAssert.StartsWith("pud_", voice.LastTopic);
+            Assert.AreNotEqual("pud_ability_hook", voice.LastTopic, "no kill line (first blood) after the kill");
+        }
+
+        [UnityTest]
         public IEnumerator GoldRewardShowsAmountAndCoinsOverTheHero()
         {
             var popups = Object.FindAnyObjectByType<GoldPopups>();

@@ -29,6 +29,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>Ability waiting for a target (Dota-style quick cast is off), or NoAbility.</summary>
         public int SelectedAbility { get; private set; } = NoAbility;
+        /// <summary>The player asked for the hook while it is on cooldown (the hero says "not yet").</summary>
+        public event System.Action AbilityNotReady;
 
         PudgeMotor motor;
         HookAbility hook;
@@ -66,7 +68,12 @@ namespace PudgeWars.Gameplay
         /// <summary>Picks an ability for targeting; one on cooldown or a caught hero cannot be picked.</summary>
         public bool SelectAbility(int slot)
         {
-            if (slot != HookSlot || !hook.IsReady || (self != null && !self.IsControllable)) return false;
+            if (slot != HookSlot || (self != null && !self.IsControllable)) return false;
+            if (!hook.IsReady)
+            {
+                if (SelectedAbility == NoAbility) AbilityNotReady?.Invoke();
+                return false;
+            }
             SelectedAbility = slot;
             return true;
         }
@@ -103,7 +110,7 @@ namespace PudgeWars.Gameplay
 
             if (kb != null && kb.qKey.wasPressedThisFrame) SelectAbility(HookSlot);
             bool stickAiming = touch != null && touch.hookStick != null && touch.hookStick.IsHeld;
-            if (stickAiming && SelectedAbility == NoAbility) SelectAbility(HookSlot); // held through the cooldown
+            if (stickAiming && SelectedAbility == NoAbility && hook.IsReady) SelectAbility(HookSlot); // held through the cooldown
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             if (SelectedAbility == NoAbility)
             {
