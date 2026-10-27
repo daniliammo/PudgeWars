@@ -1766,14 +1766,15 @@ namespace PudgeWars.Tests
             StringAssert.StartsWith("pud_", voice.LastTopic);
             Assert.AreNotEqual("pud_ability_hook", voice.LastTopic, "no kill line (first blood) after the kill");
 
-            // a falling hero is silent at once and says nothing until it is back
+            // a falling hero cuts its line off for the death line and says nothing else until it is back
             Assert.IsTrue(voice.IsSpeaking, "the kill line is already over: nothing to cut off");
             player.StartFalling(Vector3.zero);
             yield return null;
-            Assert.IsFalse(voice.IsSpeaking, "the voice goes on while the hero falls");
+            Assert.AreEqual("pud_death", voice.LastTopic, "the kill line goes on instead of the death line");
+            Assert.IsTrue(voice.IsSpeaking);
             yield return new WaitUntil(() => !player.IsAlive);
             yield return new WaitForSeconds(1f);
-            Assert.IsFalse(voice.IsSpeaking, "the dead hero speaks");
+            Assert.AreEqual("pud_death", voice.LastTopic, "another line came after the death line");
             yield return new WaitUntil(() => player.IsAlive && !player.IsFalling);
             yield return null;
             Assert.AreEqual("pud_respawn", voice.LastTopic, "no respawn line");

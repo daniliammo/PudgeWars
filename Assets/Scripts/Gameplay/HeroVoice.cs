@@ -6,10 +6,10 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Pudge's Dota 2 voice (Russian, Resources/Audio/Voice) for the local player's hero, heard only by that player:
     /// spawn and "battle begins", hook hit and miss, a cast now and then, "not yet" for a hook on cooldown, caught by an
-    /// enemy, kills (first blood, big multi-kills laughing), respawn, a rescue made ("denied") and received
+    /// enemy, kills (first blood, big multi-kills laughing), death, respawn, a rescue made ("denied") and received
     /// ("thanks"), a purchase and now and then a move after standing. One line at a time: a more important one cuts a
-    /// lesser one off, one that matters no more than the line playing is dropped. A falling or dead hero is silent:
-    /// its line is cut off at once and nothing is said until it is back. Everything is read from the state the heroes
+    /// lesser one off, one that matters no more than the line playing is dropped. A falling or dead hero only says
+    /// its death line: the line playing is cut off for it, and nothing else is said until the hero is back. Everything is read from the state the heroes
     /// show (score, alive, inventory) and from the hook's events, so a network client hears the same as the host.
     /// </summary>
     public class HeroVoice : MonoBehaviour
@@ -27,6 +27,7 @@ namespace PudgeWars.Gameplay
         static readonly string[] RareKillLines = { "pud_rare" };
         static readonly string[] FirstBloodLines = { "pud_firstblood" };
         static readonly string[] BigStreakLines = { "pud_laugh", "pud_happy", "pud_inthebag" };
+        static readonly string[] DeathLines = { "pud_death" };
         static readonly string[] RescueLines = { "pud_deny" };
         static readonly string[] RescuedLines = { "pud_thanks" };
         static readonly string[] PurchaseLines = { "pud_purch" };
@@ -205,8 +206,8 @@ namespace PudgeWars.Gameplay
                 if (!wasDown) Say(RespawnLines, Weight.Normal);
                 else
                 {
-                    source.Stop(); // silent until the respawn
                     pendingKills = 0;
+                    Say(DeathLines, Weight.Major, whileDown: true); // cuts off the line playing; nothing else until the respawn
                 }
             }
             if (arena != null)
@@ -304,9 +305,9 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Starts a random line of the topics, not the one said last time; false if it could not be said now.</summary>
-        bool Say(string[] lines, Weight weight)
+        bool Say(string[] lines, Weight weight, bool whileDown = false)
         {
-            if (hero != null && IsDown) return false;
+            if (hero != null && IsDown && !whileDown) return false;
             if (source.isPlaying && weight <= playingWeight && weight != Weight.Major) return false;
             var clip = Pick(lines, out var topic);
             if (clip == null) return false;
