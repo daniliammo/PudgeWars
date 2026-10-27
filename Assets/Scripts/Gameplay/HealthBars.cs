@@ -314,7 +314,7 @@ namespace PudgeWars.Gameplay
             health.raycastTarget = false;
             health.horizontalOverflow = HorizontalWrapMode.Overflow;
             health.verticalOverflow = VerticalWrapMode.Overflow;
-            TextOutline.Add(health.gameObject, 1.6f);
+            TextOutline.Add(health.gameObject, 1.6f, bold: 0.6f);
 
             var nameRt = Rect(root, "Nickname", new Vector2(400f, nameFontSize * 1.4f));
             nameRt.anchoredPosition = new Vector2(0f, size.y / 2f + border + nameFontSize * 0.75f);
@@ -344,7 +344,7 @@ namespace PudgeWars.Gameplay
             level.raycastTarget = false;
             level.horizontalOverflow = HorizontalWrapMode.Overflow;
             level.verticalOverflow = VerticalWrapMode.Overflow;
-            TextOutline.Add(level.gameObject, 1.2f);
+            TextOutline.Add(level.gameObject, 1.2f, bold: 0.5f);
 
             // multi-kill: orange "×N" right-aligned against the level circle's left side
             var multiKillRt = Rect(root, "MultiKill", new Vector2(80f, levelSize));
@@ -359,7 +359,7 @@ namespace PudgeWars.Gameplay
             multiKill.raycastTarget = false;
             multiKill.horizontalOverflow = HorizontalWrapMode.Overflow;
             multiKill.verticalOverflow = VerticalWrapMode.Overflow;
-            TextOutline.Add(multiKill.gameObject, 1.6f);
+            TextOutline.Add(multiKill.gameObject, 1.6f, bold: 0.6f);
 
             // regeneration per second: "+2.5" inside the bar at its right end, clear of the centred health
             var regenTextRt = Rect(root, "RegenRate", new Vector2(size.x - 8f, size.y + 6f));
@@ -372,7 +372,7 @@ namespace PudgeWars.Gameplay
             regenText.raycastTarget = false;
             regenText.horizontalOverflow = HorizontalWrapMode.Overflow;
             regenText.verticalOverflow = VerticalWrapMode.Overflow;
-            TextOutline.Add(regenText.gameObject, 1.4f);
+            TextOutline.Add(regenText.gameObject, 1.4f, bold: 0.5f);
 
             float fraction = Fraction(hero);
             var bar = new Bar
