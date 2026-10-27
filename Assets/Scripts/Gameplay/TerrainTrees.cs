@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
@@ -11,7 +12,10 @@ namespace PudgeWars.Gameplay
     /// leaves its stump, its top falls away from whoever cut it, lies a moment and sinks into the ground; the stump does
     /// not stop anyone. The tree grows back after <see cref="regrowTime"/> once nobody stands in its place.
     /// The parts come from Dota's models: the stump and the cut-off top (*_destruction) of each prototype; a tree
-    /// without them falls whole and leaves nothing. The terrain plays on a copy of its data: the asset stays as built.
+    /// without them falls whole and leaves nothing. The falling crown breaks up: the trunk tips over alone, and the
+    /// crown flies apart in several pieces that drift slowly down through the air around the tree, lie a moment and
+    /// sink as the trunk does (the pieces are cut from the mesh by sectors around the trunk, once per model).
+    /// The terrain plays on a copy of its data: the asset stays as built.
     /// A tree can also be planted (Iron Branch, <see cref="Plant(Vector3, float)"/>): it is a model of its own, not a
     /// terrain instance, and stands for good (or a while, if given a lifetime); cut down it falls whole and never grows
     /// back. Trees are named by a handle: a terrain tree by its index, a planted one by <see cref="PlantedBase"/> + its
@@ -34,6 +38,22 @@ namespace PudgeWars.Gameplay
         public float sinkTime = 1.5f;
         [Tooltip("Seconds until a cut tree grows back (Dota: 5 minutes).")]
         public float regrowTime = 300f;
+
+        [Header("Crown breaking up")]
+        [Tooltip("The crown breaks into about this many pieces (sectors around the trunk, upper and lower).")]
+        [Min(1)] public int crownPieces = 8;
+        [Tooltip("Pieces drift outward at a speed in this range, m/s; the air slows them.")]
+        public Vector2 crownDrift = new(0.7f, 1.8f);
+        [Tooltip("They first rise at a speed in this range, m/s.")]
+        public Vector2 crownLift = new(0.4f, 1.2f);
+        [Tooltip("How fast a piece sinks through the air at most, m/s: leaves fall slowly.")]
+        public float crownFallSpeed = 1.5f;
+        [Tooltip("How fast the pieces reach that speed, m/s².")]
+        public float crownGravity = 3.5f;
+        [Tooltip("How fast the air takes the sideways speed away, per second.")]
+        public float crownDrag = 0.7f;
+        [Tooltip("Pieces tumble at a speed in this range, degrees per second.")]
+        public Vector2 crownSpin = new(20f, 70f);
 
         const float FallAngle = 84f;    // lying on its branches, not quite flat
         const float BounceAngle = 7f;   // it bounces back this much as it hits the ground
@@ -71,6 +91,16 @@ namespace PudgeWars.Gameplay
             public GameObject model;
             public Coroutine expiry;
         }
+
+        /// <summary>A falling part's mesh split up: the trunk and the crown's pieces (each centred on itself).</summary>
+        class CrownSplit
+        {
+            public Mesh trunk;
+            public Mesh[] pieces;
+            public Vector3[] centres; // of the pieces, in the part's mesh space
+        }
+
+        static readonly Dictionary<(Mesh, int), CrownSplit> splits = new();
 
         Terrain terrain;
         TerrainData data;
@@ -328,6 +358,7 @@ namespace PudgeWars.Gameplay
             var away = at - from;
             away.y = 0f;
             if (away.sqrMagnitude < 1e-4f) away = Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f) * Vector3.forward;
+            BreakCrown(piece, at, away.normalized);
             var axis = Vector3.Cross(Vector3.up, away.normalized); // tips the top toward away
             for (float t = 0f; t < fallTime; t += Time.deltaTime)
             {
@@ -351,6 +382,199 @@ namespace PudgeWars.Gameplay
                 yield return null;
             }
             Destroy(pivot.gameObject);
+        }
+
+        /// <summary>
+        /// The falling part keeps only its trunk; the crown's pieces fly off it outward (and a little away from whoever
+        /// cut the tree), each on its own.
+        /// </summary>
+        void BreakCrown(GameObject part, Vector3 foot, Vector3 away)
+        {
+            var filter = part.GetComponentInChildren<MeshFilter>();
+            var renderer = filter != null ? filter.GetComponent<MeshRenderer>() : null;
+            if (renderer == null || filter.sharedMesh == null || !filter.sharedMesh.isReadable) return;
+            var split = Split(filter.sharedMesh, crownPieces);
+            if (split == null) return;
+            if (split.trunk != null) filter.sharedMesh = split.trunk;
+            else renderer.enabled = false;
+            var space = filter.transform;
+            for (int i = 0; i < split.pieces.Length; i++)
+            {
+                var go = new GameObject("Crown piece");
+                go.transform.SetParent(transform, false);
+                go.transform.SetPositionAndRotation(space.TransformPoint(split.centres[i]), space.rotation);
+                go.transform.localScale = space.lossyScale;
+                go.AddComponent<MeshFilter>().sharedMesh = split.pieces[i];
+                var pieceRenderer = go.AddComponent<MeshRenderer>();
+                pieceRenderer.sharedMaterials = renderer.sharedMaterials;
+                pieceRenderer.shadowCastingMode = renderer.shadowCastingMode;
+
+                var outward = go.transform.position - foot;
+                outward.y = 0f;
+                outward = outward.sqrMagnitude > 1e-4f ? outward.normalized : away;
+                var velocity = (outward + away * 0.4f).normalized * UnityEngine.Random.Range(crownDrift.x, crownDrift.y)
+                               + Vector3.up * UnityEngine.Random.Range(crownLift.x, crownLift.y);
+                StartCoroutine(Drift(go.transform, pieceRenderer, velocity, UnityEngine.Random.onUnitSphere,
+                    UnityEngine.Random.Range(crownSpin.x, crownSpin.y)));
+            }
+        }
+
+        /// <summary>A crown piece drifts down slowly, tumbling, until it touches the ground; lies there, then sinks.</summary>
+        IEnumerator Drift(Transform piece, Renderer shown, Vector3 velocity, Vector3 spinAxis, float spin)
+        {
+            for (float t = 0f; t < 20f; t += Time.deltaTime) // never forever, whatever the ground
+            {
+                float dt = Time.deltaTime;
+                velocity.y = Mathf.MoveTowards(velocity.y, -crownFallSpeed, crownGravity * dt);
+                float keep = Mathf.Exp(-crownDrag * dt);
+                velocity.x *= keep;
+                velocity.z *= keep;
+                piece.position += velocity * dt;
+                piece.Rotate(spinAxis, spin * dt, Space.World);
+                float ground = terrain.SampleHeight(piece.position) + terrain.transform.position.y;
+                if (shown.bounds.min.y <= ground + 0.05f) break;
+                yield return null;
+            }
+            yield return new WaitForSeconds(lieTime);
+            var start = piece.position;
+            float depth = shown.bounds.size.y + 0.3f;
+            for (float t = 0f; t < sinkTime; t += Time.deltaTime)
+            {
+                piece.position = start + Vector3.down * (depth * t / sinkTime);
+                yield return null;
+            }
+            Destroy(piece.gameObject);
+        }
+
+        /// <summary>
+        /// Cuts a falling part's mesh into its trunk (thin and low: what is near the axis below the crown) and the
+        /// crown's pieces: sectors around the axis, an upper and a lower one each. Made once per model; null if the
+        /// mesh has no crown to break.
+        /// </summary>
+        static CrownSplit Split(Mesh mesh, int pieceCount)
+        {
+            if (splits.TryGetValue((mesh, pieceCount), out var cached)) return cached;
+            var vertices = mesh.vertices;
+            var bounds = mesh.bounds;
+            var axis = new Vector2(bounds.center.x, bounds.center.z);
+            float maxR = 0f;
+            foreach (var v in vertices) maxR = Mathf.Max(maxR, (new Vector2(v.x, v.z) - axis).magnitude);
+            float trunkR = maxR * 0.18f;
+
+            // where the crown begins: low among the triangles well off the trunk
+            var submeshes = new int[mesh.subMeshCount][];
+            for (int s = 0; s < submeshes.Length; s++) submeshes[s] = mesh.GetTriangles(s);
+            var wide = new List<float>();
+            foreach (var tris in submeshes)
+                for (int i = 0; i < tris.Length; i += 3)
+                {
+                    var c = (vertices[tris[i]] + vertices[tris[i + 1]] + vertices[tris[i + 2]]) / 3f;
+                    if ((new Vector2(c.x, c.z) - axis).magnitude > trunkR * 2f) wide.Add(c.y);
+                }
+            if (wide.Count == 0)
+            {
+                splits[(mesh, pieceCount)] = null;
+                return null;
+            }
+            wide.Sort();
+            float crownBottom = wide[wide.Count / 10];
+            float crownMiddle = wide[wide.Count / 2];
+
+            int sectors = Mathf.Max(1, (pieceCount + 1) / 2), bands = pieceCount > 1 ? 2 : 1;
+            int groups = sectors * bands;
+            // per group (the trunk last), per submesh: the triangles' vertex indices
+            var grouped = new List<int>[groups + 1, submeshes.Length];
+            for (int g = 0; g <= groups; g++)
+                for (int s = 0; s < submeshes.Length; s++) grouped[g, s] = new List<int>();
+            for (int s = 0; s < submeshes.Length; s++)
+            {
+                var tris = submeshes[s];
+                for (int i = 0; i < tris.Length; i += 3)
+                {
+                    var c = (vertices[tris[i]] + vertices[tris[i + 1]] + vertices[tris[i + 2]]) / 3f;
+                    var flat = new Vector2(c.x, c.z) - axis;
+                    int g;
+                    if (flat.magnitude < trunkR && c.y < crownBottom) g = groups;
+                    else
+                    {
+                        float angle = Mathf.Atan2(flat.y, flat.x) + Mathf.PI; // 0..2π
+                        int sector = Mathf.Min(sectors - 1, (int)(angle / (Mathf.PI * 2f) * sectors));
+                        int band = bands > 1 && c.y >= crownMiddle ? 1 : 0;
+                        g = band * sectors + sector;
+                    }
+                    grouped[g, s].Add(tris[i]);
+                    grouped[g, s].Add(tris[i + 1]);
+                    grouped[g, s].Add(tris[i + 2]);
+                }
+            }
+
+            var split = new CrownSplit();
+            var pieces = new List<Mesh>();
+            var centres = new List<Vector3>();
+            for (int g = 0; g <= groups; g++)
+            {
+                bool trunk = g == groups;
+                var piece = Extract(mesh, grouped, g, centred: !trunk, out var centre);
+                if (piece == null) continue;
+                if (trunk) split.trunk = piece;
+                else
+                {
+                    pieces.Add(piece);
+                    centres.Add(centre);
+                }
+            }
+            split.pieces = pieces.ToArray();
+            split.centres = centres.ToArray();
+            if (split.pieces.Length == 0) split = null;
+            splits[(mesh, pieceCount)] = split;
+            return split;
+        }
+
+        /// <summary>A mesh of one group's triangles (all submeshes kept), centred on its vertices' middle if asked.</summary>
+        static Mesh Extract(Mesh source, List<int>[,] grouped, int group, bool centred, out Vector3 centre)
+        {
+            centre = Vector3.zero;
+            int submeshes = grouped.GetLength(1);
+            var remap = new Dictionary<int, int>();
+            var order = new List<int>();
+            for (int s = 0; s < submeshes; s++)
+                foreach (int v in grouped[group, s])
+                    if (!remap.ContainsKey(v))
+                    {
+                        remap[v] = order.Count;
+                        order.Add(v);
+                    }
+            if (order.Count == 0) return null;
+
+            var positions = source.vertices;
+            var normals = source.normals;
+            var tangents = source.tangents;
+            var colors = source.colors;
+            var uv0 = new List<Vector4>();
+            var uv1 = new List<Vector4>();
+            source.GetUVs(0, uv0);
+            source.GetUVs(1, uv1);
+            var p = new Vector3[order.Count];
+            for (int i = 0; i < order.Count; i++) p[i] = positions[order[i]];
+            if (centred)
+            {
+                foreach (var v in p) centre += v;
+                centre /= p.Length;
+                for (int i = 0; i < p.Length; i++) p[i] -= centre;
+            }
+            var mesh = new Mesh { name = source.name + (centred ? "_piece" : "_trunk") };
+            if (order.Count > ushort.MaxValue) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            mesh.vertices = p;
+            if (normals.Length == positions.Length) mesh.normals = order.Select(i => normals[i]).ToArray();
+            if (tangents.Length == positions.Length) mesh.tangents = order.Select(i => tangents[i]).ToArray();
+            if (colors.Length == positions.Length) mesh.colors = order.Select(i => colors[i]).ToArray();
+            if (uv0.Count == positions.Length) mesh.SetUVs(0, order.Select(i => uv0[i]).ToList());
+            if (uv1.Count == positions.Length) mesh.SetUVs(1, order.Select(i => uv1[i]).ToList());
+            mesh.subMeshCount = submeshes;
+            for (int s = 0; s < submeshes; s++)
+                mesh.SetTriangles(grouped[group, s].Select(v => remap[v]).ToList(), s, calculateBounds: false);
+            mesh.RecalculateBounds();
+            return mesh;
         }
 
         /// <summary>A part of a tree where the tree stands, turned and scaled as it.</summary>

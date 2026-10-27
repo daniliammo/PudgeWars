@@ -108,6 +108,52 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator CutTreesCrownFliesApartAndDriftsDownSlowly()
+        {
+            yield return Load(PudgeNetworkManager.ArenaScene);
+            var trees = Object.FindAnyObjectByType<TerrainTrees>();
+            Assert.IsNotNull(trees, "the arena's terrain has no TerrainTrees: Pudge Wars → Build Test Arena");
+            var asset = trees.GetComponent<Terrain>().terrainData;
+            int index = Enumerable.Range(0, trees.Count).First(i => trees.fallingParts[asset.GetTreeInstance(i).prototypeIndex] != null);
+            var at = trees.Position(index);
+            Assert.IsTrue(trees.Fell(index, at + Vector3.right));
+            yield return null;
+            var pieces = trees.GetComponentsInChildren<Transform>().Where(t => t.name == "Crown piece").ToList();
+            Assert.GreaterOrEqual(pieces.Count, 3, "the crown did not break into pieces");
+            var trunk = trees.transform.Find("Falling tree").GetComponentInChildren<MeshFilter>().sharedMesh;
+            Assert.IsTrue(trunk.name.EndsWith("_trunk"), "the trunk must fall without its crown");
+            float startY = pieces.Average(p => p.position.y);
+            var spread = pieces.Select(p => new Vector2(p.position.x - at.x, p.position.z - at.z).magnitude).Average();
+
+            yield return new WaitForSeconds(1f);
+            var alive = pieces.Where(p => p != null).ToList();
+            Assert.Greater(alive.Average(p => new Vector2(p.position.x - at.x, p.position.z - at.z).magnitude), spread + 0.3f, "the pieces did not fly apart");
+            Assert.Greater(alive.Average(p => p.position.y), startY - 2f, "the pieces fell like stones, not drifting");
+            Assert.Less(alive.Average(p => new Vector2(p.position.x - at.x, p.position.z - at.z).magnitude), 6f, "the pieces must land near the tree");
+
+            float limit = 20f + trees.lieTime + trees.sinkTime + 1f;
+            for (float t = 0f; pieces.Any(p => p != null) && t < limit; t += Time.deltaTime) yield return null;
+            Assert.IsTrue(pieces.All(p => p == null), "the crown's pieces did not land and sink");
+        }
+
+        [UnityTest]
+        public IEnumerator BranchTreesStandForGood()
+        {
+            yield return Load(PudgeNetworkManager.ArenaScene);
+            var trees = Object.FindAnyObjectByType<TerrainTrees>();
+            Assert.IsNotNull(trees, "the arena's terrain has no TerrainTrees: Pudge Wars → Build Test Arena");
+            var spot = Enumerable.Range(0, 64).Select(i => new Vector3(-10f + (i % 8) * 2.5f, 0f, -5f - (i / 8) * 1.2f)).FirstOrDefault(trees.CanPlant);
+            Assert.IsTrue(trees.CanPlant(spot), "no clear spot on Radiant's side");
+            int handle = trees.Plant(spot, 0f);
+            yield return new WaitForSeconds(1.5f);
+            Assert.IsTrue(trees.IsStanding(handle), "a tree planted for good went away");
+            Assert.IsTrue(trees.Fell(handle, spot + Vector3.right));
+            Assert.IsFalse(trees.IsStanding(handle));
+            yield return null;
+            Assert.Greater(trees.GetComponentsInChildren<Transform>().Count(t => t.name == "Crown piece"), 0, "a planted tree's crown must break up too");
+        }
+
+        [UnityTest]
         public IEnumerator MenuShowsOneSidesLandscapeWithTheTerrainsTrees()
         {
             if (!Application.CanStreamedLevelBeLoaded(PudgeNetworkManager.MenuScene))
