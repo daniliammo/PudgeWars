@@ -145,7 +145,9 @@ namespace PudgeWars.Gameplay
             standingSince = Time.time;
             pendingKills = 0;
             announcement = null;
-            // a hero of a new match (or the offline arena): it greets and the battle begins
+            // a hero of a new match (or the offline arena): the old hero's line stops, it greets and the battle begins
+            source.Stop();
+            LastTopic = null;
             spokeSpawn = false;
             battleBeginsAt = Time.time + battleBeginsDelay;
         }
