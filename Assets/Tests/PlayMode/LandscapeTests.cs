@@ -80,7 +80,9 @@ namespace PudgeWars.Tests
             int index = Enumerable.Range(0, trees.Count).First(i => trees.stumps[asset.GetTreeInstance(i).prototypeIndex] != null);
             var at = trees.Position(index);
             var from = new Vector3(0f, 0f, at.z);
-            trees.regrowTime = 4f;
+            Assert.AreEqual(20f, trees.regrowDelay, "a cut tree grows back in 20 s");
+            float full = asset.GetTreeInstance(index).heightScale;
+            trees.regrowDelay = 6f; // after the top has sunk
             int obstacles = Obstacle.All.Count;
             Assert.IsTrue(trees.Fell(index, from));
             Assert.IsFalse(trees.IsStanding(index));
@@ -100,11 +102,16 @@ namespace PudgeWars.Tests
             yield return new WaitForSeconds(trees.lieTime + trees.sinkTime + 0.3f);
             Assert.IsTrue(top == null, "the fallen top did not sink into the ground");
 
-            // and it grows back
-            yield return new WaitForSeconds(4f - trees.fallTime - trees.lieTime - trees.sinkTime + 0.5f);
+            // and it grows back, rising from the ground
+            float wait = 0f;
+            while (!trees.IsStanding(index) && wait < 3f) { wait += Time.deltaTime; yield return null; }
             Assert.IsTrue(trees.IsStanding(index), "the tree did not grow back");
             Assert.AreEqual(obstacles, Obstacle.All.Count);
-            Assert.Greater(asset.GetTreeInstance(index).heightScale, 0f);
+            yield return null;
+            float growing = asset.GetTreeInstance(index).heightScale;
+            Assert.That(growing, Is.GreaterThan(0f).And.LessThan(full * 0.8f), "the tree must grow up, not appear at once");
+            yield return new WaitForSeconds(trees.growTime + 0.2f);
+            Assert.AreEqual(full, asset.GetTreeInstance(index).heightScale, 1e-4f, "the tree did not reach its size");
         }
 
         [UnityTest]

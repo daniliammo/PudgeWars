@@ -10,7 +10,8 @@ namespace PudgeWars.Gameplay
     /// The trees of this terrain (its tree instances, drawn by the terrain itself): heroes walk around their trunks
     /// (<see cref="Obstacle"/>s), hooks fly through them. A tree can be cut down as in Dota (<see cref="Fell"/>): it
     /// leaves its stump, its top falls away from whoever cut it, lies a moment and sinks into the ground; the stump does
-    /// not stop anyone. The tree grows back after <see cref="regrowTime"/> once nobody stands in its place.
+    /// not stop anyone. The tree grows back after <see cref="regrowDelay"/> once nobody stands in its place, rising
+    /// from the ground over <see cref="growTime"/> (a planted one never does).
     /// The parts come from Dota's models: the stump and the cut-off top (*_destruction) of each prototype; a tree
     /// without them falls whole and leaves nothing. The falling crown breaks up: the trunk tips over alone (Radiant's
     /// tops are nearly all crown and have none left), and the crown flies apart in several pieces that drift slowly down through the air around the tree, lie a moment and
@@ -36,8 +37,10 @@ namespace PudgeWars.Gameplay
         public float lieTime = 1.5f;
         [Tooltip("Seconds it takes to sink into the ground.")]
         public float sinkTime = 1.5f;
-        [Tooltip("Seconds until a cut tree grows back (Dota: 5 minutes).")]
-        public float regrowTime = 300f;
+        [Tooltip("Seconds until a cut tree grows back (Dota: 5 minutes; here 20 s by request).")]
+        public float regrowDelay = 20f;
+        [Tooltip("Seconds a tree takes to grow back up from the ground.")]
+        public float growTime = 1.2f;
 
         [Header("Crown breaking up")]
         [Tooltip("The crown breaks into about this many pieces (sectors around the trunk, upper and lower).")]
@@ -102,12 +105,16 @@ namespace PudgeWars.Gameplay
 
         static readonly Dictionary<(Mesh, int), CrownSplit> splits = new();
 
+        // play mode may start without a domain reload: the meshes cut in the last session are destroyed by now
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        static void ForgetSplits() => splits.Clear();
+
         Terrain terrain;
         TerrainData data;
         TreeInstance[] trees;
         bool[] down;
         GameObject[] stumpsUp;
-        Coroutine[] regrowing;
+        Coroutine[] regrowing, growing;
         readonly Dictionary<int, PlantedTree> planted = new();
         int nextPlanted;
 
@@ -129,6 +136,7 @@ namespace PudgeWars.Gameplay
             down = new bool[trees.Length];
             stumpsUp = new GameObject[trees.Length];
             regrowing = new Coroutine[trees.Length];
+            growing = new Coroutine[trees.Length];
         }
 
         void OnEnable()
@@ -272,6 +280,8 @@ namespace PudgeWars.Gameplay
             if (IsPlanted(index)) return FellPlanted(index, from, animate);
             if (index < 0 || index >= trees.Length || down[index]) return false;
             down[index] = true;
+            if (growing[index] != null) StopCoroutine(growing[index]); // cut again while growing back
+            growing[index] = null;
             var hidden = trees[index];
             hidden.widthScale = hidden.heightScale = 0f;
             data.SetTreeInstance(index, hidden);
@@ -305,17 +315,39 @@ namespace PudgeWars.Gameplay
             down[index] = false;
             if (regrowing[index] != null) StopCoroutine(regrowing[index]);
             regrowing[index] = null;
-            data.SetTreeInstance(index, trees[index]);
             if (stumpsUp[index] != null) Destroy(stumpsUp[index]);
             stumpsUp[index] = null;
-            UpdateObstacles();
+            if (growTime > 0f && isActiveAndEnabled) growing[index] = StartCoroutine(Grow(index));
+            else data.SetTreeInstance(index, trees[index]);
+            UpdateObstacles(); // it stands in the way at once, while it grows
             Regrown?.Invoke(index);
             return true;
         }
 
+        /// <summary>The tree rises from the ground to its size, overshooting a little and settling, like a sprout.</summary>
+        IEnumerator Grow(int index)
+        {
+            var full = trees[index];
+            for (float t = 0f; t < growTime; t += Time.deltaTime)
+            {
+                float k = t / growTime;
+                // ease-out-back: fast, a little past its size, then back
+                const float back = 1.4f;
+                float u = k - 1f;
+                float scale = Mathf.Max(0.02f, 1f + (back + 1f) * u * u * u + back * u * u);
+                var tree = full;
+                tree.widthScale = full.widthScale * scale;
+                tree.heightScale = full.heightScale * scale;
+                data.SetTreeInstance(index, tree);
+                yield return null;
+            }
+            data.SetTreeInstance(index, full);
+            growing[index] = null;
+        }
+
         IEnumerator RegrowLater(int index)
         {
-            yield return new WaitForSeconds(regrowTime);
+            yield return new WaitForSeconds(regrowDelay);
             // as in Dota, not on top of a hero
             while (HeroAt(index)) yield return new WaitForSeconds(1f);
             regrowing[index] = null;
@@ -453,7 +485,9 @@ namespace PudgeWars.Gameplay
         /// </summary>
         static CrownSplit Split(Mesh mesh, int pieceCount)
         {
-            if (splits.TryGetValue((mesh, pieceCount), out var cached)) return cached;
+            if (splits.TryGetValue((mesh, pieceCount), out var cached)
+                && (cached == null || (cached.pieces.All(p => p != null) && (cached.trunk is null || cached.trunk != null))))
+                return cached; // (a cut that lost its meshes is made again)
             var vertices = mesh.vertices;
             var bounds = mesh.bounds;
             var axis = new Vector2(bounds.center.x, bounds.center.z);
