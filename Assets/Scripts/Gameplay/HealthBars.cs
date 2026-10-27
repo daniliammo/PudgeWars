@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -174,7 +175,7 @@ namespace PudgeWars.Gameplay
             bar.regen.anchorMax = new Vector2(ahead, 1f);
             if (Mathf.Approximately(regen, bar.shownRegen)) return;
             bar.shownRegen = regen;
-            bar.regenText.text = string.Format(regenFormat, regen);
+            bar.regenText.text = string.Format(CultureInfo.InvariantCulture, regenFormat, regen); // "+2.5" in any locale
             bar.regenText.gameObject.SetActive(regen > 0f);
         }
 
