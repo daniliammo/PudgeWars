@@ -198,7 +198,8 @@ namespace PudgeWars.Gameplay
                 Deselect();
                 return;
             }
-            ShowRange(hook.AimLength); // as far as the aim lines: the tip at full range
+            // as far as the aim lines and at their height (flat on the ground it looks shorter under the tilted camera)
+            ShowRange(hook.AimLength, hook.AimStart.y - transform.position.y);
             if (stickAiming) // thrown when the finger lets go (OnHookStickReleased)
             {
                 var stickDir = hook.AimDirection(StickAimPoint(touch.hookStick.Value));
@@ -292,8 +293,11 @@ namespace PudgeWars.Gameplay
         /// <summary>The reach ring this frame (its radius from the hero's centre), or null while nothing is picked.</summary>
         public LineRenderer RangeRing => rangeRing != null && rangeRing.enabled ? rangeRing : null;
 
-        /// <summary>A thin ring on the ground around the hero, <paramref name="radius"/> from its centre: the reach of what is picked.</summary>
-        void ShowRange(float radius)
+        /// <summary>
+        /// A thin ring around the hero, <paramref name="radius"/> from its centre at <paramref name="height"/> over its
+        /// feet (just over the ground by default): the reach of what is picked.
+        /// </summary>
+        void ShowRange(float radius, float height = 0.08f)
         {
             if (rangeRing == null)
             {
@@ -311,7 +315,7 @@ namespace PudgeWars.Gameplay
             for (int i = 0; i < rangeRing.positionCount; i++)
             {
                 float a = i * Mathf.PI * 2f / rangeRing.positionCount;
-                rangeRing.SetPosition(i, centre + new Vector3(Mathf.Cos(a) * radius, 0.08f, Mathf.Sin(a) * radius));
+                rangeRing.SetPosition(i, centre + new Vector3(Mathf.Cos(a) * radius, height, Mathf.Sin(a) * radius));
             }
             rangeRing.enabled = true;
         }

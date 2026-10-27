@@ -1744,6 +1744,7 @@ namespace PudgeWars.Tests
             Assert.IsNotNull(ring, "no reach ring with the hook picked");
             var edge = ring.GetPosition(0) - player.transform.position;
             Assert.AreEqual(hook.AimLength, new Vector3(edge.x, 0f, edge.z).magnitude, 0.01f, "the ring must show how far the hook's tip reaches");
+            Assert.AreEqual(hook.AimStart.y, ring.GetPosition(0).y, 0.01f, "the ring must lie at the aim lines' height, or it looks shorter than them");
             input.Deselect();
             Assert.IsNull(input.RangeRing, "the ring stayed after the hook was dropped");
             input.enabled = false;
