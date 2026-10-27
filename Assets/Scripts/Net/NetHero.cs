@@ -25,6 +25,7 @@ namespace PudgeWars.Net
         [SyncVar(hook = nameof(OnTeamChanged))] Team team;
         [SyncVar(hook = nameof(OnNicknameChanged))] string nickname;
         [SyncVar] byte heroFlags = AliveFlag;
+        [SyncVar] float health;
         [SyncVar] int multiKill;
         [SyncVar] int kills;
         [SyncVar] int deaths;
@@ -136,6 +137,7 @@ namespace PudgeWars.Net
         void Publish()
         {
             heroFlags = (byte)((hookable.IsAlive ? AliveFlag : 0) | (hookable.IsFalling ? FallingFlag : 0) | (hookable.IsHooked ? HookedFlag : 0));
+            health = Mathf.Ceil(hookable.Health); // whole points, as the bars show it: not resent for every bit of regen
             multiKill = Arena.Instance != null ? Arena.Instance.Streaks.MultiKillCount(hookable) : 0;
             var score = Arena.Instance != null ? Arena.Instance.ScoreOf(hookable) : default;
             kills = score.kills;
@@ -235,6 +237,7 @@ namespace PudgeWars.Net
         void Show()
         {
             hookable.ApplyRemoteState((heroFlags & AliveFlag) != 0, (heroFlags & FallingFlag) != 0, (heroFlags & HookedFlag) != 0);
+            hookable.ApplyRemoteHealth(health);
             if (Arena.Instance != null)
             {
                 Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);

@@ -76,6 +76,13 @@ namespace PudgeWars.Gameplay
         [Tooltip("Safety limit: the target is let go after this many seconds on a tether.")]
         public float tetherTimeout = 4f;
 
+        [Header("Damage (allies take it too)")]
+        [Tooltip("Dealt at the catch, at level 1.")] public float hitDamage = 110f;
+        [Tooltip("Added to the catch damage per owner level above the first (levels do not exist yet).")]
+        public float hitDamagePerLevel = 0f;
+        [Tooltip("Dealt per metre the caught hero is dragged on this hook: the longer the pull, the more it hurts.")]
+        public float damagePerMeter = 10f;
+
         [Header("Tug of war: an ally's hook holds the target")]
         [Tooltip("While an ally of the target holds it on its own hook, the pull is this many times slower.")]
         [Min(1f)] public float heldPullSlowdown = 3f;
@@ -101,6 +108,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>The hero that throws this hook.</summary>
         public Pudge Owner => self;
+        /// <summary>Damage dealt at the catch, by the owner's level.</summary>
+        public float HitDamage => hitDamage + hitDamagePerLevel * ((self != null ? self.Level : 1) - 1);
         /// <summary>Range including item bonuses (Aether Lens).</summary>
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
@@ -307,6 +316,7 @@ namespace PudgeWars.Gameplay
                 {
                     BeginHold(hit);
                     RaiseCaught(hit);
+                    hit.Damage(HitDamage, self); // dying of it breaks the hold (Hold)
                 }
                 return;
             }
@@ -321,8 +331,10 @@ namespace PudgeWars.Gameplay
                 RaiseCaught(target);
                 Play(sounds.impact);
                 Play(Pick(sounds.hitVoice));
+                target.Damage(HitDamage, self);
+                if (!target.IsAlive) target = null; // killed by the blow: the hook comes back empty
                 // the owner was caught while the hook flew: the catch hangs on a taut chain behind the owner
-                if (OwnerCaught) BeginTether();
+                if (target != null && OwnerCaught) BeginTether();
                 else state = State.Returning;
             }
             else if (traveled >= EffectiveRange)
@@ -337,6 +349,7 @@ namespace PudgeWars.Gameplay
 
         void Return()
         {
+            if (target != null && !target.IsAlive) target = null; // killed meanwhile: its body is not dragged
             var origin = Origin;
             var toOrigin = origin - hookHead.position;
             float dist = toOrigin.magnitude;
@@ -352,7 +365,8 @@ namespace PudgeWars.Gameplay
             if (flatDir.sqrMagnitude > 0f) hookHead.rotation = Quaternion.LookRotation(-flatDir);
 
             if (target == null) return;
-            target.DragTo(hookHead.position, flatDir);
+            DragTarget(hookHead.position, flatDir);
+            if (target == null) return;
             var arena = Arena.Instance;
             if (arena != null && arena.IsOverPit(target.transform.position))
             {
@@ -458,7 +472,14 @@ namespace PudgeWars.Gameplay
                 ropeLength = Mathf.Max(0f, Mathf.Min(ropeLength, dist) - pullSpeed * Time.deltaTime);
             var dir = dist > 1e-4f ? toAnchor / dist : Vector3.zero;
             if (dist > ropeLength)
-                target.DragTo(target.transform.position + dir * (dist - ropeLength), dir);
+            {
+                DragTarget(target.transform.position + dir * (dist - ropeLength), dir);
+                if (target == null)
+                {
+                    Cancel();
+                    return;
+                }
+            }
             var head = target.transform.position;
             hookHead.position = new Vector3(head.x, hookHead.position.y, head.z);
             if (dir.sqrMagnitude > 0f) hookHead.rotation = Quaternion.LookRotation(-dir);
@@ -474,6 +495,20 @@ namespace PudgeWars.Gameplay
                 state = State.Ready;
                 readyAt = Time.time + cooldown;
             }
+        }
+
+        /// <summary>
+        /// Drags the catch to <paramref name="position"/> and hurts it for the distance (<see cref="damagePerMeter"/>);
+        /// a catch that dies of it is let go (<see cref="target"/> becomes null), its body flies on.
+        /// </summary>
+        void DragTarget(Vector3 position, Vector3 pullDirection)
+        {
+            var before = target.transform.position;
+            target.DragTo(position, pullDirection);
+            var moved = target.transform.position - before;
+            moved.y = 0f;
+            target.Damage(moved.magnitude * damagePerMeter, self);
+            if (!target.IsAlive) target = null;
         }
 
         /// <summary>

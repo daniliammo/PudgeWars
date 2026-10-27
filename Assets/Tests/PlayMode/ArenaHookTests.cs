@@ -35,6 +35,42 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HealthRegenerates()
+        {
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            bot.Damage(200f, null);
+            float before = bot.Health;
+            Assert.AreEqual(bot.maxHealth - 200f, before, 0.01f);
+            yield return new WaitForSeconds(1f);
+            Assert.AreEqual(before + bot.healthRegen, bot.Health, bot.healthRegen * 0.2f, "health must come back at healthRegen per second");
+        }
+
+        [UnityTest]
+        public IEnumerator HookDamageKillsAndTheBodyFliesOn()
+        {
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            bot.healthRegen = 0f;
+            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 2.5f);
+            bot.Damage(bot.maxHealth - hook.hitDamage - 5f, null); // the catch and a little drag finish it
+            Assert.IsTrue(bot.IsAlive);
+            Assert.IsTrue(hook.TryCast(bot.transform.position));
+            float t = 0f;
+            while (bot.IsAlive && t < 4f)
+            {
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.IsFalse(bot.IsAlive, "the hook's damage did not kill the bot");
+            Assert.IsFalse(bot.IsHooked, "a dead bot must be let go");
+            Assert.IsNotNull(bot.Body, "no body was left");
+            Assert.AreEqual(1, arena.ScoreOf(player).kills, "the hook's kill belongs to the player");
+            Assert.Greater(bot.transform.position.z, arena.pitHalfDepth, "the bot died over the pit, not of the hook");
+            t = 0f;
+            while (hook.IsBusy && t < 4f) { t += Time.deltaTime; yield return null; }
+            Assert.IsFalse(hook.IsBusy, "the hook did not come back after its catch died");
+        }
+
+        [UnityTest]
         public IEnumerator HookedBotFallsIntoPitDiesAndScores()
         {
             var bot = Pudge.All.First(h => h.team == Team.Bots);
@@ -236,26 +272,43 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator HookPullsAnAllyToPudgeUnharmed()
+        public IEnumerator HookPullsAnAllyToPudgeAndHurtsItByTheDistance()
         {
             var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0];
             ally.team = Team.Player;
+            ally.healthRegen = 0f;
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
             player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -12f), Quaternion.identity);
             ally.transform.position = new Vector3(0f, 0f, -6f);
 
             Pudge caught = null;
-            hook.TargetCaught += h => caught = h;
+            var caughtAt = Vector3.zero;
+            hook.TargetCaught += h =>
+            {
+                caught = h;
+                caughtAt = h.transform.position;
+            };
             Assert.IsTrue(hook.TryCast(ally.transform.position));
             float t = 0f;
+            bool hitChecked = false;
             while (hook.IsBusy && t < 5f)
             {
+                if (caught != null && !hitChecked)
+                {
+                    // the catch itself takes 110 at once, dragging adds the rest
+                    hitChecked = true;
+                    Assert.AreEqual(ally.maxHealth - hook.hitDamage, ally.Health, 0.01f, "the catch must take 110 at once");
+                }
                 t += Time.deltaTime;
                 yield return null;
             }
             Assert.AreEqual(ally, caught, "the hook passed through the ally");
-            Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the ally was not let go unharmed");
+            var dragged = ally.transform.position - caughtAt;
+            float expected = hook.hitDamage + new Vector3(dragged.x, 0f, dragged.z).magnitude * hook.damagePerMeter;
+            Assert.AreEqual(ally.maxHealth - expected, ally.Health, 3f, "the hook must take 110 plus the distance dragged, from allies too");
+            Assert.Less(ally.Health, ally.maxHealth - hook.hitDamage - 20f, "dragging took next to nothing");
+            Assert.IsTrue(ally.IsAlive && !ally.IsFalling && !ally.IsHooked, "the ally was not let go alive");
             Assert.IsTrue(ally.IsControllable);
             var d = ally.transform.position - player.transform.position;
             Assert.Less(new Vector3(d.x, 0f, d.z).magnitude, 2f, "the ally was not pulled to Pudge");
