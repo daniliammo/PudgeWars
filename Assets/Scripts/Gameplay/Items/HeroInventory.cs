@@ -64,7 +64,7 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Extra damage the hero's hits deal to <paramref name="target"/> (Quelling Blade: +16 on heroes, +4 on creeps),
-        /// for every attack, item and ability.
+        /// for every attack, item and ability (the hook adds it to its catch and to every metre it drags).
         /// </summary>
         public float DamageBonusAgainst(Unit target)
         {

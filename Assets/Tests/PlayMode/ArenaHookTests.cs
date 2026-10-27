@@ -71,12 +71,12 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator QuellingBladeAddsSixteenToTheHooksHitOnAHero()
+        public IEnumerator QuellingBladeAddsSixteenToTheHooksHitAndToEveryMetreOnAHero()
         {
             var bot = Pudge.All.First(h => h.team == Team.Bots);
             bot.healthRegen = 0f;
             bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 2.5f);
-            hook.damagePerMeter = 0f; // the catch alone
+            hook.damagePerMeter = 10f;
             var blade = TestItem(ItemAction.ChopTree, 100, 0, stacks: false, range: 3.5f, cooldown: 4f);
             blade.heroDamageBonus = 16f;
             blade.creepDamageBonus = 4f;
@@ -91,6 +91,22 @@ namespace PudgeWars.Tests
             while (!bot.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
             Assert.IsTrue(bot.IsHooked, "the hook missed the bot");
             Assert.AreEqual(bot.maxHealth - hook.hitDamage - 16f, bot.Health, 0.01f, "Quelling Blade must add 16 to the hook's hit on a hero");
+
+            // every metre dragged takes 10 + 16
+            Assert.AreEqual(26f, hook.DamagePerMeterAgainst(bot));
+            var caughtAt = bot.transform.position;
+            var last = caughtAt;
+            float afterHit = bot.Health;
+            while (bot.IsHooked && t < 6f)
+            {
+                last = bot.transform.position;
+                t += Time.deltaTime;
+                yield return null;
+            }
+            var dragged = new Vector2(last.x - caughtAt.x, last.z - caughtAt.z).magnitude;
+            Assert.Greater(dragged, 1f, "the bot was hardly dragged");
+            float lost = afterHit - (bot.IsAlive ? bot.Health : 0f);
+            Assert.AreEqual(dragged * 26f, lost, 26f * 0.5f, "every metre dragged must take 10 + 16 with Quelling Blade");
         }
 
         [UnityTest]

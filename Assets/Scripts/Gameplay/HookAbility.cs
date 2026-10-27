@@ -110,8 +110,12 @@ namespace PudgeWars.Gameplay
         public Pudge Owner => self;
         /// <summary>Damage dealt at the catch, by the owner's level.</summary>
         public float HitDamage => hitDamage + hitDamagePerLevel * ((self != null ? self.Level : 1) - 1);
-        /// <summary>The catch's damage on <paramref name="target"/> with the owner's item bonuses (Quelling Blade); a hit, not the drag.</summary>
-        public float HitDamageAgainst(Unit target) => HitDamage + (inventory != null ? inventory.DamageBonusAgainst(target) : 0f);
+        /// <summary>The catch's damage on <paramref name="target"/> with the owner's item bonuses (Quelling Blade).</summary>
+        public float HitDamageAgainst(Unit target) => HitDamage + DamageBonusAgainst(target);
+        /// <summary>Damage per metre <paramref name="target"/> is dragged, the item bonuses added to every metre too.</summary>
+        public float DamagePerMeterAgainst(Unit target) => damagePerMeter + DamageBonusAgainst(target);
+
+        float DamageBonusAgainst(Unit target) => inventory != null ? inventory.DamageBonusAgainst(target) : 0f;
         /// <summary>Range including item bonuses (Aether Lens).</summary>
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
@@ -500,7 +504,8 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// Drags the catch to <paramref name="position"/> and hurts it for the distance (<see cref="damagePerMeter"/>);
+        /// Drags the catch to <paramref name="position"/> and hurts it for the distance (<see cref="DamagePerMeterAgainst"/>:
+        /// <see cref="damagePerMeter"/> and the owner's item bonuses, per metre);
         /// a catch that dies of it is let go (<see cref="target"/> becomes null), its body flies on.
         /// </summary>
         void DragTarget(Vector3 position, Vector3 pullDirection)
@@ -509,7 +514,7 @@ namespace PudgeWars.Gameplay
             target.DragTo(position, pullDirection);
             var moved = target.transform.position - before;
             moved.y = 0f;
-            target.Damage(moved.magnitude * damagePerMeter, self);
+            target.Damage(moved.magnitude * DamagePerMeterAgainst(target), self);
             if (!target.IsAlive) target = null;
         }
 
