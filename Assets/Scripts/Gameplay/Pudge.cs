@@ -16,6 +16,8 @@ namespace PudgeWars.Gameplay
         public static IReadOnlyList<Pudge> All => all;
 
         public float gravity = 20f;
+
+        public override bool IsHero => true;
         [Tooltip("Team marker under the feet: allies of the local player (and the player) in this colour.")]
         public Color allyMarkerColor = new(0.2f, 0.9f, 0.3f);
         public Color enemyMarkerColor = new(0.95f, 0.15f, 0.1f);

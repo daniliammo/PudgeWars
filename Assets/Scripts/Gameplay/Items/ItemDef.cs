@@ -28,6 +28,10 @@ namespace PudgeWars.Gameplay
         public float castRangeBonus;
         [Tooltip("A hero can own only one (Dota: cast range bonuses of the same item do not stack).")]
         public bool unique = true;
+        [Tooltip("Extra damage of every hit (an attack, an item, an ability — the hook's catch) on a hero.")]
+        public float heroDamageBonus;
+        [Tooltip("The same on a creep (any unit that is not a hero).")]
+        public float creepDamageBonus;
 
         [Header("Use")]
         public ItemAction action;

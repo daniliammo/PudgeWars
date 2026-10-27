@@ -110,6 +110,8 @@ namespace PudgeWars.Gameplay
         public Pudge Owner => self;
         /// <summary>Damage dealt at the catch, by the owner's level.</summary>
         public float HitDamage => hitDamage + hitDamagePerLevel * ((self != null ? self.Level : 1) - 1);
+        /// <summary>The catch's damage on <paramref name="target"/> with the owner's item bonuses (Quelling Blade); a hit, not the drag.</summary>
+        public float HitDamageAgainst(Unit target) => HitDamage + (inventory != null ? inventory.DamageBonusAgainst(target) : 0f);
         /// <summary>Range including item bonuses (Aether Lens).</summary>
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
@@ -316,7 +318,7 @@ namespace PudgeWars.Gameplay
                 {
                     BeginHold(hit);
                     RaiseCaught(hit);
-                    hit.Damage(HitDamage, self); // dying of it breaks the hold (Hold)
+                    hit.Damage(HitDamageAgainst(hit), self); // dying of it breaks the hold (Hold)
                 }
                 return;
             }
@@ -331,7 +333,7 @@ namespace PudgeWars.Gameplay
                 RaiseCaught(target);
                 Play(sounds.impact);
                 Play(Pick(sounds.hitVoice));
-                target.Damage(HitDamage, self);
+                target.Damage(HitDamageAgainst(target), self);
                 if (!target.IsAlive) target = null; // killed by the blow: the hook comes back empty
                 // the owner was caught while the hook flew: the catch hangs on a taut chain behind the owner
                 if (target != null && OwnerCaught) BeginTether();

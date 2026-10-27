@@ -71,6 +71,29 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator QuellingBladeAddsSixteenToTheHooksHitOnAHero()
+        {
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            bot.healthRegen = 0f;
+            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 2.5f);
+            hook.damagePerMeter = 0f; // the catch alone
+            var blade = TestItem(ItemAction.ChopTree, 100, 0, stacks: false, range: 3.5f, cooldown: 4f);
+            blade.heroDamageBonus = 16f;
+            blade.creepDamageBonus = 4f;
+            var inventory = player.GetComponent<HeroInventory>();
+            inventory.AddGold(blade.cost, popup: false);
+            Assert.IsTrue(inventory.TryBuy(blade));
+            Assert.AreEqual(16f, inventory.DamageBonusAgainst(bot), "a hero takes +16");
+            Assert.AreEqual(hook.hitDamage + 16f, hook.HitDamageAgainst(bot));
+
+            Assert.IsTrue(hook.TryCast(bot.transform.position));
+            float t = 0f;
+            while (!bot.IsHooked && t < 3f) { t += Time.deltaTime; yield return null; }
+            Assert.IsTrue(bot.IsHooked, "the hook missed the bot");
+            Assert.AreEqual(bot.maxHealth - hook.hitDamage - 16f, bot.Health, 0.01f, "Quelling Blade must add 16 to the hook's hit on a hero");
+        }
+
+        [UnityTest]
         public IEnumerator HookedBotFallsIntoPitDiesAndScores()
         {
             var bot = Pudge.All.First(h => h.team == Team.Bots);
@@ -1197,6 +1220,9 @@ namespace PudgeWars.Tests
             Assert.AreEqual(50, branch.cost);
             Assert.AreEqual(3, tango.charges);
             Assert.AreEqual(0f, branch.treeLifetime, "the branch's tree stands for good: Pudge Wars → Build Test Arena");
+            Assert.AreEqual(16f, blade.heroDamageBonus, "Quelling Blade: +16 damage on heroes: Pudge Wars → Build Test Arena");
+            Assert.AreEqual(4f, blade.creepDamageBonus, "Quelling Blade: +4 damage on creeps");
+            StringAssert.Contains("на 16 или на 4", blade.details, "Quelling Blade's description: Pudge Wars → Build Test Arena");
             Assert.IsTrue(sold.All(i => i.icon != null), "an item has no icon");
             var net = PudgeWars.Net.NetPrefabs.Load();
             Assert.IsTrue(sold.All(i => net.IndexOf(i) >= 0), "an item is missing from the network catalog: Pudge Wars → Build Test Arena");

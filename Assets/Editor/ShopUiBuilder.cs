@@ -109,13 +109,17 @@ namespace PudgeWars.EditorTools
             item.treeLifetime = 0f;
         });
 
-        /// <summary>Quelling Blade: 100 gold as in Dota 2, cuts a tree down within 350 units, cooldown 4 s.</summary>
+        /// <summary>Quelling Blade: 100 gold as in Dota 2, cuts a tree down within 350 units, cooldown 4 s; +16 damage on heroes, +4 on creeps (every hit).</summary>
         public static ItemDef QuellingBlade() => Item("QuellingBlade", "quelling_blade", item =>
         {
             item.displayName = "Quelling Blade";
-            item.description = "Срубить дерево (перезарядка 4 с)";
-            item.details = "Срубает выбранное дерево: остаётся пень, крона разлетается, а через 20 секунд дерево вырастает снова. "
-                           + "Дерево, посаженное веткой, срубается насовсем. Если дерево дальше 350, Пудж сначала подойдёт к нему.";
+            item.description = "Срубить дерево (перезарядка 4 с). +16 урона по героям, +4 по крипам";
+            item.details = "Увеличивает урон от атак по существам, являющимися героями, на 16 или на 4 — для крипов. "
+                           + "Увеличение применяется на все предметы и способности (у хука — к удару при попадании).\n\n"
+                           + "Применение: срубает выбранное дерево — остаётся пень, крона разлетается, а через 20 секунд дерево "
+                           + "вырастает снова. Дерево, посаженное веткой, срубается насовсем. Если дерево дальше 350, Пудж сначала подойдёт к нему.";
+            item.heroDamageBonus = 16f;
+            item.creepDamageBonus = 4f;
             item.cost = 100;
             item.unique = true;
             item.action = ItemAction.ChopTree;

@@ -62,6 +62,18 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>
+        /// Extra damage the hero's hits deal to <paramref name="target"/> (Quelling Blade: +16 on heroes, +4 on creeps),
+        /// for every attack, item and ability.
+        /// </summary>
+        public float DamageBonusAgainst(Unit target)
+        {
+            if (target == null) return 0f;
+            float bonus = 0f;
+            foreach (var item in owned) bonus += target.IsHero ? item.heroDamageBonus : item.creepDamageBonus;
+            return bonus;
+        }
+
         /// <summary>Net worth as in Dota: the gold in hand and what the items cost (charges by what is left).</summary>
         public int NetWorth
         {

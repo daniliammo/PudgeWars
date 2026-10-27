@@ -33,6 +33,8 @@ namespace PudgeWars.Gameplay
         public bool IsBot { get; private set; }
         /// <summary>Name shown over the head: bots are marked, "Бот Мясник".</summary>
         public string DisplayName => IsBot ? BotPrefix + Nickname : Nickname;
+        /// <summary>A hero (Pudge), not a creep or another creature: some bonuses tell them apart (Quelling Blade).</summary>
+        public virtual bool IsHero => false;
         /// <summary>Unit level; a stub until levels exist: always 1.</summary>
         public virtual int Level => 1;
         public float Health { get; private set; }

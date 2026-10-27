@@ -243,6 +243,8 @@ namespace PudgeWars.Gameplay
             if (!string.IsNullOrEmpty(item.details)) text.Append($"\n\n<color=#D8DCE0>{item.details}</color>");
             text.Append("\n<color=#A8B4C0>");
             if (item.castRangeBonus > 0f) text.Append($"\nДальность способностей: +{(item.castRangeBonus * 100f).ToString("0", ci)}");
+            if (item.heroDamageBonus > 0f) text.Append($"\nУрон по героям: +{item.heroDamageBonus.ToString("0", ci)}");
+            if (item.creepDamageBonus > 0f) text.Append($"\nУрон по крипам: +{item.creepDamageBonus.ToString("0", ci)}");
             if (item.IsUsable) text.Append($"\nДальность применения: {(item.castRange * 100f).ToString("0", ci)}");
             if (item.cooldown > 0f) text.Append($"\nПерезарядка: {item.cooldown.ToString("0.#", ci)} с");
             if (item.charges > 0) text.Append(owner != null ? $"\nЗарядов осталось: {owner.ChargesAt(slot)}" : $"\nЗарядов: {item.charges}");
