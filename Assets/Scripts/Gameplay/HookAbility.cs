@@ -329,9 +329,8 @@ namespace PudgeWars.Gameplay
             {
                 Play(Pick(sounds.missVoice));
                 Missed?.Invoke();
-                // a miss comes back even to an owner caught meanwhile (see OwnerLostControl); not to a falling or dead one
-                if (OwnerDown) Cancel();
-                else state = State.Returning;
+                // a miss comes back to its owner wherever it is: caught meanwhile, or falling into the pit with it
+                state = State.Returning;
             }
             if (state == State.Returning) PlayChain(sounds.retract);
         }
@@ -387,12 +386,12 @@ namespace PudgeWars.Gameplay
         /// taut chain (the target is dragged after the owner, into the pit if the owner falls) until the owner is free
         /// again and pulls it on; a hook in flight flies on and whatever it catches hangs on that chain; a missed hook
         /// on its way back comes back to the owner wherever a hook (an enemy's or an ally's) drags it — an item is to
-        /// let it catch on the way back — and breaks off only if the owner falls or dies; a hook not yet thrown breaks off.
+        /// let it catch on the way back — even into the pit after a falling owner; a hook not yet thrown breaks off.
         /// </summary>
         public void OwnerLostControl()
         {
             if (state is State.Tethered or State.Flying) return;
-            if (state == State.Returning && target == null && !OwnerDown) return;
+            if (state == State.Returning && target == null) return;
             // an ally's hook only carries the owner home: a hook on its way back comes back to it as usual
             if (state == State.Returning && !OwnerCaught) return;
             if (state == State.Returning && target != null && !OwnerFallsFromRescue)
@@ -414,9 +413,6 @@ namespace PudgeWars.Gameplay
         /// it home, and the owner's own hook goes on meanwhile (returning to it wherever it is carried).
         /// </summary>
         bool OwnerCaught => self != null && (!self.IsAlive || self.IsFalling || (self.IsHooked && !CarriedByAlly));
-
-        /// <summary>The owner is falling into the pit or dead: its hook has nobody to come back to.</summary>
-        bool OwnerDown => self != null && (!self.IsAlive || self.IsFalling);
 
         bool CarriedByAlly => self.HookedBy != null && self.HookedBy.Owner != null && !IsEnemy(self.HookedBy.Owner);
 

@@ -930,14 +930,25 @@ namespace PudgeWars.Tests
             while (hook.IsBusy && t < 4f) { t += Time.deltaTime; yield return null; }
             Assert.IsFalse(hook.IsBusy, "the returning hook never came back");
 
-            // a falling owner: the empty hook breaks off
+            // a falling owner: the empty hook comes back to it all the same, down into the pit
             player.Release();
             yield return new WaitUntil(() => hook.IsReady);
             Assert.IsTrue(hook.TryCast(aim));
             t = 0f;
             while (hook.IsFlying || !hook.HeadVisible) { t += Time.deltaTime; Assert.Less(t, 3f, "the hook did not turn back"); yield return null; }
             player.StartFalling(Vector3.zero);
-            Assert.IsFalse(hook.IsBusy, "the hook of a falling owner must break off");
+            Assert.IsTrue(hook.IsBusy && hook.HeadVisible, "a returning missed hook vanished when the owner started falling");
+            t = 0f;
+            while (hook.IsBusy && t < 4f)
+            {
+                head = hook.hookHead.position;
+                t += Time.deltaTime;
+                yield return null;
+            }
+            Assert.IsFalse(hook.IsBusy, "the returning hook never came back to the falling owner");
+            left = head - player.transform.position;
+            Assert.Less(new Vector3(left.x, 0f, left.z).magnitude, 2f, "the hook vanished away from the falling owner instead of coming back");
+            Assert.Less(head.y, 0f, "the hook did not follow its owner down into the pit");
         }
 
         [UnityTest]
