@@ -16,6 +16,12 @@ namespace PudgeWars.Net
         public string nickname;
     }
 
+    /// <summary>A player in the lobby asks to play for the other team (granted while it has a free place).</summary>
+    public struct TeamChangeMessage : NetworkMessage
+    {
+        public Team team;
+    }
+
     /// <summary>A player of the game: their nickname and team.</summary>
     public struct LobbyPlayer
     {
@@ -27,6 +33,8 @@ namespace PudgeWars.Net
     public struct LobbyMessage : NetworkMessage
     {
         public LobbyPlayer[] players;
+        /// <summary>Index of the receiving player in <see cref="players"/> (-1 if not among them yet).</summary>
+        public int you;
         public int teamSize;
         public bool fillWithBots;
         public float botDifficulty;
@@ -37,8 +45,9 @@ namespace PudgeWars.Net
     /// <see cref="NetMenu"/>. A game started in the main menu opens a lobby there: players join it and see who is in
     /// and the settings (<see cref="Lobby"/>), the host may still change them, and <see cref="StartMatch"/> takes
     /// everyone to the arena. A game started in the arena itself (or joined later) goes on there at once: the arena's
-    /// own heroes give way to network ones. Each player gets a hero on the team with fewer players, bots fill the
-    /// teams up to <see cref="teamSize"/>. The server simulates everything, clients send input and show the result
+    /// own heroes give way to network ones. Each player joins the team with fewer players and in the lobby may go
+    /// over to the other one while it has a free place (<see cref="RequestTeam"/>) — so friends can play on one side
+    /// against bots; bots fill the teams up to <see cref="teamSize"/>. The server simulates everything, clients send input and show the result
     /// (<see cref="Simulation.IsProxy"/>). Leaving the network game reloads the arena offline, or returns to the main
     /// menu if the game was started from it.
     /// A build started with -batchmode or -server runs a dedicated server in the arena (port: -port N, default 7777).
@@ -224,6 +233,7 @@ namespace PudgeWars.Net
         public override void OnStartServer()
         {
             NetworkServer.RegisterHandler<JoinMessage>(OnJoin);
+            NetworkServer.RegisterHandler<TeamChangeMessage>(OnTeamChange);
             RememberWhereStarted();
             players.Clear();
             if (Arena.Instance != null)
@@ -293,6 +303,16 @@ namespace PudgeWars.Net
             }
         }
 
+        /// <summary>In the lobby: the player goes over to the asked team if it still has a free place.</summary>
+        void OnTeamChange(NetworkConnectionToClient conn, TeamChangeMessage msg)
+        {
+            var player = players.Find(p => p.conn == conn);
+            if (!InLobby || player == null || player.team == msg.team || Players(msg.team) >= teamSize) return;
+            player.team = msg.team;
+            if (conn is LocalConnectionToClient) hostTeam = msg.team;
+            UpdateLobby();
+        }
+
         public override void OnServerReady(NetworkConnectionToClient conn)
         {
             base.OnServerReady(conn);
@@ -335,26 +355,27 @@ namespace PudgeWars.Net
         }
 
         /// <summary>
-        /// In the lobby: the teams are dealt again in the order the players joined (the host's team or the settings
-        /// may have changed), and every client gets the lobby. The host calls it after changing the settings.
+        /// In the lobby: every player gets the lobby, with their own place in it marked. The players keep their teams
+        /// (chosen at joining or changed since); the host's follows <see cref="hostTeam"/>. The host calls it after
+        /// changing the settings.
         /// </summary>
         public void UpdateLobby()
         {
             if (!InLobby) return;
-            var joined = players.ToList();
-            players.Clear();
-            foreach (var player in joined)
-            {
-                player.team = TeamForNewPlayer(player.conn);
-                players.Add(player);
-            }
-            NetworkServer.SendToAll(new LobbyMessage
+            var host = players.Find(p => p.conn is LocalConnectionToClient);
+            if (host != null) host.team = hostTeam;
+            var lobby = new LobbyMessage
             {
                 players = players.Select(p => new LobbyPlayer { nickname = p.nickname, team = p.team }).ToArray(),
                 teamSize = teamSize,
                 fillWithBots = fillWithBots,
                 botDifficulty = botDifficulty,
-            });
+            };
+            for (int i = 0; i < players.Count; i++)
+            {
+                lobby.you = i;
+                players[i].conn.Send(lobby);
+            }
         }
 
         /// <summary>Keeps every team at <see cref="teamSize"/> heroes with bots (or removes the bots when off).</summary>
@@ -409,6 +430,12 @@ namespace PudgeWars.Net
             RememberWhereStarted();
             Simulation.IsProxy = true;
             LeaveOfflineGame();
+        }
+
+        /// <summary>In the lobby: asks the server to play for <paramref name="team"/> (granted while it has a free place).</summary>
+        public void RequestTeam(Team team)
+        {
+            if (NetworkClient.isConnected) NetworkClient.Send(new TeamChangeMessage { team = team });
         }
 
         void OnLobby(LobbyMessage msg)

@@ -14,7 +14,8 @@ namespace PudgeWars.Net
     /// heroes per team, bots on free places, bot difficulty as one multiplier for every bot) and "Создать лобби", on
     /// the right the graphics preset (applied at once, <see cref="GraphicsQuality"/>) and joining a game by address or
     /// in the local network. A created or joined game waits in the lobby, which takes the new game's place: how many
-    /// players are in and who plays for which team (with the bots on the free places), the settings — the host may
+    /// players are in and who plays for which team (with the bots on the free places), "Перейти за …" for every player
+    /// while the other team has a free place (friends may play on one side against bots), the settings — the host may
     /// still change them — and the host's "Начать игру", which takes everyone to the arena
     /// (<see cref="PudgeNetworkManager.StartMatch"/>); a game already on takes a joining player there at once.
     /// Leaving the game returns here. The settings are remembered with the same keys as the arena's <see cref="NetMenu"/>.
@@ -134,21 +135,24 @@ namespace PudgeWars.Net
             manager.StartHost();
         }
 
-        void ApplySettings()
+        void ApplySettings(bool withTeam = true)
         {
-            manager.hostTeam = team;
+            if (withTeam) manager.hostTeam = team;
             manager.teamSize = teamSize;
             manager.fillWithBots = bots;
             manager.botDifficulty = difficulty;
         }
 
-        /// <summary>The host changed the settings in the lobby: the players see them at once.</summary>
+        /// <summary>The host changed the settings in the lobby: the players see them at once (its team changes as everyone's does).</summary>
         void LobbySettingsChanged()
         {
             Remember();
-            ApplySettings();
+            ApplySettings(withTeam: false);
             manager.UpdateLobby();
         }
+
+        /// <summary>This player goes over to the other team (the server grants it while that team has a free place).</summary>
+        void SwitchTeam(Team to) => manager.RequestTeam(to);
 
         void Join(string target)
         {
@@ -272,15 +276,18 @@ namespace PudgeWars.Net
 #endif
         }
 
-        /// <summary>The settings of the game; <paramref name="changed"/> is called after each change (the lobby's host).</summary>
-        void Settings(RectTransform panel, Action changed)
+        /// <summary>
+        /// The settings of the game; <paramref name="changed"/> is called after each change (the lobby's host, where
+        /// the team is not among them: it is changed by going over, as every player does).
+        /// </summary>
+        void Settings(RectTransform panel, Action changed, bool withTeam = true)
         {
             void Step(Action change)
             {
                 change();
                 changed?.Invoke();
             }
-            Row(panel, "Команда", row => Stepper(row, () => TeamNames[(int)team], _ => Step(() => team = team == Team.Player ? Team.Bots : Team.Player)));
+            if (withTeam) Row(panel, "Команда", row => Stepper(row, () => TeamNames[(int)team], _ => Step(() => team = team == Team.Player ? Team.Bots : Team.Player)));
             Row(panel, "Героев в команде", row => Stepper(row, () => teamSize.ToString(), d => Step(() => teamSize = Mathf.Clamp(teamSize + d, 1, MaxTeamSize))));
             Row(panel, "Боты на свободных местах", row => Stepper(row, () => bots ? "Да" : "Нет", _ => Step(() => bots = !bots)));
             Row(panel, "Сложность ботов", row => Stepper(row, () => $"×{difficulty:0.##}", d => Step(() =>
@@ -316,8 +323,22 @@ namespace PudgeWars.Net
             Label(lobby, $"Игроков в лобби: {info.players.Length} из {info.teamSize * 2}", 34, TextAnchor.MiddleLeft, 50f);
             foreach (var side in new[] { Team.Player, Team.Bots })
                 Label(lobby, TeamLine(side, info), 26, TextAnchor.UpperLeft, 34f);
+            if (info.you >= 0 && info.you < info.players.Length)
+            {
+                var own = info.players[info.you].team;
+                if (host && team != own)
+                {
+                    team = own; // the host's side is remembered for the next game
+                    Remember();
+                }
+                var other = own == Team.Player ? Team.Bots : Team.Player;
+                if (info.players.Count(p => p.team == other) < info.teamSize)
+                    Button(lobby, $"Перейти за {TeamNames[(int)other]}", secondaryButtonColor, 56f, () => SwitchTeam(other));
+                else
+                    Label(lobby, $"В {TeamNames[(int)other]} нет мест", 24, TextAnchor.MiddleLeft, 40f).color = new Color(0.8f, 0.82f, 0.85f);
+            }
             Spacer(lobby, 4f);
-            if (host) Settings(lobby, LobbySettingsChanged);
+            if (host) Settings(lobby, LobbySettingsChanged, withTeam: false);
             else
             {
                 Row(lobby, "Героев в команде", row => Label(row, info.teamSize.ToString(), 28, TextAnchor.MiddleCenter));

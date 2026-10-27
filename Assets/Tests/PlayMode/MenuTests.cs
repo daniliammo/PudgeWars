@@ -87,6 +87,25 @@ namespace PudgeWars.Tests
                 var texts = Object.FindObjectsByType<Text>().Select(x => x.text).ToList();
                 Assert.IsTrue(texts.Contains("Игроков в лобби: 1 из 4"), "the menu does not show how many players are in: " + string.Join(" | ", texts));
 
+                // a player goes over to the other side and back; a full side takes nobody
+                Assert.AreEqual(0, manager.Lobby.you, "the lobby must say which line is this player's");
+                Assert.IsTrue(texts.Contains("Перейти за Dire"), "no way to go over to the other side: " + string.Join(" | ", texts));
+                manager.RequestTeam(Team.Bots);
+                t = 0f;
+                while (manager.Lobby.players[0].team != Team.Bots && t < 3f) { t += Time.deltaTime; yield return null; }
+                Assert.AreEqual(Team.Bots, manager.Lobby.players[0].team, "the host did not go over to Dire");
+                Assert.AreEqual(Team.Bots, manager.hostTeam);
+                manager.teamSize = 1;
+                manager.UpdateLobby();
+                yield return null;
+                Assert.AreEqual(Team.Bots, manager.Lobby.players[0].team, "a settings change must not deal the teams anew");
+                manager.RequestTeam(Team.Player);
+                t = 0f;
+                while (manager.Lobby.players[0].team != Team.Player && t < 3f) { t += Time.deltaTime; yield return null; }
+                Assert.AreEqual(Team.Player, manager.Lobby.players[0].team, "the host did not come back to Radiant");
+                manager.teamSize = 2;
+                manager.UpdateLobby();
+
                 // the host changes the settings in the lobby: the players get them
                 manager.teamSize = 3;
                 manager.UpdateLobby();
