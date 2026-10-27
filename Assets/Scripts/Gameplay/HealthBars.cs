@@ -60,8 +60,8 @@ namespace PudgeWars.Gameplay
             public int shownHealth = -1, shownMax = -1, shownLevel = -1, shownMultiKill = -1;
         }
 
-        readonly Dictionary<Hookable, Bar> bars = new();
-        readonly List<Hookable> gone = new();
+        readonly Dictionary<Pudge, Bar> bars = new();
+        readonly List<Pudge> gone = new();
         RectTransform rect;
         Canvas canvas;
 
@@ -85,24 +85,24 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>The bar's root, health fill and nickname label for a hero (null if it has none yet).</summary>
-        public (RectTransform root, RectTransform fill, Text name) Of(Hookable hero) =>
+        public (RectTransform root, RectTransform fill, Text name) Of(Pudge hero) =>
             bars.TryGetValue(hero, out var b) ? (b.root, b.fill, b.name) : default;
 
         /// <summary>The lost health's white trail behind a hero's fill (null if it has no bar yet).</summary>
-        public RectTransform Trail(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.trail : null;
+        public RectTransform Trail(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.trail : null;
 
         /// <summary>The "current / max" health label on a hero's bar (null if it has none yet).</summary>
-        public Text HealthLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.health : null;
+        public Text HealthLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.health : null;
 
         /// <summary>The level digit in the circle on a hero's bar (null if it has none yet).</summary>
-        public Text LevelLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.level : null;
+        public Text LevelLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.level : null;
 
         /// <summary>The multi-kill next to the level circle (null if the hero has no bar yet; inactive below a Double Kill).</summary>
-        public Text MultiKillLabel(Hookable hero) => bars.TryGetValue(hero, out var b) ? b.multiKill : null;
+        public Text MultiKillLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.multiKill : null;
 
         void LateUpdate()
         {
-            foreach (var hero in Hookable.All)
+            foreach (var hero in Pudge.All)
                 if (!bars.ContainsKey(hero)) bars[hero] = Create(hero);
 
             gone.Clear();
@@ -128,10 +128,10 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        static float Fraction(Hookable hero) => hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f;
+        static float Fraction(Pudge hero) => hero.maxHealth > 0f ? Mathf.Clamp01(hero.Health / hero.maxHealth) : 0f;
 
         /// <summary>The fill follows the health at once; the trail stays on a drop, then runs down; a heal takes it along.</summary>
-        void ShowFill(Hookable hero, Bar bar)
+        void ShowFill(Pudge hero, Bar bar)
         {
             float fraction = Fraction(hero), now = Time.time;
             if (fraction < bar.lastFraction - 1e-4f) bar.holdUntil = now + trailHold;
@@ -143,7 +143,7 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Rebuilds the text only when the numbers change (no garbage every frame).</summary>
-        void ShowHealth(Hookable hero, Bar bar)
+        void ShowHealth(Pudge hero, Bar bar)
         {
             int health = Mathf.CeilToInt(Mathf.Max(0f, hero.Health)), max = Mathf.CeilToInt(hero.maxHealth);
             if (health == bar.shownHealth && max == bar.shownMax) return;
@@ -152,14 +152,14 @@ namespace PudgeWars.Gameplay
             bar.health.text = string.Format(healthFormat, health, max);
         }
 
-        void ShowLevel(Hookable hero, Bar bar)
+        void ShowLevel(Pudge hero, Bar bar)
         {
             if (hero.Level == bar.shownLevel) return;
             bar.shownLevel = hero.Level;
             bar.level.text = hero.Level.ToString();
         }
 
-        void ShowMultiKill(Hookable hero, Bar bar)
+        void ShowMultiKill(Pudge hero, Bar bar)
         {
             int kills = Arena.Instance != null ? Arena.Instance.MultiKillOf(hero) : 0;
             if (kills == bar.shownMultiKill) return;
@@ -168,7 +168,7 @@ namespace PudgeWars.Gameplay
             bar.multiKill.gameObject.SetActive(kills >= 2);
         }
 
-        void Place(Hookable hero, Bar bar)
+        void Place(Pudge hero, Bar bar)
         {
             float now = Time.time;
             if (hero.IsAlive) bar.deadSince = -1f;
@@ -191,7 +191,7 @@ namespace PudgeWars.Gameplay
                 bar.root.anchoredPosition = new Vector2(local.x, Mathf.Min(local.y, rect.rect.yMax - topMargin));
         }
 
-        Bar Create(Hookable hero)
+        Bar Create(Pudge hero)
         {
             var root = Rect(rect, "HealthBar_" + hero.name, size + Vector2.one * (2f * border));
             Img(root, frameColor);

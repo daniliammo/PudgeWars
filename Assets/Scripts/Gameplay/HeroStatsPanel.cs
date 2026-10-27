@@ -20,7 +20,7 @@ namespace PudgeWars.Gameplay
         public Color valueColor = Color.white;
         public Color bonusColor = new(0.45f, 0.95f, 0.4f);
 
-        Hookable hero;
+        Pudge hero;
         float nextRefresh;
         int shownRows;
         // one label and one value per row: the two can be in different fonts (HudFonts), so they cannot share a Text
@@ -45,7 +45,7 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Shows the hero's stats; null hides the panel.</summary>
-        public void Show(Hookable shown)
+        public void Show(Pudge shown)
         {
             hero = shown;
             gameObject.SetActive(hero != null);

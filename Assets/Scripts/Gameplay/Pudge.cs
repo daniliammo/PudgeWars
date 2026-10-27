@@ -5,38 +5,21 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// A character that can be caught by a hook, dragged, dropped into the pit and killed. Going over the edge (or dying)
-    /// it is hidden and its body (<see cref="Corpse"/>, a ragdoll) flies on in its place, rolls in the pit and stays
-    /// there until the respawn.
+    /// The hero: a <see cref="Unit"/> that can be caught by a hook, dragged, dropped into the pit and killed. Going over
+    /// the edge (or dying) it is hidden and its body (<see cref="Corpse"/>, a ragdoll) flies on in its place, rolls in
+    /// the pit and stays there until the respawn.
     /// </summary>
-    public class Hookable : MonoBehaviour
+    public class Pudge : Unit
     {
-        static readonly List<Hookable> all = new();
-        public static IReadOnlyList<Hookable> All => all;
+        static readonly List<Pudge> all = new();
+        /// <summary>Every hero on the arena.</summary>
+        public static IReadOnlyList<Pudge> All => all;
 
-        public Team team;
-        [Tooltip("Name shown over the head and in announcements; the object name if empty.")]
-        public string nickname;
-        [Tooltip("Dota 2 Pudge at level 1: about 670.")]
-        public float maxHealth = 670f;
-        [Tooltip("Collision radius for hook hits, metres (capsule radius 61 cm in the original).")]
-        public float radius = 0.6f;
         public float gravity = 20f;
         [Tooltip("Team marker under the feet: allies of the local player (and the player) in this colour.")]
         public Color allyMarkerColor = new(0.2f, 0.9f, 0.3f);
         public Color enemyMarkerColor = new(0.95f, 0.15f, 0.1f);
 
-        public const string BotPrefix = "Бот ";
-
-        public string Nickname => string.IsNullOrEmpty(nickname) ? name : nickname;
-        /// <summary>True for a hero the computer plays (it has a <see cref="BotBrain"/>, on every machine).</summary>
-        public bool IsBot { get; private set; }
-        /// <summary>Name shown over the head: bots are marked, "Бот Мясник".</summary>
-        public string DisplayName => IsBot ? BotPrefix + Nickname : Nickname;
-        /// <summary>Hero level; a stub until levels exist: always 1.</summary>
-        public int Level => 1;
-        public float Health { get; private set; }
-        public bool IsAlive { get; private set; } = true;
         public bool IsHooked => hookedBy != null || remoteHooked;
         public bool IsFalling { get; private set; }
         public bool CanBeHooked => IsAlive && !IsHooked && !IsFalling;
@@ -49,15 +32,15 @@ namespace PudgeWars.Gameplay
         /// <summary>The body left by the fall or the death, until the respawn.</summary>
         public Corpse Body => corpse;
         /// <summary>Owner of the last hook that caught this character: credited with the kill.</summary>
-        public Hookable LastHookedBy { get; private set; }
+        public Pudge LastHookedBy { get; private set; }
         /// <summary>The hook pulling this character now (server / offline; null on a network client).</summary>
         public HookAbility HookedBy => hookedBy;
         /// <summary>An ally's hook holding this character while an enemy's hook pulls it (tug of war).</summary>
         public HookAbility HeldBy { get; internal set; }
 
-        public event Action<Hookable> Died;
+        public event Action<Pudge> Died;
         /// <summary>Back in the game at a new place (the network sync teleports instead of interpolating).</summary>
-        public event Action<Hookable> Respawned;
+        public event Action<Pudge> Respawned;
 
         HookAbility hookedBy;
         HookAbility ownHook;
@@ -72,30 +55,39 @@ namespace PudgeWars.Gameplay
         bool visible = true;
         static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
 
-        void Awake()
+        protected override void Awake()
         {
+            base.Awake();
             anim = GetComponent<PudgeAnimation>();
             ownHook = GetComponent<HookAbility>();
-            IsBot = GetComponent<BotBrain>() != null;
             // the hook head and the chain may still be children here (prefab); their visibility belongs to HookAbility,
             // the aim lines' to HookAimIndicator: respawn must not switch them back on
             var aim = GetComponentInChildren<HookAimIndicator>(true);
             renderers = System.Array.FindAll(GetComponentsInChildren<Renderer>(true),
                 r => (ownHook == null || !ownHook.Owns(r.transform)) && (aim == null || !r.transform.IsChildOf(aim.transform)));
             lastPosition = transform.position;
-            Health = maxHealth;
             var markerTransform = transform.Find("TeamMarker");
             if (markerTransform != null) marker = markerTransform.GetComponent<Renderer>();
         }
 
-        void OnEnable() => all.Add(this);
-        void OnDisable() => all.Remove(this);
+        protected override void OnEnable()
+        {
+            base.OnEnable();
+            all.Add(this);
+        }
+
+        protected override void OnDisable()
+        {
+            base.OnDisable();
+            all.Remove(this);
+        }
+
         void OnDestroy() => RemoveBody();
 
         public void AttachTo(HookAbility hook)
         {
             hookedBy = hook;
-            LastHookedBy = hook.GetComponent<Hookable>();
+            LastHookedBy = hook.GetComponent<Pudge>();
             // a caught character's own hook breaks off, or keeps its target on a taut chain
             if (ownHook != null) ownHook.OwnerLostControl();
             anim?.Play(PudgeAnimation.Hooked, 0.05f);
@@ -134,8 +126,9 @@ namespace PudgeWars.Gameplay
             StartFalling(horizontalVelocity);
         }
 
-        void Update()
+        protected override void Update()
         {
+            base.Update();
             if (!IsFalling || Simulation.IsProxy) return;
             velocity.y -= gravity * Time.deltaTime;
             transform.position += velocity * Time.deltaTime;
@@ -169,11 +162,26 @@ namespace PudgeWars.Gameplay
             marker.SetPropertyBlock(markerColor);
         }
 
+        /// <summary>
+        /// Killed by damage (a hook): the body flies on the way the hero was moving. The kill goes to the enemy that
+        /// dealt it, else to the last enemy whose hook caught the hero (an ally's hook is nobody's kill).
+        /// </summary>
+        protected override void OnHealthDepleted(Unit source)
+        {
+            if (source is Pudge killer && killer.team != team) LastHookedBy = killer;
+            hookedBy = null;
+            velocity = Velocity;
+            anim?.Play(PudgeAnimation.Death, 0.1f);
+            Die();
+            // its own hook goes on as a dead owner's does (a miss comes back, a catch hangs on a taut chain)
+            if (ownHook != null) ownHook.OwnerLostControl();
+        }
+
         void Die()
         {
             IsFalling = false;
             IsAlive = false;
-            Health = 0f;
+            ClearHealth();
             DropBody(velocity);
             velocity = Vector3.zero;
             Died?.Invoke(this);
@@ -186,7 +194,7 @@ namespace PudgeWars.Gameplay
             lastPosition = position;
             LastHookedBy = null;
             IsAlive = true;
-            Health = maxHealth;
+            RestoreHealth();
             // a chain still hanging from the dead hero (its hook flew on or held a target) breaks at respawn
             if (ownHook != null) ownHook.Cancel();
             RemoveBody();
@@ -202,7 +210,8 @@ namespace PudgeWars.Gameplay
             IsAlive = alive;
             IsFalling = falling;
             remoteHooked = hooked;
-            Health = alive ? maxHealth : 0f;
+            if (!alive) ClearHealth();
+            else if (!wasAlive) RestoreHealth();
             // the body drops where the server's hero went over the edge (or died), as fast as it was seen moving
             if ((alive && falling && !wasFalling) || (!alive && wasAlive)) DropBody(Velocity);
             if (alive == wasAlive) return;

@@ -79,7 +79,7 @@ namespace PudgeWars.Gameplay
         public static int NetWorthOf(Team team)
         {
             int worth = 0;
-            foreach (var hero in Hookable.All)
+            foreach (var hero in Pudge.All)
                 if (hero.team == team && hero.TryGetComponent<HeroInventory>(out var inventory))
                     worth += inventory.NetWorth;
             return worth;

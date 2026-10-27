@@ -66,14 +66,14 @@ namespace PudgeWars.Gameplay
         /// <summary>Allies a team's hooks pulled out of enemy hooks.</summary>
         public int RescuesOf(Team team) => rescues[(int)team];
         /// <summary>A hero's own kills, deaths, rescues and times rescued, as the server counted them on a client.</summary>
-        public HeroScore ScoreOf(Hookable hero) => hero != null && heroScores.TryGetValue(hero, out var s) ? s : default;
+        public HeroScore ScoreOf(Pudge hero) => hero != null && heroScores.TryGetValue(hero, out var s) ? s : default;
         /// <summary>Gold for killing a hero: 125 + its level × 8, so 133 at level 1.</summary>
-        public int KillGold(Hookable victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
+        public int KillGold(Pudge victim) => killGoldBase + killGoldPerLevel * (victim != null ? victim.Level : 1);
         /// <summary>
         /// Extra gold for killing a hero on a kill series: half its kill reward + its kills without dying × 5; if it had
         /// Rampages in a row (RAMPAGE ×2 and on), each Rampage kill pays × 10 instead (the kills before them stay × 5).
         /// </summary>
-        public int StreakBreakBonus(Hookable victim, int streak, int rampagesInARow)
+        public int StreakBreakBonus(Pudge victim, int streak, int rampagesInARow)
         {
             int rampageKills = rampagesInARow >= 2 ? Mathf.Min(rampagesInARow, streak) : 0;
             return KillGold(victim) / 2 + (streak - rampageKills) * streakBreakPerKill + rampageKills * streakBreakPerKillRampage;
@@ -81,18 +81,18 @@ namespace PudgeWars.Gameplay
         /// <summary>(Score, Deaths) after any change of the counts.</summary>
         public event Action<int, int> ScoreChanged;
         /// <summary>First Blood, Double / Triple / Ultra Kill, Rampage, Godlike made by the hero.</summary>
-        public event Action<Hookable, KillAnnouncement> KillAnnounced;
+        public event Action<Pudge, KillAnnouncement> KillAnnounced;
         /// <summary>The hero's series is over: by time (killer is null) or because the killer got him.</summary>
-        public event Action<Hookable, SeriesEnd, Hookable> SeriesEnded;
+        public event Action<Pudge, SeriesEnd, Pudge> SeriesEnded;
         /// <summary>The first hero was pulled out of an enemy's hook by the second one's hook.</summary>
-        public event Action<Hookable, Hookable> Rescued;
+        public event Action<Pudge, Pudge> Rescued;
 
         public KillStreaks Streaks { get; private set; }
 
         readonly int[] kills = new int[2], deaths = new int[2], rescues = new int[2];
-        readonly Dictionary<Hookable, int> remoteRampages = new();
-        readonly Dictionary<Hookable, int> remoteMultiKills = new();
-        readonly Dictionary<Hookable, HeroScore> heroScores = new();
+        readonly Dictionary<Pudge, int> remoteRampages = new();
+        readonly Dictionary<Pudge, int> remoteMultiKills = new();
+        readonly Dictionary<Pudge, HeroScore> heroScores = new();
         float nextPassiveGold;
 
         void Awake()
@@ -111,10 +111,10 @@ namespace PudgeWars.Gameplay
         {
             if (Simulation.IsProxy) return;
             foreach (var hero in Streaks.ExpireSeries(Time.time))
-                SeriesEnded?.Invoke((Hookable)hero, SeriesEnd.Time, null);
+                SeriesEnded?.Invoke((Pudge)hero, SeriesEnd.Time, null);
 
             for (; Time.time >= nextPassiveGold; nextPassiveGold += passiveGoldInterval)
-                foreach (var hero in Hookable.All)
+                foreach (var hero in Pudge.All)
                     if (passiveGold > 0 && hero.TryGetComponent<HeroInventory>(out var wallet)) wallet.AddGold(passiveGold, popup: false);
         }
 
@@ -151,7 +151,7 @@ namespace PudgeWars.Gameplay
         /// <summary>True if a hero of <paramref name="radius"/> at <paramref name="p"/> would overlap a living hero.</summary>
         static bool HeroAt(Vector3 p, float radius)
         {
-            foreach (var h in Hookable.All)
+            foreach (var h in Pudge.All)
             {
                 if (!h.IsAlive || h.IsFalling) continue;
                 var d = h.transform.position - p;
@@ -162,7 +162,7 @@ namespace PudgeWars.Gameplay
             return false;
         }
 
-        public void ReportDeath(Hookable victim, Hookable killer)
+        public void ReportDeath(Pudge victim, Pudge killer)
         {
             if (killer != null && killer.team == victim.team) killer = null;
             int streak = Streaks.Streak(victim), rampages = Streaks.RampageCount(victim); // before the death clears them
@@ -199,7 +199,7 @@ namespace PudgeWars.Gameplay
         /// An ally's hook took <paramref name="rescued"/> out of an enemy's hook: the rescuer gets half the reward for
         /// killing the rescued hero.
         /// </summary>
-        public void ReportRescue(Hookable rescued, Hookable rescuer)
+        public void ReportRescue(Pudge rescued, Pudge rescuer)
         {
             rescues[(int)rescuer.team]++;
             var rescuerScore = ScoreOf(rescuer);
@@ -228,18 +228,18 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Rampages in a row of the hero's current multi-kill (as the server counted them on a client).</summary>
-        public int RampageCount(Hookable hero) =>
+        public int RampageCount(Pudge hero) =>
             remoteRampages.TryGetValue(hero, out var n) ? n : Streaks.RampageCount(hero);
 
         /// <summary>Kills of the hero's current multi-kill, 0 once its window ran out (as the server counted them on a client).</summary>
-        public int MultiKillOf(Hookable hero) =>
+        public int MultiKillOf(Pudge hero) =>
             remoteMultiKills.TryGetValue(hero, out var n) ? n : Streaks.MultiKillCount(hero);
 
         /// <summary>Network client: a hero's kills, deaths and rescues the server keeps.</summary>
-        public void ApplyRemoteHeroScore(Hookable hero, HeroScore score) => heroScores[hero] = score;
+        public void ApplyRemoteHeroScore(Pudge hero, HeroScore score) => heroScores[hero] = score;
 
         /// <summary>Network client: the hero's multi-kill count the server keeps.</summary>
-        public void ApplyRemoteMultiKill(Hookable hero, int kills) => remoteMultiKills[hero] = kills;
+        public void ApplyRemoteMultiKill(Pudge hero, int kills) => remoteMultiKills[hero] = kills;
 
         /// <summary>Network client: the score the server keeps.</summary>
         public void ApplyRemoteScore(int playerKills, int botsKills, int playerDeaths, int botsDeaths, int playerRescues = 0, int botsRescues = 0)
@@ -254,20 +254,20 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Network client: an announcement the server made.</summary>
-        public void ApplyRemoteKill(Hookable killer, KillAnnouncement kind, int rampages)
+        public void ApplyRemoteKill(Pudge killer, KillAnnouncement kind, int rampages)
         {
             if (killer != null) remoteRampages[killer] = rampages;
             KillAnnounced?.Invoke(killer, kind);
         }
 
         /// <summary>Network client: a rescue the server saw (the count comes with the score).</summary>
-        public void ApplyRemoteRescue(Hookable rescued, Hookable rescuer) => Rescued?.Invoke(rescued, rescuer);
+        public void ApplyRemoteRescue(Pudge rescued, Pudge rescuer) => Rescued?.Invoke(rescued, rescuer);
 
         /// <summary>Network client: a series the server saw end.</summary>
-        public void ApplyRemoteSeriesEnd(Hookable hero, SeriesEnd reason, Hookable killer) =>
+        public void ApplyRemoteSeriesEnd(Pudge hero, SeriesEnd reason, Pudge killer) =>
             SeriesEnded?.Invoke(hero, reason, killer);
 
-        IEnumerator Respawn(Hookable who)
+        IEnumerator Respawn(Pudge who)
         {
             yield return new WaitForSeconds(respawnDelay);
             if (who == null) yield break; // left the game meanwhile

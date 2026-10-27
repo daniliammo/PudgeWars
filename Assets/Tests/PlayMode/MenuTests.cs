@@ -24,7 +24,7 @@ namespace PudgeWars.Tests
             Object.FindAnyObjectByType<Arena>().passiveGold = 0;
         }
 
-        static bool IsNetworkHero(Hookable h) => h != null && h.GetComponent<NetHero>() != null;
+        static bool IsNetworkHero(Pudge h) => h != null && h.GetComponent<NetHero>() != null;
 
         [UnityTest]
         public IEnumerator GraphicsPresetTunesACopyOfThePipelineAndTheSun()
@@ -82,7 +82,7 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(1, manager.Lobby.players.Length);
                 Assert.AreEqual("Хост", manager.Lobby.players[0].nickname);
                 Assert.AreEqual(Team.Player, manager.Lobby.players[0].team, "the host plays for the team chosen in the menu");
-                Assert.AreEqual(0, Hookable.All.Count, "no heroes before the match");
+                Assert.AreEqual(0, Pudge.All.Count, "no heroes before the match");
                 yield return null;
                 var texts = Object.FindObjectsByType<Text>().Select(x => x.text).ToList();
                 Assert.IsTrue(texts.Contains("Игроков в лобби: 1 из 4"), "the menu does not show how many players are in: " + string.Join(" | ", texts));
@@ -109,9 +109,9 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(PudgeNetworkManager.ArenaScene, SceneManager.GetActiveScene().name);
                 Assert.AreEqual(Team.Player, LocalPlayer.Hero.team);
                 Assert.AreEqual("Хост", LocalPlayer.Hero.Nickname);
-                Assert.IsTrue(Hookable.All.All(IsNetworkHero), "an offline hero is left");
-                Assert.AreEqual(2, Hookable.All.Count(h => h.team == Team.Player));
-                Assert.AreEqual(2, Hookable.All.Count(h => h.team == Team.Bots));
+                Assert.IsTrue(Pudge.All.All(IsNetworkHero), "an offline hero is left");
+                Assert.AreEqual(2, Pudge.All.Count(h => h.team == Team.Player));
+                Assert.AreEqual(2, Pudge.All.Count(h => h.team == Team.Bots));
                 var brains = Object.FindObjectsByType<BotBrain>();
                 Assert.AreEqual(3, brains.Length);
                 Assert.IsTrue(brains.All(b => Mathf.Approximately(b.difficulty, 2f)), "every bot gets the menu's difficulty");

@@ -157,7 +157,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 392b3458ee1bf49a4b2aeae4b415a3e0, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.Hookable
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.Pudge
   team: 0
   nickname: 
   maxHealth: 670

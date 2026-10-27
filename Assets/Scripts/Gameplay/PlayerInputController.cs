@@ -34,7 +34,7 @@ namespace PudgeWars.Gameplay
 
         PudgeMotor motor;
         HookAbility hook;
-        Hookable self;
+        Pudge self;
         TopDownCamera follow;
         ShopUI shop;
 
@@ -42,7 +42,7 @@ namespace PudgeWars.Gameplay
         {
             motor = GetComponent<PudgeMotor>();
             hook = GetComponent<HookAbility>();
-            self = GetComponent<Hookable>();
+            self = GetComponent<Pudge>();
             if (aimIndicator == null) aimIndicator = GetComponentInChildren<HookAimIndicator>();
             if (viewCamera == null) viewCamera = Camera.main;
             if (viewCamera != null) follow = viewCamera.GetComponent<TopDownCamera>();

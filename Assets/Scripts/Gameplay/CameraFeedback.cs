@@ -40,7 +40,7 @@ namespace PudgeWars.Gameplay
 
         TopDownCamera follow;
         Camera cam;
-        Hookable hero;
+        Pudge hero;
         HookAbility heroHook;
         bool wasHooked, wasAlive = true;
         float deadFor = -1f;  // seconds since death, -1 while alive
@@ -85,7 +85,7 @@ namespace PudgeWars.Gameplay
 
         void Bind() => Bind(LocalPlayer.Hero);
 
-        void Bind(Hookable next)
+        void Bind(Pudge next)
         {
             if (heroHook != null) heroHook.TargetCaught -= OnOwnHookCaught;
             hero = next;
@@ -97,7 +97,7 @@ namespace PudgeWars.Gameplay
             revivePlayed = false;
         }
 
-        void OnOwnHookCaught(Hookable target)
+        void OnOwnHookCaught(Pudge target)
         {
             if (follow == null || target == null) return;
             follow.Shake(hero != null && target.team == hero.team ? allyHitShake : hitShake);

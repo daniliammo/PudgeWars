@@ -16,7 +16,7 @@ namespace PudgeWars.Tests
     {
         Arena arena;
         HookAbility hook;
-        Hookable player;
+        Pudge player;
 
         [UnitySetUp]
         public IEnumerator LoadArena()
@@ -30,14 +30,14 @@ namespace PudgeWars.Tests
             var input = Object.FindAnyObjectByType<PlayerInputController>();
             input.enabled = false; // tests drive the player directly
             hook = input.GetComponent<HookAbility>();
-            player = hook.GetComponent<Hookable>();
+            player = hook.GetComponent<Pudge>();
             foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
         }
 
         [UnityTest]
         public IEnumerator HookedBotFallsIntoPitDiesAndScores()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
             Assert.AreEqual(0, arena.Score);
             Assert.IsTrue(hook.TryCast(bot.transform.position));
@@ -78,9 +78,9 @@ namespace PudgeWars.Tests
         }
 
         /// <summary>The player hooks the bot, put right at the pit edge, into the pit.</summary>
-        IEnumerator PlayerKillsBot(Hookable bot)
+        IEnumerator PlayerKillsBot(Pudge bot)
         {
-            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(10f, 0f, 12f);
+            foreach (var b in Pudge.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(10f, 0f, 12f);
             bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
             yield return null;
             int score = arena.Score;
@@ -93,7 +93,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BreakingAKillSeriesPaysHalfTheKillPlusFivePerKill()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             for (int i = 0; i < 3; i++) arena.Streaks.RegisterKill(bot, Time.time); // a Triple Kill on the go
             yield return PlayerKillsBot(bot);
             int expected = arena.KillGold(bot) + arena.KillGold(bot) / 2 + 3 * 5;
@@ -111,7 +111,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BreakingRampagesInARowPaysTenPerRampageAndFivePerKillBefore()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             for (int i = 0; i < 6; i++) arena.Streaks.RegisterKill(bot, Time.time); // RAMPAGE ×2
             Assert.AreEqual(2, arena.Streaks.RampageCount(bot));
             yield return PlayerKillsBot(bot);
@@ -122,7 +122,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator KillWithoutASeriesPaysNoBonus()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             arena.Streaks.RegisterKill(bot, Time.time); // a single kill is no series yet
             yield return PlayerKillsBot(bot);
             Assert.AreEqual(arena.KillGold(bot), player.GetComponent<HeroInventory>().Gold);
@@ -132,7 +132,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator MissReturnsHookWithoutScore()
         {
-            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(7f, 0f, 8f);
+            foreach (var b in Pudge.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(7f, 0f, 8f);
             Assert.IsTrue(hook.TryCast(player.transform.position + new Vector3(-3f, 0f, 10f)));
             Assert.IsTrue(hook.IsBusy);
             float t = 0f;
@@ -150,8 +150,8 @@ namespace PudgeWars.Tests
         public IEnumerator HookHeadSpinsInFlightAndCatchesWideLikeInDota()
         {
             // 1.1 m off the flight line: out of reach of the old 0.35 m head, within Dota's 1.24 m
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
-            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(12f, 0f, 14f);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            foreach (var b in Pudge.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(12f, 0f, 14f);
             var p = player.transform.position;
             bot.transform.position = new Vector3(p.x + 1.1f, 0f, arena.pitHalfDepth + 1.5f);
             Assert.IsTrue(hook.TryCast(new Vector3(p.x, 0f, bot.transform.position.z)));
@@ -175,7 +175,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotHooksPlayerWhoFallsIntoPitAndRespawns()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
             var bot = bots[0];
             bot.transform.position = new Vector3(player.transform.position.x + 1f, 0f, arena.pitHalfDepth + 1f);
@@ -209,7 +209,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HookStaysHiddenAfterOwnerDiesMidThrowAndRespawns()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
             var bot = bots[0];
             bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1f);
@@ -238,14 +238,14 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HookPullsAnAllyToPudgeUnharmed()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0];
             ally.team = Team.Player;
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
             player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -12f), Quaternion.identity);
             ally.transform.position = new Vector3(0f, 0f, -6f);
 
-            Hookable caught = null;
+            Pudge caught = null;
             hook.TargetCaught += h => caught = h;
             Assert.IsTrue(hook.TryCast(ally.transform.position));
             float t = 0f;
@@ -270,9 +270,9 @@ namespace PudgeWars.Tests
         /// The enemy at z = 4 catches the ally at z = -8 with a slow pull; the rescuer stands beside the ally and holds
         /// it with its hook. Hands the enemy's hook to <paramref name="done"/>.
         /// </summary>
-        IEnumerator SetUpTugOfWar(Hookable ally, Hookable enemy, HookAbility rescuerHook, Hookable rescuer, System.Action<HookAbility> done)
+        IEnumerator SetUpTugOfWar(Pudge ally, Pudge enemy, HookAbility rescuerHook, Pudge rescuer, System.Action<HookAbility> done)
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             foreach (var b in bots.Where(b => b != ally && b != enemy && b != rescuer))
                 b.transform.position = new Vector3(-12f + 2f * bots.IndexOf(b), 0f, 12f);
             enemy.transform.SetPositionAndRotation(new Vector3(0f, 0f, 4f), Quaternion.LookRotation(Vector3.back));
@@ -305,7 +305,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator AllyHookHoldsAHeroOnAnEnemysHookAndPullsItHomeWhenItLetsGo()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
@@ -345,9 +345,9 @@ namespace PudgeWars.Tests
         /// The enemy at z = 4 throws at the ally standing at z = -9 (or, with <paramref name="enemyAim"/>, elsewhere);
         /// the player beside the ally pulls it away first. Returns through <paramref name="done"/> whether it was a rescue.
         /// </summary>
-        IEnumerator PullAllyAwayFromAnEnemyThrow(Vector3? allyRun, Vector3? enemyAim, System.Action<Hookable> done)
+        IEnumerator PullAllyAwayFromAnEnemyThrow(Vector3? allyRun, Vector3? enemyAim, System.Action<Pudge> done)
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
@@ -365,7 +365,7 @@ namespace PudgeWars.Tests
                 ally.GetComponent<PudgeMotor>().SetMoveInput(run);
                 yield return new WaitForSeconds(0.15f); // under way, able to dodge
             }
-            Hookable caught = null;
+            Pudge caught = null;
             hook.TargetCaught += h => caught = h;
             var lead = allyRun is { } r ? r * (ally.GetComponent<PudgeMotor>().moveSpeed * 0.4f) : Vector3.zero;
             Assert.IsTrue(hook.TryCast(ally.transform.position + lead));
@@ -380,7 +380,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator PullingAStandingAllyOutOfASureEnemyHookIsARescue()
         {
-            Hookable ally = null;
+            Pudge ally = null;
             yield return PullAllyAwayFromAnEnemyThrow(null, null, a => ally = a);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player), "the enemy hook would surely have caught the standing ally");
             Assert.AreEqual(arena.KillGold(ally) / 2, player.GetComponent<HeroInventory>().Gold, "a rescue pays half the kill reward");
@@ -393,7 +393,7 @@ namespace PudgeWars.Tests
         public IEnumerator PullingAnAllyThatRunsTooLateOutOfASureEnemyHookIsARescue()
         {
             // the ally runs, but toward the enemy: the head would still reach it
-            Hookable ally = null;
+            Pudge ally = null;
             yield return PullAllyAwayFromAnEnemyThrow(Vector3.forward, null, a => ally = a);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player), "running did not get the ally out of the hook's way");
             Assert.AreEqual(arena.KillGold(ally) / 2, player.GetComponent<HeroInventory>().Gold);
@@ -419,7 +419,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator EnemyFallingIntoThePitInATugOfWarBreaksItsChain()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
@@ -441,7 +441,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator TugOfWarLostAtThePitBreaksTheRescuersChain()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
@@ -465,7 +465,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HeldHeroLeavingTheGameBreaksTheRescuersChain()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
@@ -482,7 +482,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator RescuedPlayerSeesWhoSavedHimAndTheTeamCountsIt()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var enemy = bots[0];
             var ally = bots[1];
             ally.team = Team.Player;
@@ -511,7 +511,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator AnAllysKillIsTheTeamsNotThePlayersOwn()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0];
             var victim = bots[1];
             ally.team = Team.Player;
@@ -535,7 +535,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotLeadsItsHookToHoldAnAllyOnAnEnemysHook()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0];
             var rescuer = bots[1];
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
@@ -555,7 +555,7 @@ namespace PudgeWars.Tests
             brain.pauseRange = new Vector2(30f, 30f);    // and no wandering off before it
             brain.enabled = true;
             var rescueHook = rescuer.GetComponent<HookAbility>();
-            Hookable caught = null;
+            Pudge caught = null;
             rescueHook.TargetCaught += h => caught = h;
 
             Assert.IsTrue(hook.TryCast(ally.transform.position));
@@ -576,7 +576,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotPullsAnAllyOutOfTheWayOfAnEnemyHookAfterAReaction()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0];
             var rescuer = bots[1];
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
@@ -593,7 +593,7 @@ namespace PudgeWars.Tests
             brain.pauseRange = new Vector2(30f, 30f);    // and no wandering off before it
             brain.enabled = true;
             var rescueHook = rescuer.GetComponent<HookAbility>();
-            Hookable rescued = null, hit = null;
+            Pudge rescued = null, hit = null;
             rescueHook.TargetCaught += h => rescued = h;
             hook.TargetCaught += h => hit = h;
 
@@ -613,7 +613,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotInterceptCountsWindupFlightAndTheHeadsReach()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var bot = bots[0];
             var target = bots[1];
             bot.transform.SetPositionAndRotation(new Vector3(0f, 0f, 12f), Quaternion.LookRotation(Vector3.back));
@@ -638,7 +638,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator PudgesHookingEachOtherAtOnceBothFallIntoThePit()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var bot = bots[0];
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
             player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -6f), Quaternion.LookRotation(Vector3.forward));
@@ -664,7 +664,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HeroesDoNotWalkThroughEachOtherButSlideAlong()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var bot = bots[0];
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
             player.transform.SetPositionAndRotation(new Vector3(0f, 0f, -12.5f), Quaternion.identity);
@@ -700,7 +700,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator OverlappingAlliesDriftApartAndDoNotSinkIntoEachOtherAtThePitEdge()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
             var (a, b) = (bots[0], bots[1]);
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
@@ -741,12 +741,12 @@ namespace PudgeWars.Tests
             var coin = hud.RadiantWorth.transform.parent.Find("GoldIcon");
             Assert.IsNotNull(coin, "no gold icon between the teams' net worth");
             Assert.IsNotNull(coin.GetComponent<Image>().sprite, "the gold icon has no picture");
-            foreach (var h in Hookable.All) h.GetComponent<HeroInventory>().AddGold(-h.GetComponent<HeroInventory>().Gold, popup: false);
+            foreach (var h in Pudge.All) h.GetComponent<HeroInventory>().AddGold(-h.GetComponent<HeroInventory>().Gold, popup: false);
             var lens = Object.FindAnyObjectByType<ShopUI>().rows[0].item;
             var inventory = player.GetComponent<HeroInventory>();
             inventory.AddGold(lens.cost + 300, popup: false);
             Assert.IsTrue(inventory.TryBuy(lens));
-            Hookable.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(1000, popup: false);
+            Pudge.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(1000, popup: false);
             Assert.AreEqual(lens.cost + 300, inventory.NetWorth, "the net worth is the gold and what the items cost");
 
             hud.ShowWorth();
@@ -763,7 +763,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotDoesNotThrowThroughAnAlly()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var bot = bots[0];
             var ally = bots[1];
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 14f);
@@ -786,15 +786,15 @@ namespace PudgeWars.Tests
         public IEnumerator MarkersAndHealthBarsAreColouredByTheLocalPlayersTeam()
         {
             yield return null;
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             var bars = Object.FindAnyObjectByType<HealthBars>();
             var block = new MaterialPropertyBlock();
-            Color Marker(Hookable h)
+            Color Marker(Pudge h)
             {
                 h.transform.Find("TeamMarker").GetComponent<Renderer>().GetPropertyBlock(block);
                 return block.GetColor("_BaseColor");
             }
-            Color Bar(Hookable h) => bars.Of(h).fill.GetComponent<Image>().color;
+            Color Bar(Pudge h) => bars.Of(h).fill.GetComponent<Image>().color;
             // a colour read back from a property block (linear colour space) differs in the last digits
             void AssertColor(Color expected, Color actual, string message = null) =>
                 Assert.Less(((Vector4)(expected - actual)).magnitude, 1e-3f, $"{message} expected {expected}, was {actual}");
@@ -822,7 +822,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotAimsWithOrWithoutLead()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             bot.transform.position = new Vector3(0f, 0f, arena.pitHalfDepth + 1f);
             var brain = bot.GetComponent<BotBrain>();
             var motor = player.GetComponent<PudgeMotor>();
@@ -842,7 +842,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator CaughtPlayerDragsHisOwnTargetIntoThePit()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var victim = bots[0];   // caught by the player
             var hunter = bots[1];   // catches the player meanwhile
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
@@ -883,7 +883,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator CaughtCharacterLosesHookInWindupButNotInFlightAndAMissComesBack()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             for (int i = 0; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 12f);
             var bot = bots[0];
             var aim = player.transform.position + player.transform.forward * 10f;
@@ -954,7 +954,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator HookFlyingWhenTheOwnerIsCaughtDragsItsCatchIntoThePit()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var victim = bots[0];   // the player's hook reaches it after the player is caught
             var hunter = bots[1];   // catches the player first
             for (int i = 2; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
@@ -985,7 +985,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator OwnerCarriedByAnAllyPullsItsCatchOn()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var victim = bots[0];   // caught by the player
             var ally = bots[1];     // hooks the player home meanwhile
             ally.team = Team.Player;
@@ -1027,7 +1027,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator OwnerCarriedByAnAllyKeepsItsThrownHook()
         {
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var ally = bots[0]; // hooks the player home while the player's own hook is out
             ally.team = Team.Player;
             for (int i = 1; i < bots.Count; i++) bots[i].transform.position = new Vector3(-12f + 2f * i, 0f, 13f);
@@ -1138,7 +1138,7 @@ namespace PudgeWars.Tests
             shop.Close();
 
             // the hook really flies 15.75 m now
-            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(12f, 0f, 14f);
+            foreach (var b in Pudge.All.Where(h => h.team == Team.Bots)) b.transform.position = new Vector3(12f, 0f, 14f);
             Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 10f));
             yield return new WaitUntil(() => hook.hookHead.gameObject.activeSelf);
             float maxDist = 0f;
@@ -1231,7 +1231,7 @@ namespace PudgeWars.Tests
         public IEnumerator CarelessStepOverThePitEdgeDropsTheHeroWithoutAKill()
         {
             // the player once hooked by a bot: walking into the pit later still credits nobody
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             player.AttachTo(bot.GetComponent<HookAbility>());
             player.Release();
             Assert.AreEqual(bot, player.LastHookedBy);
@@ -1261,7 +1261,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0, bot.GetComponent<HeroInventory>().Gold, "the bot got gold for a fall it did not cause");
 
             // a bot walking in is no point for the player (bots normally stop at the edge: let this one through)
-            var other = Hookable.All.Last(h => h.team == Team.Bots);
+            var other = Pudge.All.Last(h => h.team == Team.Bots);
             other.GetComponent<PudgeMotor>().keepOffPit = false;
             other.GetComponent<PudgeMotor>().SetMoveInput(Vector3.back);
             yield return new WaitUntil(() => !other.IsAlive);
@@ -1273,7 +1273,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator FallenHeroLeavesABleedingBodyInThePitUntilTheRespawn()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             bot.transform.position = new Vector3(0f, 0f, arena.pitHalfDepth - 0.3f);
             bot.StepIntoPit(Vector3.back * 3f);
             var body = bot.Body;
@@ -1326,7 +1326,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotsWalkUpToThePitEdgeButDoNotFallIn()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             var motor = bot.GetComponent<PudgeMotor>();
             Assert.IsTrue(motor.keepOffPit, "bots must keep off the pit");
             motor.SetMoveInput(Vector3.back + Vector3.right * 0.3f);
@@ -1342,7 +1342,7 @@ namespace PudgeWars.Tests
                 brain.throwInterval = new Vector2(1000f, 1000f);
                 brain.enabled = true;
             }
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             float closest = float.MaxValue;
             for (float t = 0f; t < 10f; t += Time.deltaTime)
             {
@@ -1360,7 +1360,7 @@ namespace PudgeWars.Tests
             var bars = Object.FindAnyObjectByType<HealthBars>();
             Assert.IsNotNull(bars, "no health bars in the HUD");
             yield return null;
-            var heroes = Hookable.All.ToList();
+            var heroes = Pudge.All.ToList();
             Assert.AreEqual(heroes.Count, bars.Count);
             Assert.That(heroes.Select(h => h.nickname), Is.All.Not.Empty, "every hero needs a nickname");
             Assert.That(heroes.Select(h => h.Nickname), Is.Unique);
@@ -1441,8 +1441,8 @@ namespace PudgeWars.Tests
             var follow = Object.FindAnyObjectByType<TopDownCamera>();
             var feedback = follow.GetComponent<CameraFeedback>();
             Assert.IsNotNull(feedback, "the camera has no feedback effects");
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
-            foreach (var b in Hookable.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(10f, 0f, 12f);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            foreach (var b in Pudge.All.Where(h => h.team == Team.Bots && h != bot)) b.transform.position = new Vector3(10f, 0f, 12f);
             bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
             yield return null;
             Assert.AreEqual(0f, follow.Trauma);
@@ -1570,12 +1570,12 @@ namespace PudgeWars.Tests
             var cam = Camera.main;
             var follow = cam.GetComponent<TopDownCamera>();
             follow.SetView(TopDownCamera.View.EnemySide);
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             float back = arena.pitHalfDepth + arena.sideDepth - 0.6f, front = arena.pitHalfDepth + 0.6f;
             var spots = new[] { new Vector3(-6f, 0f, back), new Vector3(6f, 0f, back), new Vector3(-6f, 0f, front), new Vector3(6f, 0f, front) };
             for (int i = 0; i < bots.Count; i++) bots[i].transform.position = spots[i % spots.Length];
 
-            bool InFrame(Hookable h)
+            bool InFrame(Pudge h)
             {
                 var v = cam.WorldToViewportPoint(h.transform.position + Vector3.up);
                 return v.z > 0f && v.x > 0f && v.x < 1f && v.y > 0f && v.y < 1f;
@@ -1693,7 +1693,7 @@ namespace PudgeWars.Tests
         [UnityTest]
         public IEnumerator BotsBuyItemsWithTheirGold()
         {
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             var wallet = bot.GetComponent<HeroInventory>();
             var shopper = bot.GetComponent<BotShopper>();
             Assert.IsNotNull(shopper, "bots have no shopper");
@@ -1717,7 +1717,7 @@ namespace PudgeWars.Tests
             yield return null;
             var shop = Object.FindAnyObjectByType<ShopUI>();
             var lens = shop.rows[0].item;
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             var botWallet = bot.GetComponent<HeroInventory>();
             botWallet.AddGold(lens.cost + 300, popup: false);
             Assert.IsTrue(botWallet.TryBuy(lens));
@@ -1765,7 +1765,7 @@ namespace PudgeWars.Tests
             var voice = Object.FindAnyObjectByType<HeroVoice>();
             Assert.IsNotNull(voice, "the hero's voice is not created at start");
 
-            var bot = Hookable.All.First(h => h.team == Team.Bots);
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
             bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
             yield return new WaitForSeconds(0.5f); // the spawn line may go on: the hit cuts it off
             Assert.IsTrue(hook.TryCast(bot.transform.position));
@@ -1802,7 +1802,7 @@ namespace PudgeWars.Tests
             Assert.AreEqual($"+{arena.KillGold(player)} монет", popups.LastText);
             Assert.IsNotNull(popups.coinSound, "coin sound (coinsondesk.mp3) missing");
             Assert.AreEqual(1, popups.SoundsPlayed, "the local player's reward must clink");
-            Hookable.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(arena.KillGold(player));
+            Pudge.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>().AddGold(arena.KillGold(player));
             Assert.AreEqual(1, popups.SoundsPlayed, "another hero's reward must be silent for the local player");
             Assert.AreEqual(2, popups.ActiveCount, "another hero's reward still shows its popup");
             yield return new WaitForSeconds(0.3f);
@@ -1823,7 +1823,7 @@ namespace PudgeWars.Tests
         public IEnumerator EveryHeroGetsTwoGoldEverySecondWithoutPopup()
         {
             var popups = Object.FindAnyObjectByType<GoldPopups>();
-            var wallets = Hookable.All.Select(h => h.GetComponent<HeroInventory>()).ToList();
+            var wallets = Pudge.All.Select(h => h.GetComponent<HeroInventory>()).ToList();
             arena.passiveGold = 2;
             yield return new WaitForSeconds(0.1f);
             var before = wallets.Select(w => w.Gold).ToList();
@@ -1930,7 +1930,7 @@ namespace PudgeWars.Tests
         {
             var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             Assert.IsNotNull(announcer, "no kill announcer in the HUD");
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var announced = new List<KillAnnouncement>();
             arena.KillAnnounced += (_, kind) => announced.Add(kind);
 
@@ -1957,7 +1957,7 @@ namespace PudgeWars.Tests
 
             // a kill of the enemy's own team is not counted; an enemy's multi-kill is shown with its name
             // the player dying ends the Triple Kill series, naming who did it
-            var ended = new List<(Hookable hero, SeriesEnd reason, Hookable killer)>();
+            var ended = new List<(Pudge hero, SeriesEnd reason, Pudge killer)>();
             arena.SeriesEnded += (hero, reason, killer) => ended.Add((hero, reason, killer));
             arena.ReportDeath(bots[3], bots[0]);
             arena.ReportDeath(player, bots[0]);
@@ -1979,7 +1979,7 @@ namespace PudgeWars.Tests
         {
             var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             announcer.duration = 0.2f;
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             var shown = new List<string>();
             for (int i = 0; i < 7; i++) arena.ReportDeath(bots[i % bots.Count], player);
             for (int i = 0; i < 100 && (announcer.IsShowing || shown.Count == 0); i++)
@@ -1998,9 +1998,9 @@ namespace PudgeWars.Tests
         public IEnumerator SeriesEndedByTimeIsAnnouncedWithTheReason()
         {
             var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
-            var bots = Hookable.All.Where(h => h.team == Team.Bots).ToList();
+            var bots = Pudge.All.Where(h => h.team == Team.Bots).ToList();
             arena.Streaks.multiKillWindow = 0.5f;
-            var ended = new List<(Hookable hero, SeriesEnd reason, Hookable killer)>();
+            var ended = new List<(Pudge hero, SeriesEnd reason, Pudge killer)>();
             arena.SeriesEnded += (hero, reason, killer) => ended.Add((hero, reason, killer));
 
             arena.ReportDeath(bots[0], player);
@@ -2009,7 +2009,7 @@ namespace PudgeWars.Tests
             CollectionAssert.IsEmpty(ended);
             yield return new WaitForSeconds(0.4f);
             Assert.AreEqual(1, ended.Count, "the Double Kill series did not run out");
-            Assert.AreEqual((player, SeriesEnd.Time, (Hookable)null), ended[0]);
+            Assert.AreEqual((player, SeriesEnd.Time, (Pudge)null), ended[0]);
 
             // FIRST BLOOD and DOUBLE KILL go first
             yield return new WaitUntil(() => announcer.LastText == "СЕРИЯ ПРЕРВАНА");
@@ -2020,7 +2020,7 @@ namespace PudgeWars.Tests
             arena.ReportDeath(player, bots[2]);
             arena.ReportDeath(player, bots[2]);
             yield return new WaitUntil(() => ended.Count == 2);
-            Assert.AreEqual((bots[2], SeriesEnd.Time, (Hookable)null), ended[1]);
+            Assert.AreEqual((bots[2], SeriesEnd.Time, (Pudge)null), ended[1]);
             yield return new WaitUntil(() => announcer.Queued == 0 && announcer.LastText == "СЕРИЯ ПРЕРВАНА");
             Assert.AreEqual($"{bots[2].Nickname}: время вышло", announcer.LastSubtitle);
         }

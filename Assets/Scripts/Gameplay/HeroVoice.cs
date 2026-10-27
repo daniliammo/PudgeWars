@@ -55,7 +55,7 @@ namespace PudgeWars.Gameplay
 
         AudioSource source;
         Weight playingWeight;
-        Hookable hero;
+        Pudge hero;
         HookAbility hook;
         PlayerInputController input;
         PudgeMotor motor;
@@ -257,7 +257,7 @@ namespace PudgeWars.Gameplay
             else Say(Random.value < rareKillChance ? RareKillLines : KillLines, Weight.Major);
         }
 
-        void OnKillAnnounced(Hookable killer, KillAnnouncement kind)
+        void OnKillAnnounced(Pudge killer, KillAnnouncement kind)
         {
             if (killer != hero) return;
             // first blood is a kill's first announcement; a multi-kill one may follow it in the same kill
@@ -265,18 +265,18 @@ namespace PudgeWars.Gameplay
             announcementAt = Time.time;
         }
 
-        void OnRescued(Hookable rescued, Hookable rescuer)
+        void OnRescued(Pudge rescued, Pudge rescuer)
         {
             if (rescuer == hero) Say(RescueLines, Weight.Normal);
             else if (rescued == hero) Say(RescuedLines, Weight.Normal);
         }
 
-        void OnCaught(Hookable target)
+        void OnCaught(Pudge target)
         {
             if (target != null && target.team != hero.team) Say(HookHitLines, Weight.Normal);
         }
 
-        void OnAnyCaught(HookAbility by, Hookable target)
+        void OnAnyCaught(HookAbility by, Pudge target)
         {
             if (hero == null || target != hero || by == hook || by.Owner == null || by.Owner.team == hero.team) return;
             Say(CaughtLines, Weight.Normal);

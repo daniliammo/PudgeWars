@@ -31,7 +31,7 @@ namespace PudgeWars.Gameplay
 
         Vector3 input;
         Vector3? look;
-        Hookable self;
+        Pudge self;
         HookAbility hook;
         PudgeAnimation anim;
 
@@ -42,7 +42,7 @@ namespace PudgeWars.Gameplay
 
         void Awake()
         {
-            self = GetComponent<Hookable>();
+            self = GetComponent<Pudge>();
             hook = GetComponent<HookAbility>();
             anim = GetComponent<PudgeAnimation>();
         }
@@ -131,7 +131,7 @@ namespace PudgeWars.Gameplay
             var from = transform.position;
             for (int pass = 0; pass < 2; pass++) // a second pass settles a step between two bodies
             {
-                foreach (var other in Hookable.All)
+                foreach (var other in Pudge.All)
                 {
                     if (other == self || !other.IsAlive || other.IsFalling) continue;
                     pos = PushOut(pos, from, other.transform.position, other.radius);
@@ -145,7 +145,7 @@ namespace PudgeWars.Gameplay
         /// <summary>True if <paramref name="pos"/> is deeper in a hero's body or an obstacle than <paramref name="from"/>.</summary>
         bool Intrudes(Vector3 pos, Vector3 from)
         {
-            foreach (var other in Hookable.All)
+            foreach (var other in Pudge.All)
                 if (other != self && other.IsAlive && !other.IsFalling && Deeper(pos, from, other.transform.position, other.radius)) return true;
             foreach (var obstacle in Obstacle.All)
                 if (Deeper(pos, from, obstacle.center, obstacle.radius)) return true;
@@ -171,7 +171,7 @@ namespace PudgeWars.Gameplay
             var pos = transform.position;
             var push = Vector3.zero;
             bool afterSelf = false; // in the list of heroes
-            foreach (var other in Hookable.All)
+            foreach (var other in Pudge.All)
             {
                 if (other == self) afterSelf = true;
                 if (other == self || !other.IsAlive || other.IsFalling) continue;

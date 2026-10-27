@@ -193,7 +193,7 @@ namespace PudgeWars.Gameplay
         void ShowInspected()
         {
             if (inspectLabel == null) return;
-            var hero = inspected != null ? inspected.GetComponent<Hookable>() : null;
+            var hero = inspected != null ? inspected.GetComponent<Pudge>() : null;
             inspectTab.SetActive(hero != null);
             if (statsPanel != null) statsPanel.Show(hero);
             if (hero == null) return;

@@ -10,7 +10,7 @@ namespace PudgeWars.Gameplay
     public static class LocalPlayer
     {
         public static PlayerInputController Input { get; private set; }
-        public static Hookable Hero { get; private set; }
+        public static Pudge Hero { get; private set; }
         /// <summary>The local player's side; <see cref="Team.Player"/> while there is no local hero.</summary>
         public static Team Team => Hero != null ? Hero.team : Team.Player;
         public static event Action Changed;
@@ -18,7 +18,7 @@ namespace PudgeWars.Gameplay
         internal static void Register(PlayerInputController input)
         {
             Input = input;
-            Hero = input.GetComponent<Hookable>();
+            Hero = input.GetComponent<Pudge>();
             Changed?.Invoke();
         }
 

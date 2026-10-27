@@ -57,14 +57,14 @@ namespace PudgeWars.Gameplay
             public MeshRenderer renderer;
             public Mesh mesh;
             public Color32[] colors;
-            public Hookable owner; // a standing hero: its stains hide when it is gone, and stay hidden
+            public Pudge owner; // a standing hero: its stains hide when it is gone, and stay hidden
             public float born;
             public bool hidden;
         }
 
         readonly List<Drop> drops = new();
         readonly List<BodyStain> bodyStains = new();
-        readonly Dictionary<Hookable, Transform[]> heroBones = new();
+        readonly Dictionary<Pudge, Transform[]> heroBones = new();
         GroundStain[] ground;
         int nextGround;
         Vector3[] groundVerts, groundNormals;
@@ -261,7 +261,7 @@ namespace PudgeWars.Gameplay
                 return true;
             }
             // standing heroes and trees have no colliders: their shapes are checked here
-            foreach (var hero in Hookable.All)
+            foreach (var hero in Pudge.All)
             {
                 if (!hero.IsAlive || hero.IsFalling) continue;
                 var feet = hero.transform.position;
@@ -423,7 +423,7 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>A stain stuck to <paramref name="to"/> (a body's part or a hero's bone), moving with it.</summary>
-        void AddBodyStain(Transform to, Vector3 point, Vector3 normal, float size, Hookable owner)
+        void AddBodyStain(Transform to, Vector3 point, Vector3 normal, float size, Pudge owner)
         {
             if (bodyStains.Count >= Mathf.Max(1, maxBodyStains)) RemoveBodyStain(0);
             int variant = Random.Range(0, 4);
@@ -485,7 +485,7 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        Transform NearestBone(Hookable hero, Vector3 point)
+        Transform NearestBone(Pudge hero, Vector3 point)
         {
             if (!heroBones.TryGetValue(hero, out var bones))
             {

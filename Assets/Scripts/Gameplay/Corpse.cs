@@ -44,7 +44,7 @@ namespace PudgeWars.Gameplay
         static PhysicsMaterial material;
 
         /// <summary>The hero's body starts flying with <paramref name="velocity"/>; null if the hero has no animated model.</summary>
-        public static Corpse Spawn(Hookable hero, Vector3 velocity, float gravity)
+        public static Corpse Spawn(Pudge hero, Vector3 velocity, float gravity)
         {
             var animator = hero.GetComponentInChildren<Animator>();
             if (animator == null) return null;
@@ -243,7 +243,7 @@ namespace PudgeWars.Gameplay
         void FixedUpdate()
         {
             if (sinking) return;
-            // heroes fall with their own gravity (Hookable.gravity): the body keeps to it
+            // heroes fall with their own gravity (Pudge.gravity): the body keeps to it
             if (extraGravity != 0f)
                 foreach (var body in bodies)
                     body.AddForce(Physics.gravity * extraGravity, ForceMode.Acceleration);

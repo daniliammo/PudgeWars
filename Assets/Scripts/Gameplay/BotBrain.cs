@@ -46,12 +46,12 @@ namespace PudgeWars.Gameplay
         float RescueChance => Mathf.Clamp01(Harder(rescueChance));
 
         PudgeMotor motor;
-        Hookable self;
+        Pudge self;
         HookAbility hook;
         Vector3 destination;
         float pause, nextThrowAt;
         float closestToStop, stuckFor;
-        readonly List<Hookable> targets = new();
+        readonly List<Pudge> targets = new();
         // the enemy hook seen pulling an ally: a rescue is decided once per catch
         HookAbility rescueFrom;
         bool rescueWanted;
@@ -64,7 +64,7 @@ namespace PudgeWars.Gameplay
         void Awake()
         {
             motor = GetComponent<PudgeMotor>();
-            self = GetComponent<Hookable>();
+            self = GetComponent<Pudge>();
             hook = GetComponent<HookAbility>();
         }
 
@@ -198,16 +198,16 @@ namespace PudgeWars.Gameplay
         /// The ally an enemy's hook on its way out would catch soonest (each ally moving on as it moves now, standing
         /// still while casting), with that hook, the ally's velocity and the seconds until the catch.
         /// </summary>
-        Hookable FindThreatenedAlly(out HookAbility enemyHook, out Vector3 velocity, out float catchTime)
+        Pudge FindThreatenedAlly(out HookAbility enemyHook, out Vector3 velocity, out float catchTime)
         {
-            Hookable threatened = null;
+            Pudge threatened = null;
             enemyHook = null;
             velocity = Vector3.zero;
             catchTime = float.PositiveInfinity;
-            foreach (var enemy in Hookable.All)
+            foreach (var enemy in Pudge.All)
             {
                 if (enemy.team == self.team || !enemy.TryGetComponent<HookAbility>(out var enemyHookHere) || !enemyHookHere.IsOnItsWayOut) continue;
-                foreach (var ally in Hookable.All)
+                foreach (var ally in Pudge.All)
                 {
                     if (ally == self || ally.team != self.team) continue;
                     var v = ally.TryGetComponent<HookAbility>(out var allyHook) && allyHook.IsBusy ? Vector3.zero : ally.PlanarVelocity;
@@ -219,9 +219,9 @@ namespace PudgeWars.Gameplay
             return threatened;
         }
 
-        Hookable FindHookedAlly()
+        Pudge FindHookedAlly()
         {
-            foreach (var h in Hookable.All)
+            foreach (var h in Pudge.All)
                 if (h != self && h.team == self.team && h.IsAlive && !h.IsFalling && h.HookedBy != null && h.HeldBy == null
                     && h.HookedBy.Owner != null && h.HookedBy.Owner.team != self.team)
                     return h;
@@ -234,10 +234,10 @@ namespace PudgeWars.Gameplay
         /// the throw, the head's start at the hand, its flight speed and that it catches a hero hitRadius + radius
         /// away from its centre.
         /// </summary>
-        public bool Intercept(Hookable target, Vector3 v, out Vector3 aim) => Intercept(target, v, out aim, out _);
+        public bool Intercept(Pudge target, Vector3 v, out Vector3 aim) => Intercept(target, v, out aim, out _);
 
         /// <param name="catchTime">Seconds from now until the head catches the target (the turn and wind-up included).</param>
-        public bool Intercept(Hookable target, Vector3 v, out Vector3 aim, out float catchTime) =>
+        public bool Intercept(Pudge target, Vector3 v, out Vector3 aim, out float catchTime) =>
             Intercept(target.transform.position, target.radius, v, out aim, out catchTime);
 
         /// <summary>The same for a hero of <paramref name="radius"/> at <paramref name="position"/> now.</summary>
@@ -285,13 +285,13 @@ namespace PudgeWars.Gameplay
         /// True if no ally is in the way of a hook thrown along <paramref name="aim"/> to full range (a miss flies
         /// on): each ally is checked where it will be when the head passes it.
         /// </summary>
-        public bool PathClear(Vector3 aim, Hookable target)
+        public bool PathClear(Vector3 aim, Pudge target)
         {
             aim.y = 0f;
             if (aim.sqrMagnitude < 1e-6f) return true;
             var dir = aim.normalized;
             float delay = (motor != null ? motor.TimeToFace(aim) : 0f) + hook.castDelay;
-            foreach (var h in Hookable.All)
+            foreach (var h in Pudge.All)
             {
                 if (h == self || h == target || h.team != self.team || !h.IsAlive || h.IsFalling) continue;
                 var rel = h.transform.position - transform.position;
@@ -311,7 +311,7 @@ namespace PudgeWars.Gameplay
         /// Horizontal offset from the bot to its aim point: the target's current position, or with
         /// <paramref name="lead"/> where it will be when the hook gets there.
         /// </summary>
-        public Vector3 AimOffset(Hookable target, bool lead)
+        public Vector3 AimOffset(Pudge target, bool lead)
         {
             var to = target.transform.position - transform.position;
             to.y = 0f;
@@ -328,7 +328,7 @@ namespace PudgeWars.Gameplay
         {
             targets.Clear();
             float maxDist = hook.EffectiveRange * rangeFraction;
-            foreach (var h in Hookable.All)
+            foreach (var h in Pudge.All)
             {
                 if (h.team == self.team || !h.CanBeHooked || PlanarDistance(h) >= maxDist) continue;
                 targets.Add(h);
@@ -336,7 +336,7 @@ namespace PudgeWars.Gameplay
             targets.Sort((x, y) => PlanarDistance(x).CompareTo(PlanarDistance(y)));
         }
 
-        float PlanarDistance(Hookable h)
+        float PlanarDistance(Pudge h)
         {
             var d = h.transform.position - transform.position;
             d.y = 0f;

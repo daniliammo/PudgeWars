@@ -83,7 +83,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Listens to every hero's wallet, also of heroes that joined later (network game).</summary>
         void Subscribe()
         {
-            foreach (var hero in Hookable.All)
+            foreach (var hero in Pudge.All)
             {
                 if (!hero.TryGetComponent<HeroInventory>(out var wallet) || subscriptions.ContainsKey(wallet)) continue;
                 var at = wallet.transform;

@@ -78,8 +78,8 @@ namespace PudgeWars.Gameplay
         Vector3 velocity;
         Vector3 basePosition; // the followed position without the shake
         float shakeTime;
-        Transform heroOf;     // the target whose Hookable is cached in hero
-        Hookable hero;
+        Transform heroOf;     // the target whose Pudge is cached in hero
+        Pudge hero;
         Corpse body;          // the hero's body the view is on
         Vector3 bodyOffset;   // from the body's head to the hero's feet when the body dropped
         float bodySince;
@@ -222,7 +222,7 @@ namespace PudgeWars.Gameplay
             if (heroOf != target)
             {
                 heroOf = target;
-                hero = target.GetComponent<Hookable>();
+                hero = target.GetComponent<Pudge>();
             }
             var next = hero != null ? hero.Body : null;
             if (next == null || next.Head == null)

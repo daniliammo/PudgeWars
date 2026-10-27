@@ -44,7 +44,7 @@ namespace PudgeWars.Net
 
         public Team Team => team;
 
-        Hookable hookable;
+        Pudge hookable;
         HookAbility hook;
         HeroInventory inventory;
         PudgeMotor motor;
@@ -57,7 +57,7 @@ namespace PudgeWars.Net
 
         void Awake()
         {
-            hookable = GetComponent<Hookable>();
+            hookable = GetComponent<Pudge>();
             hook = GetComponent<HookAbility>();
             inventory = GetComponent<HeroInventory>();
             motor = GetComponent<PudgeMotor>();
@@ -118,16 +118,16 @@ namespace PudgeWars.Net
             RpcPlayAnimation(state, fade, lockSeconds);
         }
 
-        void OnTargetCaught(Hookable target) => RpcTargetCaught(target != null ? target.gameObject : null);
+        void OnTargetCaught(Pudge target) => RpcTargetCaught(target != null ? target.gameObject : null);
 
         [ClientRpc]
         void RpcTargetCaught(GameObject target)
         {
-            if (!isServer && hook != null) hook.ApplyRemoteCatch(target != null ? target.GetComponent<Hookable>() : null);
+            if (!isServer && hook != null) hook.ApplyRemoteCatch(target != null ? target.GetComponent<Pudge>() : null);
         }
 
         // without this the clients would see the hero slide out of the pit to its spawn point
-        void OnRespawned(Hookable who)
+        void OnRespawned(Pudge who)
         {
             if (netTransform != null) netTransform.ServerTeleport(who.transform.position, who.transform.rotation);
         }

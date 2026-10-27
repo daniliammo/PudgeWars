@@ -10,13 +10,13 @@ namespace PudgeWars.Gameplay
         [Tooltip("Seconds between shopping checks.")] public float checkInterval = 1f;
 
         HeroInventory inventory;
-        Hookable self;
+        Pudge self;
         float nextCheck;
 
         void Awake()
         {
             inventory = GetComponent<HeroInventory>();
-            self = GetComponent<Hookable>();
+            self = GetComponent<Pudge>();
         }
 
         void Update()

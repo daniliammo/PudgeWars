@@ -11,12 +11,12 @@ namespace PudgeWars.Gameplay
         public const float FigureHeight = 2.2f;
 
         /// <summary>The living hero nearest to <paramref name="screen"/> within the pick radius, or null.</summary>
-        public static Hookable PickAt(Vector2 screen, Camera cam)
+        public static Pudge PickAt(Vector2 screen, Camera cam)
         {
             if (cam == null) return null;
-            Hookable best = null;
+            Pudge best = null;
             float bestDist = PickRadius * Screen.height / 1080f;
-            foreach (var hero in Hookable.All)
+            foreach (var hero in Pudge.All)
             {
                 if (!hero.IsAlive) continue;
                 var feet = cam.WorldToScreenPoint(hero.transform.position);

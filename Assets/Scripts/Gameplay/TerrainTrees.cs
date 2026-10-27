@@ -152,7 +152,7 @@ namespace PudgeWars.Gameplay
         bool HeroAt(int index)
         {
             var p = Position(index);
-            foreach (var h in Hookable.All)
+            foreach (var h in Pudge.All)
             {
                 var d = h.transform.position - p;
                 d.y = 0f;

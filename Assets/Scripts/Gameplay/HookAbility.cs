@@ -88,19 +88,19 @@ namespace PudgeWars.Gameplay
         public AudioSource audioSource;
         public HookSounds sounds = new();
 
-        public event Action<Hookable> TargetCaught;
+        public event Action<Pudge> TargetCaught;
         /// <summary>Any hero's hook caught someone (the hook, its catch); on a network client too.</summary>
-        public static event Action<HookAbility, Hookable> AnyTargetCaught;
+        public static event Action<HookAbility, Pudge> AnyTargetCaught;
         /// <summary>The head has left the hand; on a network client when the server's head appears.</summary>
         public event Action Launched;
         /// <summary>The head reached its full range without catching anyone; on a network client too.</summary>
         public event Action Missed;
-        public event Action<Hookable> TargetDropped;
+        public event Action<Pudge> TargetDropped;
         /// <summary>Network client: the player casts toward this point; the server throws the hook.</summary>
         public event Action<Vector3> CastRequested;
 
         /// <summary>The hero that throws this hook.</summary>
-        public Hookable Owner => self;
+        public Pudge Owner => self;
         /// <summary>Range including item bonuses (Aether Lens).</summary>
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
@@ -146,8 +146,8 @@ namespace PudgeWars.Gameplay
         const int RemoteHeadLimit = 32;
         float pendingCastUntil;
         Vector3 direction;
-        Hookable target, self;
-        Hookable held; // tug of war: the ally this hook holds on an enemy's hook
+        Pudge target, self;
+        Pudge held; // tug of war: the ally this hook holds on an enemy's hook
         PudgeAnimation anim;
         PudgeMotor motor;
         HeroInventory inventory;
@@ -156,7 +156,7 @@ namespace PudgeWars.Gameplay
 
         void Awake()
         {
-            self = GetComponent<Hookable>();
+            self = GetComponent<Pudge>();
             anim = GetComponent<PudgeAnimation>();
             motor = GetComponent<PudgeMotor>();
             inventory = GetComponent<HeroInventory>();
@@ -498,7 +498,7 @@ namespace PudgeWars.Gameplay
         /// A free enemy, or with hitsAllies a free ally or one an enemy's hook is pulling and nobody holds yet (a
         /// rescue). A hero already on a hook of this team or falling cannot be caught.
         /// </summary>
-        public bool CanCatch(Hookable h)
+        public bool CanCatch(Pudge h)
         {
             if (h == self || !h.IsAlive || h.IsFalling) return false;
             if (IsEnemy(h)) return !h.IsHooked;
@@ -514,13 +514,13 @@ namespace PudgeWars.Gameplay
         /// one still turning or winding up starts once that is over (its direction is already set and its owner
         /// cannot move meanwhile). False for a hook that is not on its way out.
         /// </summary>
-        public bool WouldCatch(Hookable hero, Vector3 velocity) => !float.IsPositiveInfinity(CatchTime(hero, velocity));
+        public bool WouldCatch(Pudge hero, Vector3 velocity) => !float.IsPositiveInfinity(CatchTime(hero, velocity));
 
         /// <summary>
         /// Seconds from now until this hook catches <paramref name="hero"/> as in <see cref="WouldCatch"/> (the turn
         /// and the wind-up left included); infinity if it would not catch it first, or is not on its way out.
         /// </summary>
-        public float CatchTime(Hookable hero, Vector3 velocity)
+        public float CatchTime(Pudge hero, Vector3 velocity)
         {
             Vector3 start;
             float delay, length;
@@ -547,7 +547,7 @@ namespace PudgeWars.Gameplay
             if (!CanCatch(hero)) return float.PositiveInfinity;
             float when = TimeToReach(hero, velocity, start, delay, length);
             if (float.IsPositiveInfinity(when)) return when;
-            foreach (var other in Hookable.All)
+            foreach (var other in Pudge.All)
                 if (other != hero && CanCatch(other) && TimeToReach(other, Vector3.zero, start, delay, length) < when)
                     return float.PositiveInfinity; // someone else is in the way first
             return delay + when;
@@ -558,7 +558,7 @@ namespace PudgeWars.Gameplay
         /// flying <paramref name="length"/> along the cast direction, touches a hero moving at <paramref name="velocity"/>
         /// (horizontal plane); infinity if it never does.
         /// </summary>
-        float TimeToReach(Hookable hero, Vector3 velocity, Vector3 start, float delay, float length)
+        float TimeToReach(Pudge hero, Vector3 velocity, Vector3 start, float delay, float length)
         {
             velocity.y = 0f;
             var p = start - (hero.transform.position + velocity * delay);
@@ -578,11 +578,11 @@ namespace PudgeWars.Gameplay
         /// An enemy hook on its way would catch this ally for sure: moving on as it moves now (standing, casting its
         /// own hook, or starting to run too late), the ally is the first one that hook reaches.
         /// </summary>
-        bool WouldSurelyBeCaught(Hookable ally)
+        bool WouldSurelyBeCaught(Pudge ally)
         {
             var allyHook = ally.GetComponent<HookAbility>();
             var velocity = allyHook != null && allyHook.IsBusy ? Vector3.zero : ally.PlanarVelocity; // casting: rooted
-            foreach (var hero in Hookable.All)
+            foreach (var hero in Pudge.All)
             {
                 if (hero.team == ally.team || !hero.TryGetComponent<HookAbility>(out var enemyHook)) continue;
                 if (enemyHook.WouldCatch(ally, velocity)) return true;
@@ -591,14 +591,14 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>An ally on an enemy's hook that no other ally holds yet.</summary>
-        bool IsRescue(Hookable h) =>
+        bool IsRescue(Pudge h) =>
             h.IsHooked && h.HeldBy == null && h.HookedBy != null && h.HookedBy.Owner != null && IsEnemy(h.HookedBy.Owner);
 
         /// <summary>
         /// Tug of war: the ally stays on the enemy's hook, which now pulls slower, and the owner hangs on behind it
         /// on a chain of the length at the catch.
         /// </summary>
-        void BeginHold(Hookable ally)
+        void BeginHold(Pudge ally)
         {
             held = ally;
             ally.HeldBy = this;
@@ -665,15 +665,15 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>First hero (enemy, or ally with hitsAllies) whose radius the hook head touches on the segment from → to (horizontal plane).</summary>
-        Hookable FindTarget(Vector3 from, Vector3 to, out Vector3 contact)
+        Pudge FindTarget(Vector3 from, Vector3 to, out Vector3 contact)
         {
-            Hookable best = null;
+            Pudge best = null;
             float bestT = float.MaxValue;
             contact = to;
             var seg = to - from;
             seg.y = 0f;
             float len2 = seg.sqrMagnitude;
-            foreach (var h in Hookable.All)
+            foreach (var h in Pudge.All)
             {
                 if (!CanCatch(h)) continue;
                 var rel = h.transform.position - from;
@@ -691,7 +691,7 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Network client: the server's hook caught <paramref name="target"/> (for the camera's shake and the sounds).</summary>
-        public void ApplyRemoteCatch(Hookable target)
+        public void ApplyRemoteCatch(Pudge target)
         {
             remoteCaught = true;
             Play(sounds.impact);
@@ -762,7 +762,7 @@ namespace PudgeWars.Gameplay
             UpdateChain();
         }
 
-        bool IsEnemy(Hookable h) => self == null || h.team != self.team;
+        bool IsEnemy(Pudge h) => self == null || h.team != self.team;
 
         void UpdateChain()
         {
@@ -796,7 +796,7 @@ namespace PudgeWars.Gameplay
             chainAudio.Play();
         }
 
-        void RaiseCaught(Hookable target)
+        void RaiseCaught(Pudge target)
         {
             TargetCaught?.Invoke(target);
             AnyTargetCaught?.Invoke(this, target);

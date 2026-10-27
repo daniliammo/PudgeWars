@@ -112,7 +112,7 @@ namespace PudgeWars.EditorTools
         {
             var go = (GameObject)PrefabUtility.InstantiatePrefab(prefab);
             go.name = name;
-            go.GetComponent<Hookable>().nickname = nickname;
+            go.GetComponent<Pudge>().nickname = nickname;
             go.transform.SetPositionAndRotation(position, Quaternion.LookRotation(forward));
             return go;
         }
@@ -124,7 +124,7 @@ namespace PudgeWars.EditorTools
             model.transform.SetLocalPositionAndRotation(Vector3.zero, Quaternion.identity);
 
             root.AddComponent<PudgeAnimation>();
-            var hookable = root.AddComponent<Hookable>();
+            var hookable = root.AddComponent<Pudge>();
             hookable.team = team;
             root.AddComponent<PudgeMotor>();
             root.AddComponent<HeroInventory>();

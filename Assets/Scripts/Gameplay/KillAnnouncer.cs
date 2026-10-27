@@ -86,7 +86,7 @@ namespace PudgeWars.Gameplay
             arena.Rescued -= EnqueueRescue;
         }
 
-        public void Enqueue(Hookable hero, KillAnnouncement kind)
+        public void Enqueue(Pudge hero, KillAnnouncement kind)
         {
             bool own = hero == null || hero.team == LocalPlayer.Team;
             int rampages = kind == KillAnnouncement.Rampage && hero != null && arena != null ? arena.RampageCount(hero) : 0;
@@ -99,7 +99,7 @@ namespace PudgeWars.Gameplay
             });
         }
 
-        public void EnqueueSeriesEnd(Hookable hero, SeriesEnd reason, Hookable killer)
+        public void EnqueueSeriesEnd(Pudge hero, SeriesEnd reason, Pudge killer)
         {
             bool own = hero.team == LocalPlayer.Team;
             string format = reason == SeriesEnd.Time ? (own ? ownTimeOut : enemyTimeOut)
@@ -114,7 +114,7 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Shown only to the rescued player.</summary>
-        public void EnqueueRescue(Hookable rescued, Hookable rescuer)
+        public void EnqueueRescue(Pudge rescued, Pudge rescuer)
         {
             if (rescued == null || rescued != LocalPlayer.Hero) return;
             Enqueue(new Message

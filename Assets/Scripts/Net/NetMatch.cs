@@ -95,10 +95,10 @@ namespace PudgeWars.Net
             botsRescues = arena.RescuesOf(Team.Bots);
         }
 
-        void OnKillAnnounced(Hookable killer, KillAnnouncement kind) =>
+        void OnKillAnnounced(Pudge killer, KillAnnouncement kind) =>
             RpcKill(killer != null ? killer.gameObject : null, (byte)kind, killer != null ? arena.RampageCount(killer) : 0);
 
-        void OnSeriesEnded(Hookable hero, SeriesEnd reason, Hookable killer) =>
+        void OnSeriesEnded(Pudge hero, SeriesEnd reason, Pudge killer) =>
             RpcSeriesEnded(hero != null ? hero.gameObject : null, (byte)reason, killer != null ? killer.gameObject : null);
 
         [ClientRpc]
@@ -108,7 +108,7 @@ namespace PudgeWars.Net
             Arena.Instance.ApplyRemoteKill(HeroOf(killer), (KillAnnouncement)kind, rampages);
         }
 
-        void OnRescued(Hookable rescued, Hookable rescuer) =>
+        void OnRescued(Pudge rescued, Pudge rescuer) =>
             RpcRescued(rescued != null ? rescued.gameObject : null, rescuer != null ? rescuer.gameObject : null);
 
         [ClientRpc]
@@ -127,7 +127,7 @@ namespace PudgeWars.Net
             Arena.Instance.ApplyRemoteSeriesEnd(h, (SeriesEnd)reason, HeroOf(killer));
         }
 
-        static Hookable HeroOf(GameObject go) => go != null ? go.GetComponent<Hookable>() : null;
+        static Pudge HeroOf(GameObject go) => go != null ? go.GetComponent<Pudge>() : null;
 
         void Update()
         {

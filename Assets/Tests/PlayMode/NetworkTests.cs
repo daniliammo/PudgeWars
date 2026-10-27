@@ -26,7 +26,7 @@ namespace PudgeWars.Tests
             arena.passiveGold = 0;
         }
 
-        static bool IsNetworkHero(Hookable h) => h != null && h.GetComponent<NetHero>() != null;
+        static bool IsNetworkHero(Pudge h) => h != null && h.GetComponent<NetHero>() != null;
 
         [UnityTest]
         public IEnumerator HostGameSwapsArenaHeroesForNetworkOnesAndBackOnLeaving()
@@ -52,16 +52,16 @@ namespace PudgeWars.Tests
                 Assert.IsFalse(Simulation.IsProxy, "the host simulates the match itself");
                 Assert.AreEqual("Хост", hero.Nickname);
                 Assert.AreEqual(Team.Bots, hero.team, "the host plays for Dire");
-                Assert.IsTrue(Hookable.All.All(h => h.GetComponent<NetworkIdentity>() != null), "an offline hero is left");
-                Assert.AreEqual(3, Hookable.All.Count(h => h.team == Team.Player), "the host's team is not filled with bots");
-                Assert.AreEqual(3, Hookable.All.Count(h => h.team == Team.Bots));
+                Assert.IsTrue(Pudge.All.All(h => h.GetComponent<NetworkIdentity>() != null), "an offline hero is left");
+                Assert.AreEqual(3, Pudge.All.Count(h => h.team == Team.Player), "the host's team is not filled with bots");
+                Assert.AreEqual(3, Pudge.All.Count(h => h.team == Team.Bots));
                 Assert.IsNotNull(Object.FindAnyObjectByType<NetMatch>(), "no match object");
                 Assert.AreEqual(hero.transform, Object.FindAnyObjectByType<TopDownCamera>().target, "the camera does not follow the host's hero");
                 Assert.AreEqual(0, arena.Score);
 
                 // the host plays as offline: its hook drags a Radiant bot into the pit
                 foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
-                var enemies = Hookable.All.Where(h => h.team == Team.Player).ToList();
+                var enemies = Pudge.All.Where(h => h.team == Team.Player).ToList();
                 var bot = enemies[0];
                 for (int i = 1; i < enemies.Count; i++) enemies[i].transform.position = new Vector3(12f, 0f, -12f + i);
                 // the hero spawns anywhere on its side, up to 17 m from the bot: beyond the hook's reach

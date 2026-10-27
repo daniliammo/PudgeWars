@@ -142,7 +142,7 @@ namespace PudgeWars.Net
                 foreach (var conn in NetworkServer.connections.Values)
                 {
                     if (conn is LocalConnectionToClient) continue;
-                    var hero = conn.identity != null ? conn.identity.GetComponent<Hookable>() : null;
+                    var hero = conn.identity != null ? conn.identity.GetComponent<Pudge>() : null;
                     sb.Append("  ").Append(hero != null ? hero.Nickname : conn.address)
                       .Append(": пинг ").Append((conn.rtt * 1000).ToString("0")).Append(" мс\n");
                 }
@@ -454,7 +454,7 @@ namespace PudgeWars.Net
         /// </summary>
         static void LeaveOfflineGame()
         {
-            foreach (var hero in Hookable.All.ToArray())
+            foreach (var hero in Pudge.All.ToArray())
                 if (!hero.TryGetComponent<NetworkIdentity>(out _)) Destroy(hero.gameObject);
             if (Arena.Instance != null) Arena.Instance.ResetMatch();
         }
