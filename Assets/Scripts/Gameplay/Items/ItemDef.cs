@@ -14,6 +14,9 @@ namespace PudgeWars.Gameplay
         ChopTree,
     }
 
+    /// <summary>The sounds of an item put into a slot and picked from it (Dota: Item.DropShop and its kinds).</summary>
+    public enum ItemSound { Default, Ring, Gem, Recipe }
+
     /// <summary>A shop item, the stats it gives its owner and what using it does.</summary>
     [CreateAssetMenu(menuName = "Pudge Wars/Item", fileName = "Item")]
     public class ItemDef : ScriptableObject
@@ -23,6 +26,8 @@ namespace PudgeWars.Gameplay
         [Tooltip("The full description shown when the item is hovered (in the shop and in a slot).")]
         [TextArea(3, 8)] public string details;
         public Sprite icon;
+        [Tooltip("The sound of putting it into a slot and picking it from one: rings (Ring of Protection, Ring of Health…), Gem of True Sight and recipes have their own.")]
+        public ItemSound sound;
         public int cost;
         [Tooltip("Bonus to ability range, metres (Dota units / 100).")]
         public float castRangeBonus;

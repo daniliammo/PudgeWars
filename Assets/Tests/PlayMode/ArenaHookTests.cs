@@ -1359,6 +1359,70 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ItemsAreDraggedBetweenSlotsWithShopSounds()
+        {
+            var shop = Object.FindAnyObjectByType<ShopUI>();
+            var inventory = player.GetComponent<HeroInventory>();
+            yield return null;
+            var tango = TestItem(ItemAction.EatTree, 90, 3, stacks: true, range: 1.65f);
+            var lens = TestItem(ItemAction.None, 2000, 0, stacks: false, range: 0f);
+            var branch = TestItem(ItemAction.PlantTree, 50, 1, stacks: false, range: 2f);
+            inventory.AddGold(tango.cost + lens.cost + branch.cost, popup: false);
+            int sounds = shop.SoundsPlayed;
+            Assert.IsTrue(shop.Buy(tango));
+            Assert.AreEqual(sounds + 1, shop.SoundsPlayed, "no purchase sound (Resources/Audio/Shop/buy)");
+            Assert.IsTrue(shop.Buy(lens));
+            Assert.IsTrue(shop.Buy(branch));
+            Assert.AreEqual(0, inventory.SlotOf(tango));
+            Assert.AreEqual(1, inventory.SlotOf(branch));
+            Assert.AreEqual(HeroInventory.SlotCount - 1, inventory.SlotOf(lens));
+
+            // dragging the lens onto Tango's slot swaps them, with the pick-up and the drop sounds
+            var from = shop.slots[HeroInventory.SlotCount - 1].GetComponent<ItemSlotPointer>();
+            var to = shop.slots[0].GetComponent<ItemSlotPointer>();
+            var drag = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, pointerDrag = from.gameObject };
+            sounds = shop.SoundsPlayed;
+            from.OnBeginDrag(drag);
+            Assert.AreEqual(HeroInventory.SlotCount - 1, shop.DraggedSlot, "the item is not picked");
+            Assert.AreEqual(sounds + 1, shop.SoundsPlayed, "no pick-up sound");
+            from.OnDrag(drag);
+            to.OnDrop(drag);
+            from.OnEndDrag(drag);
+            Assert.AreEqual(-1, shop.DraggedSlot);
+            Assert.AreEqual(sounds + 2, shop.SoundsPlayed, "no drop sound (and only one)");
+            Assert.AreEqual(0, inventory.SlotOf(lens), "the dragged item is not in the slot it was dropped on");
+            Assert.AreEqual(HeroInventory.SlotCount - 1, inventory.SlotOf(tango), "the item there did not take the dragged one's place");
+            Assert.AreEqual(3, inventory.ChargesAt(inventory.SlotOf(tango)), "the charges did not go with the item");
+            Assert.AreEqual(lens.icon, shop.slots[0].sprite);
+
+            // into an empty slot it just moves; let go off the slots, it stays
+            Assert.IsTrue(shop.Move(1, 3));
+            Assert.AreEqual(3, inventory.SlotOf(branch));
+            Assert.IsNull(inventory.ItemIn(1));
+            sounds = shop.SoundsPlayed;
+            var drop = new PointerEventData(EventSystem.current) { button = PointerEventData.InputButton.Left, pointerDrag = to.gameObject };
+            to.OnBeginDrag(drop);
+            to.OnEndDrag(drop);
+            Assert.AreEqual(0, inventory.SlotOf(lens), "an item let go off the slots must stay where it was");
+            Assert.AreEqual(sounds + 2, shop.SoundsPlayed);
+
+            // the arranged slots stay: a used-up item leaves its slot empty instead of the others closing up
+            var trees = TerrainTrees.Instance;
+            var spot = Enumerable.Range(0, 16)
+                .Select(i => player.transform.position + Quaternion.Euler(0f, i * 22.5f, 0f) * Vector3.forward * 1.5f)
+                .FirstOrDefault(trees.CanPlant);
+            Assert.IsTrue(inventory.TryUse(3, spot, HeroInventory.NoTree), "the branch was not planted");
+            Assert.IsNull(inventory.ItemIn(3), "the used-up branch's slot is not empty");
+            Assert.AreEqual(0, inventory.SlotOf(lens), "the arranged items must not close up");
+            Assert.AreEqual(HeroInventory.SlotCount - 1, inventory.SlotOf(tango));
+
+            // another hero's bar cannot be rearranged
+            shop.Inspect(Pudge.All.First(h => h.team == Team.Bots).GetComponent<HeroInventory>());
+            Assert.IsFalse(shop.Move(0, 1));
+            shop.Inspect(null);
+        }
+
+        [UnityTest]
         public IEnumerator ShopSellsAetherLensThatExtendsHookRange()
         {
             var shop = Object.FindAnyObjectByType<ShopUI>();

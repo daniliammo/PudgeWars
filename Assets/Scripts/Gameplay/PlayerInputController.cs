@@ -63,6 +63,7 @@ namespace PudgeWars.Gameplay
             hook = GetComponent<HookAbility>();
             self = GetComponent<Pudge>();
             inventory = GetComponent<HeroInventory>();
+            if (inventory != null) inventory.Moved += OnItemMoved;
             if (aimIndicator == null) aimIndicator = GetComponentInChildren<HookAimIndicator>();
             if (viewCamera == null) viewCamera = Camera.main;
             if (viewCamera != null) follow = viewCamera.GetComponent<TopDownCamera>();
@@ -138,6 +139,13 @@ namespace PudgeWars.Gameplay
         {
             pendingSlot = NoItem;
             pendingItem = null;
+        }
+
+        /// <summary>The item picked for use was moved to another slot: the pick goes with it.</summary>
+        void OnItemMoved(int from, int to)
+        {
+            if (SelectedItem == from) SelectedItem = to;
+            else if (SelectedItem == to) SelectedItem = from;
         }
 
         void OnItemSlotClicked(int slot)

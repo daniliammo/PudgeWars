@@ -9,7 +9,9 @@ namespace PudgeWars.Gameplay
     /// (Aether Lens) to the right, out of the way of the keys: when an item is used up or sold, the others close up
     /// (<see cref="Compact"/>). A stacking item bought again adds its charges to the slot it has. An item sells for
     /// half its cost (of the charges left, <see cref="SellValue"/>). A usable item (<see cref="ItemDef.action"/>) is used on a
-    /// tree or a point of the ground by <see cref="TryUse"/>. On a network client (<see cref="Simulation.IsProxy"/>)
+    /// tree or a point of the ground by <see cref="TryUse"/>. The player can rearrange the slots (<see cref="TryMove"/>);
+    /// from then on the others no longer close up: a used-up or sold item leaves its slot empty, as in Dota, until the
+    /// inventory is empty again. On a network client (<see cref="Simulation.IsProxy"/>)
     /// the server keeps them: a purchase or a use becomes a <see cref="BuyRequested"/> / <see cref="UseRequested"/>
     /// request and the result arrives with <see cref="ApplyRemoteState"/>.
     /// </summary>
@@ -43,8 +45,13 @@ namespace PudgeWars.Gameplay
         public event Action<int, ItemDef> Used;
         /// <summary>Network client: the player sells the item in a slot; the server decides.</summary>
         public event Action<int> SellRequested;
+        /// <summary>An item went from one slot to another (what was there went the other way).</summary>
+        public event Action<int, int> Moved;
+        /// <summary>Network client: the player moved an item between slots (shown at once); the server does the same.</summary>
+        public event Action<int, int> MoveRequested;
 
         Unit self;
+        bool arranged; // the player has put items where it wants them: Compact keeps its order
 
         void Awake()
         {
@@ -223,11 +230,36 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
+        /// Moves the item in slot <paramref name="from"/> to <paramref name="to"/>; the item there, if any, takes its
+        /// place. Charges and cooldowns go with the items. False for an empty slot or the same one.
+        /// </summary>
+        public bool TryMove(int from, int to)
+        {
+            if (from == to || ItemIn(from) == null || to < 0 || to >= SlotCount) return false;
+            (slots[from], slots[to]) = (slots[to], slots[from]);
+            (charges[from], charges[to]) = (charges[to], charges[from]);
+            (readyAt[from], readyAt[to]) = (readyAt[to], readyAt[from]);
+            arranged = true;
+            Reindex();
+            // a network client shows the move at once, the server's state brings the same
+            if (Simulation.IsProxy) MoveRequested?.Invoke(from, to);
+            Moved?.Invoke(from, to);
+            Changed?.Invoke();
+            return true;
+        }
+
+        /// <summary>
         /// Usable items close up to the left (toward Z), passive ones to the right, each in its order; charges and
-        /// cooldowns go with them.
+        /// cooldowns go with them. Slots the player has arranged stay as they are.
         /// </summary>
         void Compact()
         {
+            if (AllEmpty()) arranged = false; // an empty inventory is arranged anew
+            if (arranged)
+            {
+                Reindex();
+                return;
+            }
             var items = new (ItemDef item, int charges, float readyAt)[SlotCount];
             int left = 0, right = SlotCount - 1;
             for (int i = 0; i < SlotCount; i++)
@@ -280,6 +312,8 @@ namespace PudgeWars.Gameplay
             if (charges == null || charges.Length != SlotCount) Array.Resize(ref charges, SlotCount);
             Reindex();
         }
+
+        bool AllEmpty() => Array.TrueForAll(slots, s => s == null);
 
         void Reindex()
         {

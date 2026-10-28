@@ -198,6 +198,12 @@ namespace PudgeWars.Net
             if (inventory != null) inventory.TrySell(slot);
         }
 
+        [Command]
+        void CmdMoveItem(int from, int to)
+        {
+            if (inventory != null) inventory.TryMove(from, to);
+        }
+
         // clients /////////////////////////////////////////////////////////////
 
         public override void OnStartClient()
@@ -219,6 +225,7 @@ namespace PudgeWars.Net
                 inventory.BuyRequested += RequestBuy;
                 inventory.UseRequested += CmdUseItem;
                 inventory.SellRequested += CmdSellItem;
+                inventory.MoveRequested += CmdMoveItem;
             }
         }
 
@@ -230,6 +237,7 @@ namespace PudgeWars.Net
                 inventory.BuyRequested -= RequestBuy;
                 inventory.UseRequested -= CmdUseItem;
                 inventory.SellRequested -= CmdSellItem;
+                inventory.MoveRequested -= CmdMoveItem;
             }
         }
 

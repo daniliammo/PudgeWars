@@ -18,7 +18,11 @@ namespace PudgeWars.Gameplay
     /// (<see cref="ShowTooltip"/>); a slot of a usable item shows its key (Z X C V B N; passive items keep to the
     /// far slots and show none) and the item's charges in the corners,
     /// a dark radial shade with the seconds left over its cooldown (as on the ability bar) and is outlined while its
-    /// item waits for a target.
+    /// item waits for a target. An item of the player's own bar can be dragged onto another slot (<see cref="Move"/>):
+    /// its picture follows the pointer, and an item already in that slot takes the dragged one's place.
+    /// Dota's shop sounds play for the player: General.Buy on a purchase, Item.PickupShop as an item is picked from
+    /// its slot and Item.DropShop as it is put into one — rings, Gem of True Sight and recipes with their own
+    /// (<see cref="ItemDef.sound"/>; Resources/Audio/Shop).
     /// </summary>
     public class ShopUI : MonoBehaviour
     {
@@ -42,6 +46,7 @@ namespace PudgeWars.Gameplay
         public Color selectedSlotColor = new(0.55f, 0.95f, 0.45f, 1f);
         public Color slotCooldownColor = new(0f, 0f, 0f, 0.82f);
         [Tooltip("Remaining cooldown over a slot.")] public string cooldownFormat = "0.0";
+        [Range(0f, 1f)] public float soundVolume = 0.8f;
 
         /// <summary>The item keys, slot by slot (PlayerInputController).</summary>
         public static readonly string[] SlotKeys = { "Z", "X", "C", "V", "B", "N" };
@@ -71,6 +76,17 @@ namespace PudgeWars.Gameplay
         ItemDef tooltipItem;
         int tooltipSlot = -1;
         RectTransform tooltipOver;
+        AudioSource sounds;
+        AudioClip buySound;
+        AudioClip[] pickupSounds, dropSounds; // by ItemSound
+        int dragSlot = -1; // the slot whose item is being dragged
+        RectTransform dragGhost;
+        Image dragGhostImage;
+
+        /// <summary>The slot whose item is being dragged, or -1.</summary>
+        public int DraggedSlot => dragSlot;
+        /// <summary>How many shop sounds were played (for tests).</summary>
+        public int SoundsPlayed { get; private set; }
 
         void Start()
         {
@@ -86,6 +102,7 @@ namespace PudgeWars.Gameplay
                 float top = tab.anchoredPosition.y + (1f - tab.pivot.y) * tab.sizeDelta.y;
                 statsPanel = HeroStatsPanel.Create(tab.parent, inspectLabel.font, new Vector2(tab.anchoredPosition.x, top + 6f), tab.sizeDelta.x);
             }
+            LoadSounds();
             BuildSlotParts();
             if (toggleButton != null)
             {
@@ -188,7 +205,121 @@ namespace PudgeWars.Gameplay
             if (!IsOpen && slide <= 0f) panel.SetActive(false);
         }
 
-        public bool Buy(ItemDef item) => buyer != null && buyer.TryBuy(item);
+        public bool Buy(ItemDef item)
+        {
+            if (buyer == null || !buyer.TryBuy(item)) return false;
+            Play(buySound);
+            return true;
+        }
+
+        /// <summary>
+        /// Moves the player's own item from one slot to another (swapping with an item there), with the sound of
+        /// putting it down; not on an inspected hero's bar.
+        /// </summary>
+        public bool Move(int from, int to)
+        {
+            if (inspecting || buyer == null) return false;
+            var item = buyer.ItemIn(from);
+            if (!buyer.TryMove(from, to)) return false;
+            PlayDrop(item);
+            return true;
+        }
+
+        void LoadSounds()
+        {
+            sounds = gameObject.AddComponent<AudioSource>();
+            sounds.playOnAwake = false;
+            sounds.spatialBlend = 0f; // a UI sound
+            AudioClip Clip(string name) => Resources.Load<AudioClip>("Audio/Shop/" + name);
+            buySound = Clip("buy");
+            // in the order of ItemSound: Default, Ring, Gem, Recipe
+            pickupSounds = new[] { Clip("item_pickup_shop"), Clip("item_pickup_ring_shop"), Clip("item_pickup_gem_shop"), Clip("item_recipe_pickup_shop") };
+            dropSounds = new[] { Clip("item_drop_shop"), Clip("item_drop_ring_shop"), Clip("item_drop_gem_shop"), Clip("item_recipe_drop_shop") };
+        }
+
+        static AudioClip ByKind(AudioClip[] clips, ItemDef item) =>
+            clips == null || item == null ? null : clips[Mathf.Clamp((int)item.sound, 0, clips.Length - 1)] ?? clips[0];
+
+        void PlayPickup(ItemDef item) => Play(ByKind(pickupSounds, item));
+
+        void PlayDrop(ItemDef item) => Play(ByKind(dropSounds, item));
+
+        void Play(AudioClip clip)
+        {
+            if (clip == null || sounds == null) return;
+            sounds.PlayOneShot(clip, soundVolume);
+            SoundsPlayed++;
+        }
+
+        /// <summary>A drag began on a slot: an own item is picked, its picture goes with the pointer.</summary>
+        void BeginDrag(int slot, Vector2 screen)
+        {
+            var item = !inspecting && buyer != null ? buyer.ItemIn(slot) : null;
+            if (item == null) return;
+            dragSlot = slot;
+            HideTooltip();
+            if (dragGhost == null) BuildDragGhost();
+            if (dragGhost != null)
+            {
+                var size = ((RectTransform)slots[slot].transform).rect.size;
+                dragGhost.sizeDelta = size;
+                dragGhostImage.sprite = item.icon;
+                dragGhost.gameObject.SetActive(true);
+                dragGhost.SetAsLastSibling();
+                FollowPointer(screen);
+            }
+            slots[slot].color = new Color(1f, 1f, 1f, 0.35f); // the slot shows where the item came from
+            PlayPickup(item);
+        }
+
+        void FollowPointer(Vector2 screen)
+        {
+            if (dragSlot < 0 || dragGhost == null) return;
+            var canvas = dragGhost.parent as RectTransform;
+            var cam = goldLabel != null && goldLabel.canvas.renderMode != RenderMode.ScreenSpaceOverlay ? goldLabel.canvas.worldCamera : null;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvas, screen, cam, out var local))
+                dragGhost.localPosition = local;
+        }
+
+        /// <summary>Let go on a slot: the item moves there (or swaps).</summary>
+        void DropOn(int from, int to)
+        {
+            if (from != dragSlot) return;
+            dragSlot = -1;
+            if (!Move(from, to)) PlayDrop(buyer != null ? buyer.ItemIn(from) : null);
+            EndDragView();
+        }
+
+        /// <summary>The drag is over; let go anywhere but a slot, the item stays where it was.</summary>
+        void EndDrag(int slot)
+        {
+            if (dragSlot != slot) return;
+            dragSlot = -1;
+            PlayDrop(buyer != null ? buyer.ItemIn(slot) : null);
+            EndDragView();
+        }
+
+        void EndDragView()
+        {
+            if (dragGhost != null) dragGhost.gameObject.SetActive(false);
+            Refresh();
+        }
+
+        void BuildDragGhost()
+        {
+            var canvas = goldLabel != null ? goldLabel.canvas : GetComponentInParent<Canvas>();
+            if (canvas == null) return;
+            var old = canvas.transform.Find("DraggedItem");
+            if (old != null) Destroy(old.gameObject); // left from an earlier start
+            dragGhost = new GameObject("DraggedItem", typeof(RectTransform)).GetComponent<RectTransform>();
+            dragGhost.SetParent(canvas.transform, false);
+            dragGhost.anchorMin = dragGhost.anchorMax = dragGhost.pivot = new Vector2(0.5f, 0.5f);
+            dragGhostImage = dragGhost.gameObject.AddComponent<Image>();
+            dragGhostImage.color = new Color(1f, 1f, 1f, 0.85f);
+            dragGhostImage.preserveAspect = true;
+            dragGhostImage.raycastTarget = false; // the slot under it must get the drop
+            dragGhost.gameObject.SetActive(false);
+        }
 
         /// <summary>Sells the player's own item in a slot for half its cost (not an inspected hero's).</summary>
         public bool Sell(int slot) => !inspecting && buyer != null && buyer.TrySell(slot);
@@ -320,9 +451,13 @@ namespace PudgeWars.Gameplay
                 {
                     var shown = Shown;
                     var item = shown != null ? shown.ItemIn(s) : null;
-                    if (item != null) ShowTooltip(item, s, (RectTransform)slots[s].transform);
+                    if (item != null && dragSlot < 0) ShowTooltip(item, s, (RectTransform)slots[s].transform);
                 };
                 pointer.Unhovered += HideTooltip;
+                pointer.DragStarted += BeginDrag;
+                pointer.Dragging += FollowPointer;
+                pointer.DroppedOn += DropOn;
+                pointer.DragEnded += EndDrag;
                 icon.raycastTarget = true;
 
                 // as on the ability bar: a radial shade masked by the item's own picture, running out clockwise from the top
@@ -473,7 +608,7 @@ namespace PudgeWars.Gameplay
                 if (slots[i] == null) continue;
                 var item = shown != null ? shown.ItemIn(i) : null;
                 slots[i].sprite = item != null ? item.icon : null;
-                slots[i].color = item != null ? Color.white : new Color(0f, 0f, 0f, 0.55f);
+                slots[i].color = item == null ? new Color(0f, 0f, 0f, 0.55f) : i == dragSlot ? new Color(1f, 1f, 1f, 0.35f) : Color.white;
                 // only a usable item has a key to press (and a slot to click)
                 if (keyLabels != null && i < keyLabels.Length && keyLabels[i] != null)
                     keyLabels[i].gameObject.SetActive(item != null && item.IsUsable);
