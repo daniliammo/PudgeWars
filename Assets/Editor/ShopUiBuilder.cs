@@ -46,9 +46,9 @@ namespace PudgeWars.EditorTools
             }
             item.displayName = "Aether Lens";
             item.description = "+275 к дальности способностей, +250 маны, +1.75 к восстановлению маны";
-            item.details = "Пассивно: хук летит на 275 дальше (на 2.75 м). Вторая линза не складывается с первой.\n\n"
-                           + "Собирается из Energy Booster, Void Stone и рецепта: когда все три в инвентаре, они сами становятся линзой. "
-                           + "Купить линзу целиком — значит докупить недостающие части.";
+            item.details = "";
+            item.abilities = new[] { Ability("Aetheral Focus", false, "+275 к дальности способностей: хук летит на 2.75 м дальше. Вторая линза не складывается с первой.") };
+            item.lore = "Подарок хворому сыну, наделённый силой последнего вздоха умирающего мага.";
             item.icon = AssetDatabase.LoadAssetAtPath<Sprite>(AetherLensIcon);
             item.cost = parts.Sum(p => p.cost);
             item.castRangeBonus = 2.75f;
@@ -81,18 +81,17 @@ namespace PudgeWars.EditorTools
                 EditorUtility.SetDirty(net);
                 AssetDatabase.SaveAssets();
             }
-            return catalog;
+            return catalog.Where(i => !i.recipe).ToArray(); // recipes are bought with their items, not on their own
         }
 
         /// <summary>Tango: 70 gold (by request; 90 in Dota 2), 3 charges, eats a tree for +7 health per second over 16 s, twice from a planted one.</summary>
         public static ItemDef Tango() => Item("Tango", "tango", item =>
         {
             item.displayName = "Tango";
-            item.description = "Съесть дерево: +7 здоровья в секунду 16 с (посаженное веткой — вдвое). 3 штуки";
-            item.details = "Пудж съедает выбранное дерево — оно падает, а здоровье восстанавливается на 7 в секунду 16 секунд "
-                           + "(112 за всё время). Дерево, посаженное веткой, вдвое сытнее: 14 в секунду. Несколько съеденных деревьев "
-                           + "лечат одновременно; смерть прерывает лечение. Срубленное дерево отрастает через 20 секунд. "
-                           + "Повторная покупка добавляет ещё 3 штуки в тот же слот.";
+            item.description = "Съесть дерево: +7 здоровья в секунду 16 с. 3 штуки";
+            item.details = "Повторная покупка добавляет ещё 3 штуки в тот же слот.";
+            item.abilities = new[] { Ability("Eat Tree", true, "Пудж съедает выбранное дерево — оно падает, а здоровье восстанавливается на 7 в секунду 16 секунд (112 за всё время). Дерево, посаженное веткой, вдвое сытнее: 14 в секунду. Несколько съеденных деревьев лечат одновременно; смерть прерывает лечение. Срубленное дерево отрастает через 20 секунд.") };
+            item.lore = "";
             item.cost = 70;
             item.unique = false;
             item.action = ItemAction.EatTree;
@@ -110,9 +109,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Iron Branch";
             item.description = "Посадить дерево (навсегда)";
-            item.details = "Сажает дерево в выбранной точке рядом с Пуджем. Дерево стоит навсегда: герои его обходят, "
-                           + "хук пролетает насквозь. Его можно съесть танго (вдвое сытнее обычного) или срубить топориком — "
-                           + "тогда оно уже не отрастёт. Нельзя сажать над ямой, на другое дерево и на героя. Ветка одноразовая.";
+            item.details = "";
+            item.abilities = new[] { Ability("Happy Little Tree", true, "Сажает дерево в выбранной точке рядом с Пуджем. Дерево стоит навсегда: герои его обходят, хук пролетает насквозь. Его можно съесть танго (вдвое сытнее обычного) или срубить топориком — тогда оно уже не отрастёт. Нельзя сажать над ямой, на другое дерево и на героя. Ветка одноразовая.") };
+            item.lore = "";
             item.cost = 50;
             item.unique = false;
             item.action = ItemAction.PlantTree;
@@ -128,11 +127,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Quelling Blade";
             item.description = "Срубить дерево (перезарядка 4 с). +16 урона по героям, +4 по крипам";
-            item.details = "Увеличивает урон от атак по существам, являющимися героями, на 16 или на 4 — для крипов. "
-                           + "Увеличение применяется на все предметы и способности: у хука — к удару при попадании "
-                           + "и к каждому метру, на который он протащил цель (10 + 16 = 26 за метр по герою).\n\n"
-                           + "Применение: срубает выбранное дерево — остаётся пень, крона разлетается, а через 20 секунд дерево "
-                           + "вырастает снова. Дерево, посаженное веткой, срубается насовсем. Если дерево дальше 350, Пудж сначала подойдёт к нему.";
+            item.details = "";
+            item.abilities = new[] { Ability("Quell", false, "+16 урона по героям и +4 по крипам к каждому удару — атак, предметов и способностей: у хука к удару при попадании и к каждому метру, на который он протащил цель (10 + 16 = 26 за метр по герою)."), Ability("Chop Tree", true, "Срубает выбранное дерево: остаётся пень, крона разлетается, а через 20 секунд дерево вырастает снова. Дерево, посаженное веткой, срубается насовсем. Если дерево дальше 350, Пудж сначала подойдёт к нему.") };
+            item.lore = "";
             item.heroDamageBonus = 16f;
             item.creepDamageBonus = 4f;
             item.cost = 100;
@@ -149,8 +146,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Energy Booster";
             item.description = "+250 к максимальной мане";
-            item.details = "Пассивно: увеличивает запас маны на 250. Эти 250 сразу добавляются и к текущей мане.\n\n"
-                           + "Часть Aether Lens.";
+            item.details = "Эти 250 сразу добавляются и к текущей мане.";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "";
             item.cost = 800;
             item.unique = false;
             item.manaBonus = 250f;
@@ -161,7 +159,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Void Stone";
             item.description = "+1.75 к восстановлению маны";
-            item.details = "Пассивно: мана восстанавливается на 1.75 в секунду быстрее.\n\nЧасть Aether Lens.";
+            item.details = "";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "";
             item.cost = 700;
             item.unique = false;
             item.manaRegenBonus = 1.75f;
@@ -171,8 +171,11 @@ namespace PudgeWars.EditorTools
         public static ItemDef AetherLensRecipe() => Item("AetherLensRecipe", "recipe", item =>
         {
             item.displayName = "Рецепт: Aether Lens";
-            item.description = "Вместе с Energy Booster и Void Stone собирается в Aether Lens";
-            item.details = "Сам ничего не даёт. Когда в инвентаре есть рецепт, Energy Booster и Void Stone, они сразу становятся Aether Lens.";
+            item.description = "Покупается вместе с Aether Lens";
+            item.details = "Сам ничего не даёт.";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "";
+            item.recipe = true;
             item.cost = 775;
             item.unique = false;
             item.sound = ItemSound.Recipe;
@@ -186,7 +189,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Sage's Mask";
             item.description = "+0.7 к восстановлению маны";
-            item.details = "Пассивно: мана восстанавливается на 0.7 в секунду быстрее.\n\nЧасть Ring of Basilius.";
+            item.details = "";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "Маска, которую зачастую используют в своих ритуалах маги и колдуны.";
             item.cost = 175;
             item.unique = false;
             item.manaRegenBonus = 0.7f;
@@ -196,8 +201,11 @@ namespace PudgeWars.EditorTools
         public static ItemDef RingOfBasiliusRecipe() => Item("RingOfBasiliusRecipe", "recipe", item =>
         {
             item.displayName = "Рецепт: Ring of Basilius";
-            item.description = "Вместе с Sage's Mask собирается в Ring of Basilius";
-            item.details = "Сам ничего не даёт. Когда в инвентаре есть рецепт и Sage's Mask, они сразу становятся Ring of Basilius.";
+            item.description = "Покупается вместе с Ring of Basilius";
+            item.details = "Сам ничего не даёт.";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "";
+            item.recipe = true;
             item.cost = 250;
             item.unique = false;
             item.sound = ItemSound.Recipe;
@@ -211,18 +219,17 @@ namespace PudgeWars.EditorTools
             return Item("RingOfBasilius", "ring_of_basilius", item =>
             {
                 item.displayName = "Ring of Basilius";
-                item.description = "+1.5 к восстановлению маны. Аура: +1 маны в секунду союзникам рядом. Вампиризм маны";
-                item.details = "Пассивно: мана владельца восстанавливается на 1.5 в секунду быстрее.\n\n"
-                               + "Вампиризм маны: за убийство владелец получает 7.5 % маны, которая была у убитого.\n\n"
-                               + $"Basilius Aura: все союзники в радиусе {radius * 100f:0} (и сам владелец) восстанавливают на 1 ману в секунду больше. "
-                               + "Одинаковые ауры не складываются.\n\nСобирается из Sage's Mask и рецепта. Часть Arcane Boots.";
+                item.description = "+1.5 к восстановлению маны. Аура маны и вампиризм маны";
+                item.details = "";
+                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 10 % маны, которая была у убитого.") };
+                item.lore = "Кольцо, служившее наградой величайшим магам.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
                 item.unique = false;
                 item.manaRegenBonus = 1.5f;
                 item.auraManaRegen = 1f;
                 item.auraRadius = radius;
-                item.killManaSteal = 0.075f;
+                item.killManaSteal = 0.1f;
                 item.sound = ItemSound.Ring;
             });
         }
@@ -232,8 +239,9 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Slippers of Agility";
             item.description = "+10 к скорости передвижения, +3 к ловкости";
-            item.details = "Пассивно: Пудж бегает на 10 быстрее; складывается с сапогами. +3 к ловкости (характеристики пока ни на что не влияют).\n\n"
-                           + "Часть Boots of Speed.";
+            item.details = "Ловкость пока ни на что не влияет. Скорость складывается с сапогами.";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "Лёгкие ботинки, сделанные из кожи паука, обостряют ваше чутьё.";
             item.cost = 140;
             item.unique = false;
             item.moveSpeedBonus = 0.1f;
@@ -244,8 +252,11 @@ namespace PudgeWars.EditorTools
         public static ItemDef BootsOfSpeedRecipe() => Item("BootsOfSpeedRecipe", "recipe", item =>
         {
             item.displayName = "Рецепт: Boots of Speed";
-            item.description = "Вместе с Slippers of Agility собирается в Boots of Speed";
-            item.details = "Сам ничего не даёт. Когда в инвентаре есть рецепт и Slippers of Agility, они сразу становятся Boots of Speed.";
+            item.description = "Покупается вместе с Boots of Speed";
+            item.details = "Сам ничего не даёт.";
+            item.abilities = System.Array.Empty<ItemAbility>();
+            item.lore = "";
+            item.recipe = true;
             item.cost = 360;
             item.unique = false;
             item.sound = ItemSound.Recipe;
@@ -258,10 +269,10 @@ namespace PudgeWars.EditorTools
             return Item("BootsOfSpeed", "boots", item =>
             {
                 item.displayName = "Boots of Speed";
-                item.description = "+45 к скорости передвижения, +3 к ловкости (от Slippers of Agility)";
-                item.details = "Пассивно: Пудж бегает на 45 быстрее (280 → 325). Бонусы нескольких сапог не складываются. "
-                               + "От Slippers of Agility остаётся +3 к ловкости (пока не действует).\n\n"
-                               + "Собирается из Slippers of Agility и рецепта. Часть Arcane Boots.";
+                item.description = "+45 к скорости передвижения";
+                item.details = "Бонусы нескольких сапог к скорости не складываются.";
+                item.abilities = System.Array.Empty<ItemAbility>();
+                item.lore = "Удобные скороходы, ускоряющие передвижение.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
                 item.unique = false;
@@ -281,13 +292,10 @@ namespace PudgeWars.EditorTools
             return Item("ArcaneBoots", "arcane_boots", item =>
             {
                 item.displayName = "Arcane Boots";
-                item.description = "+1.5 к восстановлению маны, +45 к скорости, аура и вампиризм маны кольца. Применение: +175 маны союзникам рядом";
-                item.details = $"Применение (перезарядка 55 с): все союзники в радиусе {radius * 100f:0}, и сам владелец, сразу получают 175 маны. "
-                               + "Цели не нужно: клавиша или клик по слоту применяют сразу.\n\n"
-                               + "Пассивно: мана восстанавливается на 1.5 в секунду быстрее, Пудж бегает на 45 быстрее. "
-                               + $"Basilius Aura (от кольца): союзники в радиусе {radius * 100f:0} и сам владелец восстанавливают на 1 ману в секунду больше. "
-                               + "Вампиризм маны (от кольца): за убийство — 7.5 % маны убитого. +3 к ловкости (от Slippers of Agility).\n\n"
-                               + "Собирается из Boots of Speed и Ring of Basilius.";
+                item.description = "+1.5 к восстановлению маны, +45 к скорости. Применение: +175 маны союзникам рядом";
+                item.details = "Бонусы нескольких сапог к скорости не складываются.";
+                item.abilities = new[] { Ability("Replenish Mana", true, $"+175 маны себе и всем союзникам в радиусе {radius * 100f:0}. Цели не нужно: клавиша или клик по слоту применяют сразу."), Ability("Mana Leech", false, "За убийство владелец получает 11.5 % маны, которая была у убитого.") };
+                item.lore = "В этих ботинках маг становится более ценным в бою.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
                 item.unique = true;
@@ -298,6 +306,7 @@ namespace PudgeWars.EditorTools
                 item.auraRadius = radius;
                 item.action = ItemAction.RestoreAllyMana;
                 item.restoreMana = 175f;
+                item.killManaSteal = 0.115f;
                 item.castRange = radius;
                 item.cooldown = 55f;
                 item.charges = 0;
@@ -305,7 +314,14 @@ namespace PudgeWars.EditorTools
             });
         }
 
-        /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
+        static ItemAbility Ability(string name, bool active, string description) =>
+            new() { name = name, active = active, description = description };
+
+        /// <summary>Basilius Aura of Ring of Basilius (and of Arcane Boots through it).</summary>
+        static ItemAbility BasiliusAura(float radius) =>
+            Ability("Basilius Aura", false, $"+1 маны в секунду всем союзникам в радиусе {radius * 100f:0}, и самому владельцу. Одинаковые ауры не складываются.");
+
+                /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
         static ItemDef Item(string asset, string icon, System.Action<ItemDef> fill)
         {
             Directory.CreateDirectory(ItemDir);

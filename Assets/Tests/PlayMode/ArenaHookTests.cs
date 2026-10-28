@@ -1342,11 +1342,12 @@ namespace PudgeWars.Tests
             var tangoPointer = shop.slots[0].GetComponent<ItemSlotPointer>();
             Assert.IsNotNull(tangoPointer, "the slot does not listen to the pointer");
             tangoPointer.OnPointerEnter(new PointerEventData(EventSystem.current));
-            Assert.IsNotNull(shop.Tooltip, "no description over a hovered slot");
-            StringAssert.Contains("EatTree", shop.Tooltip.text);
-            StringAssert.Contains($"Продать за {tango.cost * 4 / 3 / 2}", shop.Tooltip.text, "the sale price is half the charges left");
+            Assert.IsNotNull(shop.TooltipText, "no description over a hovered slot");
+            StringAssert.Contains("EatTree", shop.TooltipText);
+            StringAssert.Contains($"Продать за {tango.cost * 4 / 3 / 2}", shop.TooltipText, "the sale price is half the charges left");
+            Assert.IsTrue(shop.TooltipAbilities.Any(a => a.active), "Tango's use must be in a blue (active) frame");
             tangoPointer.OnPointerExit(new PointerEventData(EventSystem.current));
-            Assert.IsNull(shop.Tooltip, "the description stayed after the pointer left");
+            Assert.IsNull(shop.TooltipText, "the description stayed after the pointer left");
             int gold = inventory.Gold;
             int value = inventory.SellValue(bladeSlot);
             Assert.AreEqual(blade.cost / 2, value);
@@ -1380,7 +1381,13 @@ namespace PudgeWars.Tests
             // a throw takes 120 mana; without 120 there is no throw
             float mana = player.Mana;
             Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 5f));
-            yield return new WaitUntil(() => hook.HeadVisible);
+            yield return null;
+            // turning and winding up take nothing: the mana goes as the hook flies out
+            while (!hook.HeadVisible)
+            {
+                Assert.GreaterOrEqual(player.Mana, mana - 0.01f, "the mana went before the hook flew out");
+                yield return null;
+            }
             Assert.AreEqual(mana - 120f, player.Mana, 1f, "the hook must take 120 mana");
             yield return new WaitUntil(() => hook.IsReady);
             player.SpendMana(player.Mana - 50f);
@@ -1662,6 +1669,59 @@ namespace PudgeWars.Tests
             finally
             {
                 foreach (var item in new[] { booster, stone, recipe, lens, branch }) Object.Destroy(item);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ItemDescriptionHasPriceByTheNameAbilityFramesAndLore()
+        {
+            var shop = Object.FindAnyObjectByType<ShopUI>();
+            var inventory = player.GetComponent<HeroInventory>();
+            yield return null;
+            Assert.IsFalse(shop.rows.Any(r => r.item.recipe), "recipes must not be sold on their own: Pudge Wars → Build Test Arena");
+            var ring = TestItem(ItemAction.None, 425, 0, stacks: false, range: 0f);
+            ring.displayName = "Ring";
+            ring.manaRegenBonus = 1.5f;
+            ring.lore = "Кольцо, служившее наградой величайшим магам.";
+            ring.abilities = new[] { new ItemAbility { name = "Basilius Aura", active = false, description = "+1 маны в секунду" } };
+            var boots = TestItem(ItemAction.RestoreAllyMana, 925, 0, stacks: false, range: 8f, cooldown: 55f);
+            boots.displayName = "Boots";
+            boots.components = new[] { ring };
+            boots.abilities = new[] { new ItemAbility { name = "Replenish Mana", active = true, description = "+175 маны" } };
+            try
+            {
+                var row = (RectTransform)shop.rows[0].transform;
+                shop.ShowTooltip(boots, -1, row);
+                var text = shop.TooltipText;
+                Assert.IsNotNull(text);
+                // the name and the price come first
+                StringAssert.StartsWith("Boots\n925", text, "the price must stand by the name at the top");
+                var frames = shop.TooltipAbilities.ToList();
+                Assert.AreEqual(2, frames.Count, "the own ability and the one inherited from the part");
+                Assert.AreEqual(("Активная: Replenish Mana", true), frames[0]);
+                Assert.AreEqual(("Пассивная: Basilius Aura", false), frames[1]);
+                StringAssert.Contains("Перезарядка 55 с", text, "the use's cooldown must be in its frame");
+                StringAssert.Contains("+1.5 к восстановлению маны", text, "the inherited bonus is not shown");
+                StringAssert.DoesNotContain("Собирается", text, "the description must not tell what the item is made of");
+                StringAssert.DoesNotContain("Кольцо, служившее", text, "the part's lore must not come with it");
+                shop.ShowTooltip(ring, -1, row);
+                StringAssert.Contains("Кольцо, служившее наградой величайшим магам.", shop.TooltipText);
+                var loreText = Object.FindObjectsByType<Text>().First(t => t.text == ring.lore);
+                Assert.AreEqual(FontStyle.Italic, loreText.fontStyle, "the lore must be in italics");
+                shop.HideTooltip();
+
+                // a sale says its price over the hero
+                var popups = Object.FindAnyObjectByType<GoldPopups>();
+                inventory.AddGold(ring.cost, popup: false);
+                Assert.IsTrue(inventory.TryBuy(ring));
+                int value = inventory.SellValue(inventory.SlotOf(ring));
+                Assert.IsTrue(inventory.TrySell(inventory.SlotOf(ring)));
+                Assert.AreEqual($"+{value} монет", popups.LastText, "the sale's price did not pop up");
+            }
+            finally
+            {
+                Object.Destroy(ring);
+                Object.Destroy(boots);
             }
         }
 

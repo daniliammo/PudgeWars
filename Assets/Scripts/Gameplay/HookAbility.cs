@@ -57,7 +57,7 @@ namespace PudgeWars.Gameplay
         public float returnSpeed = 15f;
         [Tooltip("StartHook_DelayAnimations = 0.29 s")] public float castDelay = 0.29f;
         public float cooldown = 1f;
-        [Tooltip("Mana a cast takes (Dota 2 Meat Hook: 110–140 by level); spent as the wind-up starts.")]
+        [Tooltip("Mana a cast takes (Dota 2 Meat Hook: 110–140 by level); spent as the hook leaves the hand.")]
         public float manaCost = 120f;
         [Tooltip("Dota's Meat Hook pulls allies too (without harm).")]
         public bool hitsAllies = true;
@@ -258,12 +258,6 @@ namespace PudgeWars.Gameplay
 
         void BeginWindup()
         {
-            // the mana goes as the throw starts; spent meanwhile (turning) — no throw, and no cooldown either
-            if (self != null && !self.SpendMana(manaCost))
-            {
-                state = State.Ready;
-                return;
-            }
             anim?.PlayAction(PudgeAnimation.HookStart, 10f, 0.05f);
             state = State.Windup;
             timer = castDelay;
@@ -301,6 +295,13 @@ namespace PudgeWars.Gameplay
 
         void Launch()
         {
+            // the mana goes as the hook flies out; spent meanwhile (turning, the wind-up) — no throw, no cooldown either
+            if (self != null && !self.SpendMana(manaCost))
+            {
+                state = State.Ready;
+                anim?.PlayAction(PudgeAnimation.HookEnd, 0.5f, 0.1f);
+                return;
+            }
             // the head appears level with the hand but on the centre line, so its path and range do not depend
             // on where the animation has put the hand: exactly what the aim lines show
             var hand = Origin - transform.position;

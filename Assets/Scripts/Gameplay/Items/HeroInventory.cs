@@ -436,11 +436,13 @@ namespace PudgeWars.Gameplay
                 SellRequested?.Invoke(slot);
                 return true;
             }
-            gold += SellValue(slot);
+            int value = SellValue(slot);
+            gold += value;
             slots[slot] = null;
             charges[slot] = 0;
             Compact();
             Changed?.Invoke();
+            if (value > 0) GoldAdded?.Invoke(value); // the sale's price pops up over the hero, as a reward does
             return true;
         }
 

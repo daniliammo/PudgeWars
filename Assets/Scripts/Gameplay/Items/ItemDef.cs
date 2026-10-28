@@ -19,6 +19,15 @@ namespace PudgeWars.Gameplay
         RestoreAllyMana,
     }
 
+    /// <summary>A named ability of an item, shown in its own frame in the description: blue for an active one, grey for a passive one.</summary>
+    [Serializable]
+    public class ItemAbility
+    {
+        [Tooltip("As in Dota: Aetheral Focus, Basilius Aura, Replenish Mana…")] public string name;
+        [Tooltip("Used on a key (blue frame); otherwise it works by itself (grey frame).")] public bool active;
+        [TextArea(2, 5)] public string description;
+    }
+
     /// <summary>The sounds of an item put into a slot and picked from it (Dota: Item.DropShop and its kinds).</summary>
     public enum ItemSound { Default, Ring, Gem, Recipe }
 
@@ -36,8 +45,14 @@ namespace PudgeWars.Gameplay
     {
         public string displayName;
         [TextArea] public string description;
-        [Tooltip("The full description shown when the item is hovered (in the shop and in a slot).")]
+        [Tooltip("More about the item, shown when it is hovered (in the shop and in a slot), under its bonuses.")]
         [TextArea(3, 8)] public string details;
+        [Tooltip("Its abilities, each in its own frame in the description; an assembled item shows its parts' too (its own one of the same name wins).")]
+        public ItemAbility[] abilities = Array.Empty<ItemAbility>();
+        [Tooltip("A line of lore, in italics at the end of the description.")]
+        [TextArea(2, 4)] public string lore;
+        [Tooltip("A recipe scroll: not sold in the shop by itself, bought with the item it makes.")]
+        public bool recipe;
         public Sprite icon;
         [Tooltip("The sound of putting it into a slot and picking it from one: rings (Ring of Protection, Ring of Health…), Gem of True Sight and recipes have their own.")]
         public ItemSound sound;
@@ -140,6 +155,25 @@ namespace PudgeWars.Gameplay
 
         /// <summary>The assembled items loaded now (those the shop and the network catalog know).</summary>
         public static IEnumerable<ItemDef> Assembled() => Resources.FindObjectsOfTypeAll<ItemDef>().Where(i => i.IsAssembled);
+
+        /// <summary>The item's abilities and those inherited from its parts (one per name, the item's own first).</summary>
+        public IEnumerable<ItemAbility> Abilities
+        {
+            get
+            {
+                var seen = new HashSet<string>();
+                foreach (var a in AllAbilities())
+                    if (a != null && seen.Add(a.name ?? "")) yield return a;
+            }
+        }
+
+        IEnumerable<ItemAbility> AllAbilities()
+        {
+            foreach (var a in abilities ?? Array.Empty<ItemAbility>()) yield return a;
+            foreach (var part in Parts)
+            foreach (var a in part.AllAbilities())
+                yield return a;
+        }
 
         /// <summary>The assembled items this one is a part of.</summary>
         public IEnumerable<ItemDef> BuildsInto() => Assembled().Where(r => r.components.Contains(this));

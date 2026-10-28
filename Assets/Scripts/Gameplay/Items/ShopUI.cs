@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
@@ -50,6 +51,16 @@ namespace PudgeWars.Gameplay
         [Range(0f, 1f)] public float soundVolume = 0.8f;
         [Tooltip("The open panel keeps this far below the screen's top edge, canvas units (a long shop is cut and scrolls).")]
         public float panelTopMargin = 16f;
+        [Header("Item description")]
+        public float tooltipWidth = 500f;
+        public Color tooltipColor = new(0.03f, 0.035f, 0.045f, 0.98f);
+        public Color tooltipRimColor = new(0.55f, 0.5f, 0.38f, 1f);
+        [Tooltip("Frame of an active ability (used on a key).")] public Color activeFrameColor = new(0.3f, 0.55f, 1f);
+        public Color activeFillColor = new(0.05f, 0.09f, 0.18f, 1f);
+        public Color activeTitleColor = new(0.6f, 0.78f, 1f);
+        [Tooltip("Frame of a passive ability (works by itself).")] public Color passiveFrameColor = new(0.5f, 0.52f, 0.56f);
+        public Color passiveFillColor = new(0.1f, 0.105f, 0.115f, 1f);
+        public Color passiveTitleColor = new(0.92f, 0.92f, 0.94f);
 
         /// <summary>The item keys, slot by slot (PlayerInputController).</summary>
         public static readonly string[] SlotKeys = { "Z", "X", "C", "V", "B", "N" };
@@ -75,8 +86,10 @@ namespace PudgeWars.Gameplay
         [NonSerialized] Text[] chargeLabels, cooldownLabels, keyLabels;
         [NonSerialized] Image[] cooldownShades, slotFrames;
         Color slotFrameColor;
-        RectTransform tooltip;
-        Text tooltipText;
+        RectTransform tooltip, tooltipAbilities;
+        Text tooltipName, tooltipPrice, tooltipBonuses, tooltipDetails, tooltipLore, tooltipFooter;
+        Font tooltipFont;
+        readonly List<AbilityBox> abilityBoxes = new();
         ItemDef tooltipItem;
         int tooltipSlot = -1;
         RectTransform tooltipOver;
@@ -342,12 +355,25 @@ namespace PudgeWars.Gameplay
         /// <summary>Sells the player's own item in a slot for half its cost (not an inspected hero's).</summary>
         public bool Sell(int slot) => !inspecting && buyer != null && buyer.TrySell(slot);
 
-        /// <summary>The item description shown now (null while hidden).</summary>
-        public Text Tooltip => tooltip != null && tooltip.gameObject.activeSelf ? tooltipText : null;
+        /// <summary>All the text of the description shown now, line by line (null while hidden).</summary>
+        public string TooltipText
+        {
+            get
+            {
+                if (tooltip == null || !tooltip.gameObject.activeSelf) return null;
+                return string.Join("\n", tooltip.GetComponentsInChildren<Text>(false).Select(t => t.text));
+            }
+        }
+
+        /// <summary>The frames of the abilities in the description shown now: their title and whether it is an active one.</summary>
+        public IEnumerable<(string title, bool active)> TooltipAbilities =>
+            abilityBoxes.Where(b => b.root.gameObject.activeSelf).Select(b => (b.title.text, b.active));
 
         /// <summary>
-        /// The item's full description beside <paramref name="over"/>: above an inventory slot (<paramref name="slot"/>,
-        /// with its charges, key and sale price), left of a shop row (slot -1).
+        /// The item's description beside <paramref name="over"/>: above an inventory slot (<paramref name="slot"/>,
+        /// with its charges, key and sale price), left of a shop row (slot -1). From the top: the name with the price
+        /// beside it, the bonuses, more about it, its abilities each in a frame (blue: used on a key, grey: works by
+        /// itself), the lore in italics, and for an own slot the key and the sale price.
         /// </summary>
         public void ShowTooltip(ItemDef item, int slot, RectTransform over)
         {
@@ -355,9 +381,9 @@ namespace PudgeWars.Gameplay
             tooltipItem = item;
             tooltipSlot = slot;
             tooltipOver = over;
-            tooltipText.text = Describe(item, slot >= 0 ? Shown : null, slot);
-            float height = tooltipText.preferredHeight;
-            tooltip.sizeDelta = new Vector2(tooltip.sizeDelta.x, height + 24f);
+            Fill(item, slot >= 0 ? Shown : null, slot);
+            tooltip.gameObject.SetActive(true);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(tooltip);
             var corners = new Vector3[4];
             over.GetWorldCorners(corners); // bottom-left, top-left, top-right, bottom-right
             float gap = 8f * tooltip.lossyScale.x;
@@ -371,8 +397,21 @@ namespace PudgeWars.Gameplay
                 tooltip.pivot = new Vector2(1f, 0.5f); // left of the shop's row
                 tooltip.position = (corners[0] + corners[1]) / 2f + Vector3.left * gap;
             }
-            tooltip.gameObject.SetActive(true);
+            KeepOnScreen();
             tooltip.SetAsLastSibling();
+        }
+
+        /// <summary>A tall description is moved down (or up) to stay within the canvas.</summary>
+        void KeepOnScreen()
+        {
+            if (!(tooltip.parent is RectTransform canvas)) return;
+            var corners = new Vector3[4];
+            tooltip.GetWorldCorners(corners);
+            var area = new Vector3[4];
+            canvas.GetWorldCorners(area);
+            float margin = 8f * tooltip.lossyScale.y;
+            if (corners[1].y > area[1].y - margin) tooltip.position += Vector3.down * (corners[1].y - (area[1].y - margin));
+            else if (corners[0].y < area[0].y + margin) tooltip.position += Vector3.up * (area[0].y + margin - corners[0].y);
         }
 
         public void HideTooltip()
@@ -382,75 +421,221 @@ namespace PudgeWars.Gameplay
             tooltipSlot = -1;
         }
 
-        /// <summary>Name, price, the short and the full description and the numbers; for an owned slot its charges, key and sale.</summary>
-        static string Describe(ItemDef item, HeroInventory owner, int slot)
+        /// <summary>The plain bonuses, one a line ("+250 к мане"); what an ability frame tells is left to it.</summary>
+        static string Bonuses(ItemDef item, bool hasAbilities)
         {
             var ci = CultureInfo.InvariantCulture;
-            var text = new System.Text.StringBuilder();
-            text.Append($"<b><size=28>{item.displayName}</size></b>\n<color=#FFD040>{item.cost} золота</color>");
-            if (!string.IsNullOrEmpty(item.description)) text.Append($"\n\n{item.description}");
-            if (!string.IsNullOrEmpty(item.details)) text.Append($"\n\n<color=#D8DCE0>{item.details}</color>");
-            text.Append("\n<color=#A8B4C0>");
-            var use = item.Active;
-            if (item.CastRangeBonus > 0f) text.Append($"\nДальность способностей: +{(item.CastRangeBonus * 100f).ToString("0", ci)}");
-            if (item.HeroDamageBonus > 0f) text.Append($"\nУрон по героям: +{item.HeroDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
-            if (item.ManaBonus > 0f) text.Append($"\nМана: +{item.ManaBonus.ToString("0", ci)}");
-            if (item.ManaRegenBonus > 0f) text.Append($"\nВосстановление маны: +{item.ManaRegenBonus.ToString("0.##", ci)} в секунду");
-            if (item.MoveSpeedBonus > 0f) text.Append($"\nСкорость передвижения: +{(item.MoveSpeedBonus * 100f).ToString("0", ci)}" + (item.IsBoots ? " (не складывается с другими сапогами)" : ""));
-            if (item.AgilityBonus > 0f) text.Append($"\nЛовкость: +{item.AgilityBonus.ToString("0", ci)} (пока не действует)");
-            if (item.KillManaSteal > 0f) text.Append($"\nВампиризм маны: {(item.KillManaSteal * 100f).ToString("0.#", ci)} % маны убитого");
-            if (item.AuraManaRegen > 0f) text.Append($"\nBasilius Aura: +{item.AuraManaRegen.ToString("0.##", ci)} маны в секунду союзникам и себе в радиусе {(item.AuraRadius * 100f).ToString("0", ci)}");
-            if (use != null && use.restoreMana > 0f) text.Append($"\nПрименение: +{use.restoreMana.ToString("0", ci)} маны союзникам и себе в радиусе {(use.castRange * 100f).ToString("0", ci)}");
-            if (item.CreepDamageBonus > 0f) text.Append($"\nУрон по крипам: +{item.CreepDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
-            if (use != null && !item.IsInstant) text.Append($"\nДальность применения: {(use.castRange * 100f).ToString("0", ci)}");
-            if (use != null && use.cooldown > 0f) text.Append($"\nПерезарядка: {use.cooldown.ToString("0.#", ci)} с");
-            if (item.charges > 0) text.Append(owner != null ? $"\nЗарядов осталось: {owner.ChargesAt(slot)}" : $"\nЗарядов: {item.charges}");
-            text.Append("</color>");
-            if (item.IsAssembled)
-                text.Append("\n\n<color=#8FD0FF>Собирается из: " + string.Join(" + ", item.components.Where(c => c != null).Select(c => $"{c.displayName} ({c.cost})"))
-                            + ". Купленные части входят в цену, сами части в инвентаре собираются в предмет.</color>");
-            var into = item.BuildsInto().Select(r => r.displayName).Distinct().ToArray();
-            if (into.Length > 0) text.Append("\n\n<color=#8FD0FF>Входит в: " + string.Join(", ", into) + "</color>");
-            if (owner != null && item.IsUsable && slot < SlotKeys.Length)
-                text.Append(item.IsInstant
-                    ? $"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — применить"
-                    : $"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — выбрать, клик по цели — применить");
-            if (owner != null && owner == LocalHeroInventory())
-                text.Append($"\n<color=#E8A860>Продать за {owner.SellValue(slot)} золота: правая кнопка мыши (на телефоне — удерживать слот)</color>");
-            return text.ToString();
+            var lines = new List<string>();
+            if (item.ManaBonus > 0f) lines.Add($"+{item.ManaBonus.ToString("0", ci)} к мане");
+            if (item.ManaRegenBonus > 0f) lines.Add($"+{item.ManaRegenBonus.ToString("0.##", ci)} к восстановлению маны");
+            if (item.MoveSpeedBonus > 0f) lines.Add($"+{(item.MoveSpeedBonus * 100f).ToString("0", ci)} к скорости передвижения");
+            if (item.AgilityBonus > 0f) lines.Add($"+{item.AgilityBonus.ToString("0", ci)} к ловкости");
+            if (!hasAbilities) // an item without named abilities still tells what it does
+            {
+                if (item.CastRangeBonus > 0f) lines.Add($"+{(item.CastRangeBonus * 100f).ToString("0", ci)} к дальности способностей");
+                if (item.HeroDamageBonus > 0f) lines.Add($"+{item.HeroDamageBonus.ToString("0", ci)} урона по героям");
+                if (item.CreepDamageBonus > 0f) lines.Add($"+{item.CreepDamageBonus.ToString("0", ci)} урона по крипам");
+                if (item.AuraManaRegen > 0f) lines.Add($"Аура: +{item.AuraManaRegen.ToString("0.##", ci)} маны в секунду союзникам в радиусе {(item.AuraRadius * 100f).ToString("0", ci)}");
+                if (item.KillManaSteal > 0f) lines.Add($"Вампиризм маны: {(item.KillManaSteal * 100f).ToString("0.#", ci)} % маны убитого");
+            }
+            return string.Join("\n", lines);
         }
 
-        /// <summary>A dark panel with the description's text, made at start and shown over a hovered item.</summary>
+        /// <summary>The use's numbers under the active frame: reach, cooldown, charges.</summary>
+        static string UseNumbers(ItemDef item, HeroInventory owner, int slot)
+        {
+            var use = item.Active;
+            if (use == null) return "";
+            var ci = CultureInfo.InvariantCulture;
+            var parts = new List<string>();
+            if (!item.IsInstant && use.castRange > 0f) parts.Add($"Дальность {(use.castRange * 100f).ToString("0", ci)}");
+            if (use.cooldown > 0f) parts.Add($"Перезарядка {use.cooldown.ToString("0.#", ci)} с");
+            if (item.charges > 0) parts.Add(owner != null ? $"Зарядов осталось: {owner.ChargesAt(slot)}" : $"Зарядов: {item.charges}");
+            return string.Join("   ·   ", parts);
+        }
+
+        void Fill(ItemDef item, HeroInventory owner, int slot)
+        {
+            tooltipName.text = item.displayName;
+            tooltipPrice.text = item.cost.ToString();
+            var abilities = item.Abilities.ToList();
+            SetText(tooltipBonuses, Bonuses(item, abilities.Count > 0));
+            SetText(tooltipDetails, item.details);
+            // the use's numbers go under the first active frame; an item using without one gets a frame of its own
+            string numbers = UseNumbers(item, owner, slot);
+            if (item.IsUsable && !abilities.Any(a => a.active))
+                abilities.Insert(0, new ItemAbility { name = "", active = true, description = "" });
+            bool numbersShown = false;
+            for (int i = 0; i < Mathf.Max(abilities.Count, abilityBoxes.Count); i++)
+            {
+                if (i >= abilities.Count)
+                {
+                    abilityBoxes[i].root.gameObject.SetActive(false);
+                    continue;
+                }
+                if (i >= abilityBoxes.Count) abilityBoxes.Add(BuildAbilityBox(tooltipAbilities));
+                var box = abilityBoxes[i];
+                var ability = abilities[i];
+                box.active = ability.active;
+                box.root.gameObject.SetActive(true);
+                box.frame.color = ability.active ? activeFrameColor : passiveFrameColor;
+                box.fill.color = ability.active ? activeFillColor : passiveFillColor;
+                string kind = ability.active ? "Активная" : "Пассивная";
+                box.title.text = string.IsNullOrEmpty(ability.name) ? kind : $"{kind}: {ability.name}";
+                box.title.color = ability.active ? activeTitleColor : passiveTitleColor;
+                string text = ability.description ?? "";
+                if (ability.active && !numbersShown && numbers.Length > 0)
+                {
+                    text = text.Length > 0 ? $"{text}\n<color=#9FC4FF>{numbers}</color>" : $"<color=#9FC4FF>{numbers}</color>";
+                    numbersShown = true;
+                }
+                SetText(box.text, text);
+            }
+            tooltipAbilities.gameObject.SetActive(abilities.Count > 0);
+            SetText(tooltipLore, item.lore);
+            var footer = new System.Text.StringBuilder();
+            if (owner != null && item.IsUsable && slot < SlotKeys.Length)
+                footer.Append(item.IsInstant
+                    ? $"Клавиша <b>{SlotKeys[slot]}</b> или клик по слоту — применить"
+                    : $"Клавиша <b>{SlotKeys[slot]}</b> или клик по слоту — выбрать, клик по цели — применить");
+            if (owner != null && owner == LocalHeroInventory())
+            {
+                if (footer.Length > 0) footer.Append('\n');
+                footer.Append($"<color=#FFB060><b>Продать за {owner.SellValue(slot)} золота</b></color> — правая кнопка мыши (на телефоне — удерживать слот)");
+            }
+            SetText(tooltipFooter, footer.ToString());
+        }
+
+        static void SetText(Text text, string value)
+        {
+            bool shown = !string.IsNullOrEmpty(value);
+            text.gameObject.SetActive(shown);
+            if (shown) text.text = value;
+        }
+
+        class AbilityBox
+        {
+            public RectTransform root;
+            public Image frame, fill;
+            public Text title, text;
+            public bool active;
+        }
+
+        /// <summary>A dark opaque plate with a bright rim, laid out top to bottom; made at start, filled on hover.</summary>
         void BuildTooltip()
         {
             var canvas = goldLabel != null ? goldLabel.canvas : GetComponentInParent<Canvas>();
             if (canvas == null) return;
             var old = canvas.transform.Find("ItemTooltip");
             if (old != null) Destroy(old.gameObject); // left from an earlier start
+            tooltipFont = goldLabel != null ? goldLabel.font : null;
+            abilityBoxes.Clear();
+
+            // the rim: the plate's own image, the content on a darker one inside it
             tooltip = new GameObject("ItemTooltip", typeof(RectTransform)).GetComponent<RectTransform>();
             tooltip.SetParent(canvas.transform, false);
             tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 0.5f);
-            tooltip.sizeDelta = new Vector2(460f, 200f);
-            var bg = tooltip.gameObject.AddComponent<Image>();
-            bg.color = new Color(0.04f, 0.05f, 0.07f, 0.95f);
-            bg.raycastTarget = false;
-            var textRt = new GameObject("Text", typeof(RectTransform)).GetComponent<RectTransform>();
-            textRt.SetParent(tooltip, false);
-            textRt.anchorMin = Vector2.zero;
-            textRt.anchorMax = Vector2.one;
-            textRt.offsetMin = new Vector2(14f, 12f);
-            textRt.offsetMax = new Vector2(-14f, -12f);
-            tooltipText = textRt.gameObject.AddComponent<Text>();
-            tooltipText.font = goldLabel != null ? goldLabel.font : null;
-            tooltipText.fontSize = 20;
-            tooltipText.supportRichText = true;
-            tooltipText.alignment = TextAnchor.UpperLeft;
-            tooltipText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            tooltipText.verticalOverflow = VerticalWrapMode.Overflow;
-            tooltipText.color = Color.white;
-            tooltipText.raycastTarget = false;
-            TextOutline.Add(tooltipText.gameObject, 1.2f); // thin: on a dark plate (a long text gets fewer copies)
+            tooltip.sizeDelta = new Vector2(tooltipWidth, 200f);
+            var rim = tooltip.gameObject.AddComponent<Image>();
+            rim.color = tooltipRimColor;
+            rim.raycastTarget = false;
+            var rimLayout = tooltip.gameObject.AddComponent<VerticalLayoutGroup>();
+            rimLayout.padding = new RectOffset(2, 2, 2, 2);
+            rimLayout.childControlWidth = rimLayout.childControlHeight = true;
+            rimLayout.childForceExpandWidth = true;
+            rimLayout.childForceExpandHeight = false;
+            tooltip.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var body = Box(tooltip, "Body", tooltipColor, 16, 12);
+            var header = new GameObject("Header", typeof(RectTransform)).GetComponent<RectTransform>();
+            header.SetParent(body, false);
+            header.gameObject.AddComponent<LayoutElement>().preferredHeight = 40f;
+            tooltipName = Label(header, "Name", 28, Color.white, TextAnchor.MiddleLeft, FontStyle.Bold);
+            Stretch((RectTransform)tooltipName.transform, 0f, 110f);
+            TextOutline.Add(tooltipName.gameObject, 1.2f);
+            tooltipPrice = Label(header, "Price", 26, new Color(1f, 0.82f, 0.25f), TextAnchor.MiddleRight, FontStyle.Bold);
+            Stretch((RectTransform)tooltipPrice.transform, 0f, 0f);
+            TextOutline.Add(tooltipPrice.gameObject, 1.2f);
+            var line = new GameObject("Line", typeof(RectTransform)).GetComponent<RectTransform>();
+            line.SetParent(body, false);
+            line.gameObject.AddComponent<LayoutElement>().preferredHeight = 2f;
+            var lineImage = line.gameObject.AddComponent<Image>();
+            lineImage.color = new Color(1f, 0.82f, 0.25f, 0.45f);
+            lineImage.raycastTarget = false;
+
+            tooltipBonuses = Label(body, "Bonuses", 22, Color.white, TextAnchor.UpperLeft, FontStyle.Bold);
+            tooltipDetails = Label(body, "Details", 19, new Color(0.82f, 0.84f, 0.88f), TextAnchor.UpperLeft, FontStyle.Normal);
+            tooltipAbilities = new GameObject("Abilities", typeof(RectTransform)).GetComponent<RectTransform>();
+            tooltipAbilities.SetParent(body, false);
+            var list = tooltipAbilities.gameObject.AddComponent<VerticalLayoutGroup>();
+            list.spacing = 8f;
+            list.childControlWidth = list.childControlHeight = true;
+            list.childForceExpandWidth = true;
+            list.childForceExpandHeight = false;
+            tooltipLore = Label(body, "Lore", 19, new Color(0.74f, 0.7f, 0.62f), TextAnchor.UpperLeft, FontStyle.Italic);
+            tooltipFooter = Label(body, "Footer", 18, new Color(0.78f, 0.8f, 0.84f), TextAnchor.UpperLeft, FontStyle.Normal);
             tooltip.gameObject.SetActive(false);
+        }
+
+        /// <summary>An ability's frame: a coloured rim, a dark fill, its title and its text.</summary>
+        AbilityBox BuildAbilityBox(RectTransform parent)
+        {
+            var root = new GameObject("Ability", typeof(RectTransform)).GetComponent<RectTransform>();
+            root.SetParent(parent, false);
+            var frame = root.gameObject.AddComponent<Image>();
+            frame.raycastTarget = false;
+            var rimLayout = root.gameObject.AddComponent<VerticalLayoutGroup>();
+            rimLayout.padding = new RectOffset(2, 2, 2, 2);
+            rimLayout.childControlWidth = rimLayout.childControlHeight = true;
+            rimLayout.childForceExpandWidth = true;
+            rimLayout.childForceExpandHeight = false;
+            var fill = Box(root, "Fill", passiveFillColor, 10, 4);
+            var title = Label(fill, "Title", 21, Color.white, TextAnchor.UpperLeft, FontStyle.Bold);
+            var text = Label(fill, "Text", 19, new Color(0.9f, 0.91f, 0.93f), TextAnchor.UpperLeft, FontStyle.Normal);
+            return new AbilityBox { root = root, frame = frame, fill = fill.GetComponent<Image>(), title = title, text = text };
+        }
+
+        /// <summary>A plate laying its children out top to bottom with <paramref name="padding"/> around them.</summary>
+        static RectTransform Box(RectTransform parent, string name, Color color, int padding, float spacing)
+        {
+            var rt = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            var image = rt.gameObject.AddComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
+            var layout = rt.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(padding, padding, padding - 2, padding);
+            layout.spacing = spacing;
+            layout.childControlWidth = layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            return rt;
+        }
+
+        Text Label(Transform parent, string name, int size, Color color, TextAnchor align, FontStyle style)
+        {
+            var rt = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+            rt.SetParent(parent, false);
+            var text = rt.gameObject.AddComponent<Text>();
+            text.font = tooltipFont;
+            text.fontSize = size;
+            text.fontStyle = style;
+            text.color = color;
+            text.alignment = align;
+            text.supportRichText = true;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.raycastTarget = false;
+            return text;
+        }
+
+        /// <summary>Fills the parent, leaving <paramref name="right"/> free at its right side.</summary>
+        static void Stretch(RectTransform rt, float left, float right)
+        {
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.offsetMin = new Vector2(left, 0f);
+            rt.offsetMax = new Vector2(-right, 0f);
         }
 
         /// <summary>Each slot clickable, with its charges label, cooldown shade and frame for the selection.</summary>
