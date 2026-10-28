@@ -57,6 +57,8 @@ namespace PudgeWars.Gameplay
         public float returnSpeed = 15f;
         [Tooltip("StartHook_DelayAnimations = 0.29 s")] public float castDelay = 0.29f;
         public float cooldown = 1f;
+        [Tooltip("Mana a cast takes (Dota 2 Meat Hook: 110–140 by level); spent as the wind-up starts.")]
+        public float manaCost = 120f;
         [Tooltip("Dota's Meat Hook pulls allies too (without harm).")]
         public bool hitsAllies = true;
         [Tooltip("A cast that catches an enemy leaves the hook ready right after it comes back.")]
@@ -120,6 +122,8 @@ namespace PudgeWars.Gameplay
         public float EffectiveRange => range + (inventory != null ? inventory.CastRangeBonus : 0f);
         public bool IsBusy => Simulation.IsProxy ? remoteBusy || Time.time < pendingCastUntil : state != State.Ready;
         public bool IsReady => !IsBusy && Time.time >= readyAt;
+        /// <summary>The owner has the mana for a cast.</summary>
+        public bool HasMana => self == null || self.Mana >= manaCost;
         /// <summary>Distance from the head's pivot (where hits and range are measured) to the tip of its model.</summary>
         public float TipLength { get; private set; }
         /// <summary>How far from the hero's centre the tip of the hook reaches.</summary>
@@ -239,7 +243,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Throws the hook toward a world point (only the horizontal direction matters).</summary>
         public bool TryCast(Vector3 worldPoint)
         {
-            if (!IsReady || (self != null && !self.IsControllable)) return false;
+            if (!IsReady || !HasMana || (self != null && !self.IsControllable)) return false;
             if (Simulation.IsProxy)
             {
                 CastRequested?.Invoke(worldPoint);
@@ -254,6 +258,12 @@ namespace PudgeWars.Gameplay
 
         void BeginWindup()
         {
+            // the mana goes as the throw starts; spent meanwhile (turning) — no throw, and no cooldown either
+            if (self != null && !self.SpendMana(manaCost))
+            {
+                state = State.Ready;
+                return;
+            }
             anim?.PlayAction(PudgeAnimation.HookStart, 10f, 0.05f);
             state = State.Windup;
             timer = castDelay;

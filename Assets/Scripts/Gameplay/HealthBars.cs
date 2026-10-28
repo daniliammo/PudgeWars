@@ -15,7 +15,10 @@ namespace PudgeWars.Gameplay
     /// Lost health shows as in Dota: the fill drops at once, a white trail stays where it was and after a moment runs
     /// down to it. Regeneration shows the other way: a dark strip (dark green for allies, dark red for enemies) runs
     /// ahead of the fill over the health the next <see cref="regenPreviewSeconds"/> bring back, and "+2.5" (health per
-    /// second) stands inside the bar at its right end. Under it hangs a thin blue mana bar, as in Dota. A dead hero's bar stays a while at 0 (the trail running out), then fades
+    /// second) stands inside the bar at its right end. Under it hangs a blue mana bar, as in Dota, with "current / max" mana in
+    /// its middle and the mana per second ("+0.8") at its right end. The local player's own bar has a white rim. In first
+    /// person the own bar takes the bottom edge of the screen, under the ability bar (which rises over it), without the
+    /// name. A dead hero's bar stays a while at 0 (the trail running out), then fades
     /// away until the respawn.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -60,12 +63,21 @@ namespace PudgeWars.Gameplay
         public int regenFontSize = 13;
         public Color regenTextColor = new(0.65f, 1f, 0.5f);
         [Header("Mana")]
-        [Tooltip("Inner height of the mana bar under the health, canvas units.")] public float manaHeight = 7f;
+        [Tooltip("Inner height of the mana bar under the health, canvas units.")] public float manaBarHeight = 12f;
         public Color manaColor = new(0.25f, 0.5f, 1f);
         public Color manaEmptyColor = new(0.06f, 0.08f, 0.16f, 0.9f);
+        [Tooltip("{0} = current mana, {1} = maximum, both rounded up.")]
+        public string manaFormat = "{0}/{1}";
+        public int manaFontSize = 11;
+        [Tooltip("{0} = mana regenerated per second; shown inside the mana bar at its right end.")]
+        public string manaRegenFormat = "+{0:0.##}";
+        public Color manaRegenTextColor = new(0.7f, 0.85f, 1f);
+        [Header("Own hero")]
+        public Color ownRimColor = Color.white;
+        [Tooltip("Width of the white rim around the local player's own bar, canvas units.")] public float ownRimWidth = 2f;
         [Header("First person")]
-        [Tooltip("In first person the own hero's bar stands at the bottom of the screen, its centre this high, canvas units (over the ability bar).")]
-        public float firstPersonY = 205f;
+        [Tooltip("In first person the own hero's bar stands at the bottom of the screen, its centre this high, canvas units (under the ability bar).")]
+        public float firstPersonBottom = 62f;
         [Tooltip("And this many times bigger.")]
         public float firstPersonScale = 1.8f;
         [Tooltip("Seconds a dead hero's bar stays shown at 0, its fading included.")] public float deadShowTime = 2f;
@@ -73,7 +85,11 @@ namespace PudgeWars.Gameplay
 
         class Bar
         {
-            public RectTransform root, fill, trail, regen, mana, manaFill;
+            public RectTransform root, fill, trail, regen, mana, manaFill, rim;
+            public Image rimImage;
+            public Text manaText, manaRegenText;
+            public int shownMana = -1, shownMaxMana = -1;
+            public float shownManaRegen = -1f;
             public CanvasGroup group;
             public float trailFraction, lastFraction, holdUntil;
             public float deadSince = -1f; // -1 while alive
@@ -104,7 +120,10 @@ namespace PudgeWars.Gameplay
         void Rebuild()
         {
             foreach (var bar in bars.Values)
+            {
                 if (bar.root != null) Destroy(bar.root.gameObject);
+                if (bar.rim != null) Destroy(bar.rim.gameObject);
+            }
             bars.Clear();
         }
 
@@ -157,10 +176,12 @@ namespace PudgeWars.Gameplay
                 ShowLevel(hero, bar);
                 ShowMultiKill(hero, bar);
                 Place(hero, bar);
+                ShowRim(bar);
             }
             foreach (var hero in gone)
             {
                 if (bars[hero].root != null) Destroy(bars[hero].root.gameObject);
+                if (bars[hero].rim != null) Destroy(bars[hero].rim.gameObject);
                 bars.Remove(hero);
             }
         }
@@ -193,12 +214,48 @@ namespace PudgeWars.Gameplay
             bar.regenText.gameObject.SetActive(regen > 0f);
         }
 
-        static void ShowMana(Pudge hero, Bar bar)
+        void ShowMana(Pudge hero, Bar bar)
         {
             float max = hero.MaxMana;
             bar.mana.gameObject.SetActive(max > 0f);
             bar.manaFill.anchorMax = new Vector2(max > 0f ? Mathf.Clamp01(hero.Mana / max) : 0f, 1f);
+            int mana = Mathf.CeilToInt(Mathf.Max(0f, hero.Mana)), maxMana = Mathf.CeilToInt(max);
+            if (mana != bar.shownMana || maxMana != bar.shownMaxMana)
+            {
+                bar.shownMana = mana;
+                bar.shownMaxMana = maxMana;
+                bar.manaText.text = string.Format(manaFormat, mana, maxMana);
+            }
+            float regen = hero.IsAlive ? Mathf.Max(0f, hero.ManaRegen) : 0f;
+            if (Mathf.Approximately(regen, bar.shownManaRegen)) return;
+            bar.shownManaRegen = regen;
+            bar.manaRegenText.text = string.Format(CultureInfo.InvariantCulture, manaRegenFormat, regen);
+            bar.manaRegenText.gameObject.SetActive(regen > 0f);
         }
+
+        /// <summary>The own bar's white rim goes wherever the bar goes (it lies under it, made before it).</summary>
+        void ShowRim(Bar bar)
+        {
+            if (bar.rim == null) return;
+            bar.rim.gameObject.SetActive(bar.root.gameObject.activeSelf);
+            bar.rim.localScale = bar.root.localScale;
+            bar.rim.anchoredPosition = bar.root.anchoredPosition + RimOffset * bar.root.localScale.y;
+            var c = ownRimColor;
+            c.a *= bar.group.alpha;
+            bar.rimImage.color = c;
+        }
+
+        /// <summary>The rim's centre below the bar's (it takes the mana bar in too).</summary>
+        Vector2 RimOffset => new(0f, -(manaBarHeight + border) / 2f);
+
+        /// <summary>The white rim of the local player's own bar (null for another hero or before the bar is made).</summary>
+        public RectTransform OwnRim(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.rim : null;
+
+        /// <summary>The "current / max" mana label on a hero's mana bar (null if it has no bar yet).</summary>
+        public Text ManaLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.manaText : null;
+
+        /// <summary>The "+0.8" mana regeneration label on a hero's mana bar (null if it has no bar yet).</summary>
+        public Text ManaRegenLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.manaRegenText : null;
 
         /// <summary>Rebuilds the text only when the numbers change (no garbage every frame).</summary>
         void ShowHealth(Pudge hero, Bar bar)
@@ -250,10 +307,12 @@ namespace PudgeWars.Gameplay
             bar.group.alpha = Mathf.Clamp01((deadShowTime - deadFor) / Mathf.Max(deadFadeTime, 0.01f));
 
             // first person: the own hero is not in the picture, its bar stands at the bottom of the screen
-            if (hero == LocalPlayer.Hero && IsFirstPerson)
+            bool atBottom = hero == LocalPlayer.Hero && IsFirstPerson;
+            bar.name.gameObject.SetActive(!atBottom); // the player knows its own name; it would cover the ability bar
+            if (atBottom)
             {
                 bar.root.gameObject.SetActive(deadFor < deadShowTime);
-                bar.root.anchoredPosition = new Vector2(0f, rect.rect.yMin + firstPersonY);
+                bar.root.anchoredPosition = new Vector2(0f, rect.rect.yMin + firstPersonBottom);
                 bar.root.localScale = Vector3.one * firstPersonScale;
                 return;
             }
@@ -276,6 +335,14 @@ namespace PudgeWars.Gameplay
 
         Bar Create(Pudge hero)
         {
+            // the own hero's white rim: made first, so it lies under the bar and shows only around it
+            RectTransform rim = null;
+            Image rimImage = null;
+            if (hero == LocalPlayer.Hero)
+            {
+                rim = Rect(rect, "OwnRim_" + hero.name, new Vector2(size.x + 2f * border, size.y + 3f * border + manaBarHeight) + Vector2.one * (2f * ownRimWidth));
+                rimImage = Img(rim, ownRimColor);
+            }
             var root = Rect(rect, "HealthBar_" + hero.name, size + Vector2.one * (2f * border));
             Img(root, frameColor);
 
@@ -319,10 +386,10 @@ namespace PudgeWars.Gameplay
             }
 
             // mana: a thin blue bar hanging under the health one, sharing its bottom edge
-            var mana = Rect(root, "Mana", new Vector2(size.x + 2f * border, manaHeight + border));
-            mana.anchoredPosition = new Vector2(0f, -(size.y / 2f + border + (manaHeight + border) / 2f));
+            var mana = Rect(root, "Mana", new Vector2(size.x + 2f * border, manaBarHeight + border));
+            mana.anchoredPosition = new Vector2(0f, -(size.y / 2f + border + (manaBarHeight + border) / 2f));
             Img(mana, frameColor);
-            var manaInner = Rect(mana, "Inner", new Vector2(size.x, manaHeight));
+            var manaInner = Rect(mana, "Inner", new Vector2(size.x, manaBarHeight));
             manaInner.anchoredPosition = new Vector2(0f, border / 2f);
             Img(manaInner, manaEmptyColor);
             var manaFill = Rect(manaInner, "Fill", Vector2.zero);
@@ -330,6 +397,28 @@ namespace PudgeWars.Gameplay
             manaFill.anchorMax = Vector2.one;
             manaFill.pivot = new Vector2(0f, 0.5f);
             Img(manaFill, manaColor);
+            var manaTextRt = Rect(manaInner, "ManaText", new Vector2(size.x, manaBarHeight + 6f));
+            var manaText = manaTextRt.gameObject.AddComponent<Text>();
+            manaText.font = font;
+            manaText.fontSize = manaFontSize;
+            manaText.fontStyle = FontStyle.Bold;
+            manaText.alignment = TextAnchor.MiddleCenter;
+            manaText.color = healthTextColor;
+            manaText.raycastTarget = false;
+            manaText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            manaText.verticalOverflow = VerticalWrapMode.Overflow;
+            TextOutline.Add(manaText.gameObject, 1.2f, bold: 0.5f);
+            var manaRegenRt = Rect(manaInner, "ManaRegen", new Vector2(size.x - 6f, manaBarHeight + 6f));
+            var manaRegenText = manaRegenRt.gameObject.AddComponent<Text>();
+            manaRegenText.font = font;
+            manaRegenText.fontSize = manaFontSize;
+            manaRegenText.fontStyle = FontStyle.Bold;
+            manaRegenText.alignment = TextAnchor.MiddleRight;
+            manaRegenText.color = manaRegenTextColor;
+            manaRegenText.raycastTarget = false;
+            manaRegenText.horizontalOverflow = HorizontalWrapMode.Overflow;
+            manaRegenText.verticalOverflow = VerticalWrapMode.Overflow;
+            TextOutline.Add(manaRegenText.gameObject, 1.2f, bold: 0.5f);
 
             // over the fill and the notches: white bold digits in a black outline read on green, red and empty alike
             var healthRt = Rect(root, "Health", size + new Vector2(0f, 6f));
@@ -405,7 +494,8 @@ namespace PudgeWars.Gameplay
             float fraction = Fraction(hero);
             var bar = new Bar
             {
-                root = root, fill = fill, trail = trail, regen = regen, mana = mana, manaFill = manaFill, group = group, trailFraction = fraction,
+                root = root, fill = fill, trail = trail, regen = regen, mana = mana, manaFill = manaFill, rim = rim, rimImage = rimImage,
+                manaText = manaText, manaRegenText = manaRegenText, group = group, trailFraction = fraction,
                 lastFraction = fraction, fillImage = fillImage, regenImage = regenImage, name = name, health = health,
                 level = level, multiKill = multiKill, regenText = regenText,
             };
@@ -415,6 +505,7 @@ namespace PudgeWars.Gameplay
             ShowHealth(hero, bar);
             ShowLevel(hero, bar);
             ShowMultiKill(hero, bar);
+            ShowRim(bar);
             return bar;
         }
 

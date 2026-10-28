@@ -30,6 +30,8 @@ namespace PudgeWars.Tests
             var input = Object.FindAnyObjectByType<PlayerInputController>();
             input.enabled = false; // tests drive the player directly
             hook = input.GetComponent<HookAbility>();
+            // the hook's mana cost has its own test: the others throw as often as they like
+            foreach (var h in Object.FindObjectsByType<HookAbility>()) h.manaCost = 0f;
             player = hook.GetComponent<Pudge>();
             foreach (var brain in Object.FindObjectsByType<BotBrain>()) brain.enabled = false;
         }
@@ -1359,6 +1361,41 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator HookCostsManaAndBarsShowItAsText()
+        {
+            hook.manaCost = 120f;
+            var bars = Object.FindAnyObjectByType<HealthBars>();
+            var abilities = Object.FindAnyObjectByType<AbilityBar>();
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            bot.transform.position = new Vector3(20f, 0f, 20f); // out of the way
+            yield return null;
+            yield return null;
+            Assert.AreEqual("267/267", bars.ManaLabel(player).text, "no mana as text on the bar");
+            Assert.AreEqual("+0.8", bars.ManaRegenLabel(player).text, "no mana regeneration as text on the bar");
+            Assert.IsNotNull(bars.OwnRim(player), "the own bar has no white rim");
+            Assert.AreEqual(Color.white, bars.OwnRim(player).GetComponent<Image>().color, "the own bar's rim must be white");
+            Assert.IsNull(bars.OwnRim(bot), "another hero's bar must not have the rim");
+            Assert.AreEqual("120", abilities.ManaCostLabel.text, "no mana cost on the hook's slot");
+
+            // a throw takes 120 mana; without 120 there is no throw
+            float mana = player.Mana;
+            Assert.IsTrue(hook.TryCast(player.transform.position + Vector3.forward * 5f));
+            yield return new WaitUntil(() => hook.HeadVisible);
+            Assert.AreEqual(mana - 120f, player.Mana, 1f, "the hook must take 120 mana");
+            yield return new WaitUntil(() => hook.IsReady);
+            player.SpendMana(player.Mana - 50f);
+            Assert.IsFalse(hook.HasMana);
+            Assert.IsFalse(hook.TryCast(player.transform.position + Vector3.forward * 5f), "the hook was thrown without the mana");
+            yield return null;
+            Assert.AreNotEqual(Color.white, abilities.slots[0].icon.color, "the hook's icon must turn blue without the mana");
+            var input = player.GetComponent<PlayerInputController>();
+            bool noMana = false;
+            input.AbilityNoMana += () => noMana = true;
+            Assert.IsFalse(input.SelectAbility(PlayerInputController.HookSlot), "the hook was picked without the mana");
+            Assert.IsTrue(noMana, "no \"no mana\" for the hook asked without mana");
+        }
+
+        [UnityTest]
         public IEnumerator ManaItemsAndCraftingAetherLens()
         {
             var inventory = player.GetComponent<HeroInventory>();
@@ -1808,14 +1845,26 @@ namespace PudgeWars.Tests
             yield return null;
             Assert.IsTrue(root.gameObject.activeSelf, "no own health bar in first person");
             var area = ((RectTransform)bars.transform).rect;
-            Assert.AreEqual(area.yMin + bars.firstPersonY, root.anchoredPosition.y, 0.01f, "the own bar must stand at the bottom of the screen");
+            Assert.AreEqual(area.yMin + bars.firstPersonBottom, root.anchoredPosition.y, 0.01f, "the own bar must stand at the bottom of the screen");
             Assert.AreEqual(0f, root.anchoredPosition.x, 0.01f);
             Assert.Greater(root.localScale.x, 1f, "the bottom bar should be bigger");
+            Assert.IsFalse(bars.Of(player).name.gameObject.activeSelf, "the own name must not cover the ability bar");
+            // the ability bar rises over it: both at the bottom, the bar under the abilities
+            var abilities = Object.FindAnyObjectByType<AbilityBar>();
+            Assert.IsTrue(abilities.Raised, "the ability bar did not rise over the own health bar");
+            var abilityRect = (RectTransform)abilities.slots[0].transform.parent;
+            var barCorners = new Vector3[4];
+            var abilityCorners = new Vector3[4];
+            root.GetWorldCorners(barCorners);
+            abilityRect.GetWorldCorners(abilityCorners);
+            Assert.Greater(abilityCorners[0].y, barCorners[1].y, "the health bar must be under the ability bar");
             CaptureScreen("first_person_health");
             while (view.IsFirstPerson) view.NextView();
             yield return null;
             Assert.AreEqual(1f, root.localScale.x, 1e-4f, "the bar went back over the head at its size");
-            Assert.AreNotEqual(area.yMin + bars.firstPersonY, root.anchoredPosition.y);
+            Assert.AreNotEqual(area.yMin + bars.firstPersonBottom, root.anchoredPosition.y);
+            Assert.IsFalse(abilities.Raised, "the ability bar stayed raised out of first person");
+            Assert.IsTrue(bars.Of(player).name.gameObject.activeSelf);
         }
 
         [UnityTest]
@@ -1825,7 +1874,11 @@ namespace PudgeWars.Tests
             var marker = SelectionMarker.Instance;
             var bot = Pudge.All.First(h => h.team == Team.Bots);
             yield return null;
-            Assert.IsFalse(marker.IsShown, "nothing is picked yet");
+            // the game starts with the own hero picked, as Space picks it
+            Assert.AreEqual(player, marker.SelectedUnit, "the own hero is not picked at the start");
+            marker.Clear();
+            yield return null;
+            Assert.IsFalse(marker.IsShown, "nothing is picked now");
 
             // Space picks the own hero: green
             input.PickOwnHero();

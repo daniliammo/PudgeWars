@@ -5,7 +5,7 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Pudge's Dota 2 voice (Russian, Resources/Audio/Voice) for the local player's hero, heard only by that player:
-    /// spawn and "battle begins", hook hit and miss, a cast now and then, "not yet" for a hook on cooldown, caught by an
+    /// spawn and "battle begins", hook hit and miss, a cast now and then, "not yet" for a hook on cooldown, "no mana" without the mana for it, caught by an
     /// enemy, kills (first blood, big multi-kills laughing), death, respawn, a rescue made ("denied") and received
     /// ("thanks"), a purchase and now and then a move after standing. One line at a time: a more important one cuts a
     /// lesser one off, one that matters no more than the line playing is dropped. A falling or dead hero only says
@@ -22,6 +22,7 @@ namespace PudgeWars.Gameplay
         static readonly string[] HookMissLines = { "pud_ability_hook_miss", "pud_anger" };
         static readonly string[] CastLines = { "pud_cast", "pud_attack" };
         static readonly string[] NotYetLines = { "pud_notyet" };
+        static readonly string[] NoManaLines = { "pud_nomana" };
         static readonly string[] CaughtLines = { "pud_pain", "pud_getoff", "pud_underattack" };
         static readonly string[] KillLines = { "pud_kill", "pud_lasthit", "pud_nomnom", "pud_ability_devour", "pud_ability_heap" };
         static readonly string[] RareKillLines = { "pud_rare" };
@@ -137,7 +138,11 @@ namespace PudgeWars.Gameplay
                 hook.Missed += OnMissed;
                 hook.Launched += OnLaunched;
             }
-            if (input != null) input.AbilityNotReady += OnNotReady;
+            if (input != null)
+            {
+                input.AbilityNotReady += OnNotReady;
+                input.AbilityNoMana += OnNoMana;
+            }
             ListenTo(Arena.Instance);
             wasDown = IsDown;
             lastScore = arena != null ? arena.ScoreOf(hero) : default;
@@ -160,7 +165,11 @@ namespace PudgeWars.Gameplay
                 hook.Missed -= OnMissed;
                 hook.Launched -= OnLaunched;
             }
-            if (input != null) input.AbilityNotReady -= OnNotReady;
+            if (input != null)
+            {
+                input.AbilityNotReady -= OnNotReady;
+                input.AbilityNoMana -= OnNoMana;
+            }
             ListenTo(null);
             hero = null;
             hook = null;
@@ -292,6 +301,8 @@ namespace PudgeWars.Gameplay
         }
 
         void OnNotReady() => SayMinor(NotYetLines);
+
+        void OnNoMana() => SayMinor(NoManaLines);
 
         void SayMinor(string[] lines)
         {

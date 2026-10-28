@@ -43,6 +43,8 @@ namespace PudgeWars.Gameplay
         public int SelectedItem { get; private set; } = NoItem;
         /// <summary>The player asked for the hook while it is on cooldown (the hero says "not yet").</summary>
         public event System.Action AbilityNotReady;
+        /// <summary>The player asked for the hook without the mana for it (the hero says "no mana").</summary>
+        public event System.Action AbilityNoMana;
 
         PudgeMotor motor;
         HookAbility hook;
@@ -69,6 +71,9 @@ namespace PudgeWars.Gameplay
             if (viewCamera != null) follow = viewCamera.GetComponent<TopDownCamera>();
             LocalPlayer.Register(this);
         }
+
+        // the game starts with the own hero picked, as Space picks it
+        void Start() => PickOwnHero();
 
         void OnDestroy() => LocalPlayer.Unregister(this);
 
@@ -97,6 +102,11 @@ namespace PudgeWars.Gameplay
             if (!hook.IsReady)
             {
                 if (SelectedAbility == NoAbility) AbilityNotReady?.Invoke();
+                return false;
+            }
+            if (!hook.HasMana)
+            {
+                if (SelectedAbility == NoAbility) AbilityNoMana?.Invoke();
                 return false;
             }
             DeselectItem();
@@ -189,7 +199,7 @@ namespace PudgeWars.Gameplay
             for (int i = 0; kb != null && i < ItemKeys.Length; i++)
                 if (kb[ItemKeys[i]].wasPressedThisFrame) SelectItem(i);
             bool stickAiming = touch != null && touch.hookStick != null && touch.hookStick.IsHeld;
-            if (stickAiming && SelectedAbility == NoAbility && hook.IsReady) SelectAbility(HookSlot); // held through the cooldown
+            if (stickAiming && SelectedAbility == NoAbility && hook.IsReady && hook.HasMana) SelectAbility(HookSlot); // held through the cooldown
             bool overUi = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             if (SelectedItem != NoItem)
             {
