@@ -4,8 +4,10 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Anything on the arena with a side, a name and health: the base of <see cref="Pudge"/> and of whatever other
-    /// creatures come later. Health regenerates while alive (<see cref="HealthRegen"/>: the unit's own and what items add
+    /// Anything on the arena with a side, a name, health and mana: the base of <see cref="Pudge"/> and of whatever other
+    /// creatures come later. Mana regenerates while alive (<see cref="ManaRegen"/>) up to <see cref="MaxMana"/>; items
+    /// (<see cref="HeroInventory"/>) add to both, and a bigger maximum keeps the share of mana the unit had, as in Dota.
+    /// Health regenerates while alive (<see cref="HealthRegen"/>: the unit's own and what items add
     /// for a while, <see cref="AddRegen"/>) and runs out from <see cref="Damage"/>, which ends in
     /// <see cref="OnHealthDepleted"/>. On a network client (<see cref="Simulation.IsProxy"/>) health is only shown as
     /// the server sends it.
@@ -23,6 +25,10 @@ namespace PudgeWars.Gameplay
         public float maxHealth = 670f;
         [Tooltip("Health regenerated per second while alive (Dota 2 Pudge at level 1: about 2.5).")]
         public float healthRegen = 2.5f;
+        [Tooltip("Mana without items (Dota 2 Pudge at level 1: 75 + 16 intelligence × 12 = 267).")]
+        public float maxMana = 267f;
+        [Tooltip("Mana regenerated per second without items (Dota 2 Pudge at level 1: 16 intelligence × 0.05 = 0.8).")]
+        public float manaRegen = 0.8f;
         [Tooltip("Collision radius for hook hits, metres (capsule radius 61 cm in the original).")]
         public float radius = 0.6f;
 
@@ -39,6 +45,13 @@ namespace PudgeWars.Gameplay
         public virtual int Level => 1;
         public float Health { get; private set; }
         public bool IsAlive { get; protected set; } = true;
+        public float Mana { get; private set; }
+
+        /// <summary>Maximum mana: the unit's own and what its items add.</summary>
+        public float MaxMana => Simulation.IsProxy && remoteMaxMana >= 0f ? remoteMaxMana : maxMana + (inventory != null ? inventory.ManaBonus : 0f);
+
+        /// <summary>Mana regenerated per second: the unit's own and what its items add.</summary>
+        public float ManaRegen => Simulation.IsProxy && remoteManaRegen >= 0f ? remoteManaRegen : manaRegen + (inventory != null ? inventory.ManaRegenBonus : 0f);
 
         /// <summary>Health regenerated per second now: the unit's own and the bonuses still running (Tango).</summary>
         public float HealthRegen
@@ -54,12 +67,16 @@ namespace PudgeWars.Gameplay
         }
 
         readonly List<(float perSecond, float until)> regenBonuses = new();
-        float remoteRegen = -1f;
+        float remoteRegen = -1f, remoteMaxMana = -1f, remoteManaRegen = -1f;
+        HeroInventory inventory;
+        float lastMaxMana;
 
         protected virtual void Awake()
         {
             IsBot = GetComponent<BotBrain>() != null;
+            inventory = GetComponent<HeroInventory>();
             Health = maxHealth;
+            Mana = lastMaxMana = MaxMana;
         }
 
         protected virtual void OnEnable() => allUnits.Add(this);
@@ -71,6 +88,23 @@ namespace PudgeWars.Gameplay
             float regen = HealthRegen;
             if (IsAlive && !Simulation.IsProxy && regen > 0f)
                 Health = Mathf.Min(maxHealth, Health + regen * Time.deltaTime);
+            if (Simulation.IsProxy) return;
+            float max = MaxMana;
+            // an item changed the maximum: the share of mana stays (Dota), not the amount
+            if (!Mathf.Approximately(max, lastMaxMana))
+            {
+                Mana = lastMaxMana > 0f ? Mana / lastMaxMana * max : max;
+                lastMaxMana = max;
+            }
+            if (IsAlive) Mana = Mathf.Clamp(Mana + ManaRegen * Time.deltaTime, 0f, max);
+        }
+
+        /// <summary>Takes <paramref name="amount"/> of mana if the unit has that much (an ability's or an item's cost). Server / offline only.</summary>
+        public bool SpendMana(float amount)
+        {
+            if (!IsAlive || Simulation.IsProxy || amount > Mana) return false;
+            Mana -= Mathf.Max(0f, amount);
+            return true;
         }
 
         /// <summary>Regenerates <paramref name="perSecond"/> more for <paramref name="duration"/> seconds (Tango); death ends it.</summary>
@@ -93,13 +127,18 @@ namespace PudgeWars.Gameplay
         /// <summary>Health ran out from <see cref="Damage"/>: the unit must die (and set <see cref="IsAlive"/>).</summary>
         protected abstract void OnHealthDepleted(Unit source);
 
-        /// <summary>Back to full health (a respawn).</summary>
-        protected void RestoreHealth() => Health = maxHealth;
+        /// <summary>Back to full health and mana (a respawn).</summary>
+        protected void RestoreHealth()
+        {
+            Health = maxHealth;
+            Mana = lastMaxMana = MaxMana;
+        }
 
-        /// <summary>Death (falling into the pit or damage): health shows as zero, the regeneration bonuses end.</summary>
+        /// <summary>Death (falling into the pit or damage): health and mana show as zero, the regeneration bonuses end.</summary>
         protected void ClearHealth()
         {
             Health = 0f;
+            Mana = 0f;
             regenBonuses.Clear();
         }
 
@@ -108,5 +147,13 @@ namespace PudgeWars.Gameplay
 
         /// <summary>Network client: the regeneration per second the server counts (bonuses included).</summary>
         public void ApplyRemoteRegen(float regen) => remoteRegen = regen;
+
+        /// <summary>Network client: mana, its maximum and its regeneration as the server counts them (items included).</summary>
+        public void ApplyRemoteMana(float mana, float max, float regen)
+        {
+            remoteMaxMana = max;
+            remoteManaRegen = regen;
+            Mana = Mathf.Clamp(mana, 0f, max);
+        }
     }
 }

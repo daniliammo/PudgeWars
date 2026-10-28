@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
@@ -17,7 +20,11 @@ namespace PudgeWars.Gameplay
     /// <summary>The sounds of an item put into a slot and picked from it (Dota: Item.DropShop and its kinds).</summary>
     public enum ItemSound { Default, Ring, Gem, Recipe }
 
-    /// <summary>A shop item, the stats it gives its owner and what using it does.</summary>
+    /// <summary>
+    /// A shop item, the stats it gives its owner and what using it does. An assembled item (<see cref="components"/>,
+    /// Aether Lens) is made of others, a recipe scroll among them, as in Dota: once its owner has them all in the slots
+    /// they combine into it, and buying it buys only the parts still missing (<see cref="HeroInventory.PriceOf"/>).
+    /// </summary>
     [CreateAssetMenu(menuName = "Pudge Wars/Item", fileName = "Item")]
     public class ItemDef : ScriptableObject
     {
@@ -37,6 +44,14 @@ namespace PudgeWars.Gameplay
         public float heroDamageBonus;
         [Tooltip("The same on a creep (any unit that is not a hero).")]
         public float creepDamageBonus;
+        [Tooltip("Bonus to maximum mana (Energy Booster +250).")]
+        public float manaBonus;
+        [Tooltip("Bonus to mana regenerated per second (Void Stone +1.75).")]
+        public float manaRegenBonus;
+
+        [Header("Crafting")]
+        [Tooltip("What the item is assembled from, a recipe scroll too if it has one (a part may repeat). Its cost must be their sum.")]
+        public ItemDef[] components = Array.Empty<ItemDef>();
 
         [Header("Use")]
         public ItemAction action;
@@ -57,6 +72,14 @@ namespace PudgeWars.Gameplay
         public float treeLifetime;
 
         public bool IsUsable => action != ItemAction.None;
+        /// <summary>Made of other items (<see cref="components"/>).</summary>
+        public bool IsAssembled => components != null && components.Length > 0;
+
+        /// <summary>The assembled items loaded now (those the shop and the network catalog know).</summary>
+        public static IEnumerable<ItemDef> Assembled() => Resources.FindObjectsOfTypeAll<ItemDef>().Where(i => i.IsAssembled);
+
+        /// <summary>The assembled items this one is a part of.</summary>
+        public IEnumerable<ItemDef> BuildsInto() => Assembled().Where(r => r.components.Contains(this));
         /// <summary>Used on a tree (Tango, Quelling Blade) rather than on a point of the ground (Iron Branch).</summary>
         public bool TargetsTree => action is ItemAction.EatTree or ItemAction.ChopTree;
     }

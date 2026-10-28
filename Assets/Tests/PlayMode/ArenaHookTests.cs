@@ -1359,6 +1359,83 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ManaItemsAndCraftingAetherLens()
+        {
+            var inventory = player.GetComponent<HeroInventory>();
+            var booster = TestItem(ItemAction.None, 800, 0, stacks: false, range: 0f);
+            booster.manaBonus = 250f;
+            var stone = TestItem(ItemAction.None, 700, 0, stacks: false, range: 0f);
+            stone.manaRegenBonus = 1.75f;
+            var recipe = TestItem(ItemAction.None, 775, 0, stacks: false, range: 0f);
+            recipe.sound = ItemSound.Recipe;
+            var lens = TestItem(ItemAction.None, 2275, 0, stacks: false, range: 0f);
+            lens.unique = true;
+            lens.castRangeBonus = 2.75f;
+            lens.components = new[] { booster, stone, recipe };
+            var branch = TestItem(ItemAction.PlantTree, 50, 1, stacks: false, range: 2f);
+            try
+            {
+                // every unit has mana and regenerates it; Pudge at level 1 as in Dota 2
+                yield return null;
+                Assert.AreEqual(267f, player.MaxMana, 1e-3f);
+                Assert.AreEqual(0.8f, player.ManaRegen, 1e-4f);
+                Assert.AreEqual(player.MaxMana, player.Mana, 1e-3f, "a hero starts with full mana");
+                foreach (var unit in Unit.AllUnits) Assert.Greater(unit.MaxMana, 0f, $"{unit.name} has no mana");
+
+                // Energy Booster: +250 maximum mana, the share stays (full stays full)
+                inventory.AddGold(10000, popup: false);
+                Assert.IsTrue(inventory.TryBuy(booster));
+                yield return null;
+                Assert.AreEqual(517f, player.MaxMana, 1e-3f, "Energy Booster must give +250 mana");
+                Assert.AreEqual(517f, player.Mana, 1f, "full mana must stay full with a bigger maximum");
+                Assert.IsTrue(player.SpendMana(300f));
+                Assert.IsFalse(player.SpendMana(1000f), "more mana than there is was spent");
+
+                // the price of an assembled item counts only the parts still missing
+                Assert.AreEqual(700 + 775, inventory.PriceOf(lens));
+                // Void Stone: +1.75 per second
+                Assert.IsTrue(inventory.TryBuy(stone));
+                Assert.AreEqual(0.8f + 1.75f, player.ManaRegen, 1e-4f, "Void Stone must give +1.75 mana regeneration");
+                float mana = player.Mana;
+                yield return new WaitForSeconds(1f);
+                Assert.AreEqual(mana + 2.55f, player.Mana, 0.3f, "mana does not regenerate");
+
+                // the recipe completes the lens: the three parts become it
+                int gold = inventory.Gold;
+                Assert.IsTrue(inventory.TryBuy(recipe));
+                Assert.AreEqual(gold - 775, inventory.Gold);
+                Assert.IsTrue(inventory.Owns(lens), "the parts did not combine into Aether Lens");
+                Assert.IsFalse(inventory.Owns(booster) || inventory.Owns(stone) || inventory.Owns(recipe), "the parts stayed after combining");
+                Assert.AreEqual(1, inventory.Items.Count);
+                Assert.IsFalse(inventory.CanBuy(lens), "a second lens must not be bought");
+                Assert.IsTrue(inventory.TrySell(inventory.SlotOf(lens)));
+
+                // bought whole with nothing of it: all its parts are paid for
+                gold = inventory.Gold;
+                Assert.AreEqual(2275, inventory.PriceOf(lens));
+                Assert.IsTrue(inventory.TryBuy(lens));
+                Assert.AreEqual(gold - 2275, inventory.Gold);
+                Assert.IsTrue(inventory.Owns(lens));
+                Assert.IsTrue(inventory.TrySell(inventory.SlotOf(lens)));
+
+                // a full inventory: the part that completes the lens can still be bought
+                for (int i = 0; i < HeroInventory.SlotCount - 2; i++) Assert.IsTrue(inventory.TryBuy(branch));
+                Assert.IsTrue(inventory.TryBuy(booster));
+                Assert.IsTrue(inventory.TryBuy(stone));
+                Assert.AreEqual(HeroInventory.SlotCount, inventory.Items.Count);
+                Assert.IsFalse(inventory.CanBuy(branch), "a full inventory took another item");
+                Assert.IsTrue(inventory.CanBuy(recipe), "the recipe that completes the lens must go into a full inventory");
+                Assert.IsTrue(inventory.TryBuy(recipe));
+                Assert.IsTrue(inventory.Owns(lens));
+                Assert.AreEqual(HeroInventory.SlotCount - 1, inventory.Items.Count, "the lens must take one slot of its three parts");
+            }
+            finally
+            {
+                foreach (var item in new[] { booster, stone, recipe, lens, branch }) Object.Destroy(item);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ItemsAreDraggedBetweenSlotsWithShopSounds()
         {
             var shop = Object.FindAnyObjectByType<ShopUI>();

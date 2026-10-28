@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
@@ -11,7 +12,11 @@ namespace PudgeWars.Gameplay
     /// half its cost (of the charges left, <see cref="SellValue"/>). A usable item (<see cref="ItemDef.action"/>) is used on a
     /// tree or a point of the ground by <see cref="TryUse"/>. The player can rearrange the slots (<see cref="TryMove"/>);
     /// from then on the others no longer close up: a used-up or sold item leaves its slot empty, as in Dota, until the
-    /// inventory is empty again. On a network client (<see cref="Simulation.IsProxy"/>)
+    /// inventory is empty again. Items assembled from others combine as in Dota: as soon as all the parts of an
+    /// assembled item (<see cref="ItemDef.components"/>, a recipe among them) are in the slots, they become that item in
+    /// the slot of the first part; buying an assembled item buys only its missing parts, for what they cost
+    /// (<see cref="PriceOf"/>), and a part that completes an item can be bought even into a full inventory.
+    /// On a network client (<see cref="Simulation.IsProxy"/>)
     /// the server keeps them: a purchase or a use becomes a <see cref="BuyRequested"/> / <see cref="UseRequested"/>
     /// request and the result arrives with <see cref="ApplyRemoteState"/>.
     /// </summary>
@@ -57,6 +62,28 @@ namespace PudgeWars.Gameplay
         {
             self = GetComponent<Unit>();
             SyncSlots();
+        }
+
+        /// <summary>Bonus to maximum mana from the items (Energy Booster).</summary>
+        public float ManaBonus
+        {
+            get
+            {
+                float bonus = 0f;
+                foreach (var item in owned) bonus += item.manaBonus;
+                return bonus;
+            }
+        }
+
+        /// <summary>Bonus to mana regeneration from the items (Void Stone).</summary>
+        public float ManaRegenBonus
+        {
+            get
+            {
+                float bonus = 0f;
+                foreach (var item in owned) bonus += item.manaRegenBonus;
+                return bonus;
+            }
         }
 
         public float CastRangeBonus
@@ -124,9 +151,69 @@ namespace PudgeWars.Gameplay
             return -1;
         }
 
-        public bool CanBuy(ItemDef item) =>
-            item != null && gold >= item.cost && !(item.unique && Owns(item))
-            && ((item.stacks && Owns(item)) || FreeSlotFor(item) >= 0);
+        /// <summary>
+        /// What buying the item costs this hero: its price, or for an assembled one the price of the parts it does not
+        /// have yet (the owned parts go into it).
+        /// </summary>
+        public int PriceOf(ItemDef item)
+        {
+            if (item == null) return 0;
+            if (!item.IsAssembled) return item.cost;
+            int price = 0;
+            var used = new bool[SlotCount];
+            foreach (var part in item.components)
+                if (part != null && FindPart(part, used) < 0) price += part.cost;
+            return price;
+        }
+
+        /// <summary>Slots of the owned parts of an assembled item, one per part (a missing part is left out).</summary>
+        List<int> PartSlots(ItemDef item)
+        {
+            var found = new List<int>();
+            var used = new bool[SlotCount];
+            foreach (var part in item.components)
+            {
+                int slot = part != null ? FindPart(part, used) : -1;
+                if (slot >= 0) found.Add(slot);
+            }
+            return found;
+        }
+
+        /// <summary>A slot with <paramref name="part"/> not counted yet (marked now), or -1.</summary>
+        int FindPart(ItemDef part, bool[] used)
+        {
+            for (int i = 0; i < SlotCount; i++)
+                if (!used[i] && slots[i] == part)
+                {
+                    used[i] = true;
+                    return i;
+                }
+            return -1;
+        }
+
+        /// <summary>An assembled item the owned items and <paramref name="added"/> would make (null if none).</summary>
+        ItemDef CompletedBy(ItemDef added)
+        {
+            foreach (var result in added.BuildsInto())
+            {
+                var used = new bool[SlotCount];
+                int missing = 0;
+                foreach (var part in result.components)
+                    if (part != null && FindPart(part, used) < 0) missing++;
+                // the added item is the one part still missing (it is among the parts: BuildsInto)
+                if (missing == 1) return result;
+            }
+            return null;
+        }
+
+        public bool CanBuy(ItemDef item)
+        {
+            if (item == null || gold < PriceOf(item) || (item.unique && Owns(item))) return false;
+            if (item.stacks && Owns(item)) return true;
+            if (FreeSlotFor(item) >= 0) return true;
+            // a full inventory: an assembled item takes a slot of its parts, a part completing one goes into it
+            return item.IsAssembled ? PartSlots(item).Count > 0 : CompletedBy(item) != null;
+        }
 
         public bool TryBuy(ItemDef item)
         {
@@ -136,19 +223,65 @@ namespace PudgeWars.Gameplay
                 BuyRequested?.Invoke(item);
                 return true;
             }
-            gold -= item.cost;
+            gold -= PriceOf(item);
             int had = SlotOf(item);
             if (item.stacks && had >= 0) charges[had] += item.charges;
+            else if (item.IsAssembled) Assemble(item, PartSlots(item));
+            else if (FreeSlotFor(item) is var slot and >= 0) Put(slot, item);
             else
             {
-                int slot = FreeSlotFor(item);
-                slots[slot] = item;
-                charges[slot] = item.charges;
-                readyAt[slot] = 0f;
+                // no room, but it completes an assembled item: it goes straight into that
+                var result = CompletedBy(item);
+                Assemble(result, PartSlots(result));
             }
             Reindex();
+            Combine();
+            Compact(); // an assembled item leaves its parts' other slots empty
             Changed?.Invoke();
             return true;
+        }
+
+        void Put(int slot, ItemDef item)
+        {
+            slots[slot] = item;
+            charges[slot] = item.charges;
+            readyAt[slot] = 0f;
+        }
+
+        /// <summary>The parts in <paramref name="partSlots"/> become <paramref name="result"/>, in the first of their slots.</summary>
+        void Assemble(ItemDef result, List<int> partSlots)
+        {
+            foreach (var slot in partSlots)
+            {
+                slots[slot] = null;
+                charges[slot] = 0;
+            }
+            int target = partSlots.Count > 0 ? partSlots.Min() : FreeSlotFor(result);
+            if (target >= 0) Put(target, result);
+            Reindex();
+        }
+
+        /// <summary>Every assembled item whose parts are all in the slots is made of them (one may lead to the next).</summary>
+        void Combine()
+        {
+            bool made, any = false;
+            do
+            {
+                made = false;
+                foreach (var item in owned.ToArray())
+                {
+                    foreach (var result in item.BuildsInto())
+                    {
+                        var parts = PartSlots(result);
+                        if (parts.Count != result.components.Count(c => c != null)) continue;
+                        Assemble(result, parts);
+                        made = any = true;
+                        break;
+                    }
+                    if (made) break;
+                }
+            } while (made);
+            if (any) Compact(); // the parts' other slots
         }
 
         /// <summary>The item in a slot can be used now (by a hero that is free to act).</summary>

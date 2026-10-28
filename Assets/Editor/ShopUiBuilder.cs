@@ -21,9 +21,13 @@ namespace PudgeWars.EditorTools
         static readonly Color GoldColor = new(1f, 0.82f, 0.25f);
         static readonly Color ButtonColor = new(0.20f, 0.45f, 0.22f, 1f);
 
-        /// <summary>Aether Lens: 2275 gold, +275 cast range as in the current Dota 2 shop (1 Dota unit = 1 cm).</summary>
+        /// <summary>
+        /// Aether Lens: assembled from Energy Booster, Void Stone and its recipe (800 + 700 + 775 = 2275 gold, as in
+        /// Dota 2); +275 cast range (1 Dota unit = 1 cm) and the parts' mana: +250 and +1.75 per second.
+        /// </summary>
         public static ItemDef AetherLens()
         {
+            var parts = new[] { EnergyBooster(), VoidStone(), AetherLensRecipe() };
             var ti = (TextureImporter)AssetImporter.GetAtPath(AetherLensIcon);
             if (ti != null && ti.textureType != TextureImporterType.Sprite)
             {
@@ -41,11 +45,16 @@ namespace PudgeWars.EditorTools
                 AssetDatabase.CreateAsset(item, path);
             }
             item.displayName = "Aether Lens";
-            item.description = "+275 к дальности способностей";
-            item.details = "Пассивно: хук летит на 275 дальше (на 2.75 м). Вторая линза не складывается с первой.";
+            item.description = "+275 к дальности способностей, +250 маны, +1.75 к восстановлению маны";
+            item.details = "Пассивно: хук летит на 275 дальше (на 2.75 м). Вторая линза не складывается с первой.\n\n"
+                           + "Собирается из Energy Booster, Void Stone и рецепта: когда все три в инвентаре, они сами становятся линзой. "
+                           + "Купить линзу целиком — значит докупить недостающие части.";
             item.icon = AssetDatabase.LoadAssetAtPath<Sprite>(AetherLensIcon);
-            item.cost = 2275;
+            item.cost = parts.Sum(p => p.cost);
             item.castRangeBonus = 2.75f;
+            item.manaBonus = 250f;
+            item.manaRegenBonus = 1.75f;
+            item.components = parts;
             item.unique = true;
             EditorUtility.SetDirty(item);
             AssetDatabase.SaveAssets();
@@ -59,7 +68,7 @@ namespace PudgeWars.EditorTools
         public static ItemDef[] Catalog()
         {
             var lens = AetherLens();
-            var catalog = new[] { Tango(), IronBranch(), QuellingBlade(), lens };
+            var catalog = new[] { Tango(), IronBranch(), QuellingBlade(), EnergyBooster(), VoidStone(), AetherLensRecipe(), lens };
             var net = Net.NetPrefabs.Load();
             if (net != null)
             {
@@ -130,6 +139,40 @@ namespace PudgeWars.EditorTools
             item.cooldown = 4f;
         });
 
+        /// <summary>Energy Booster: 800 gold as in Dota 2, +250 maximum mana.</summary>
+        public static ItemDef EnergyBooster() => Item("EnergyBooster", "energy_booster", item =>
+        {
+            item.displayName = "Energy Booster";
+            item.description = "+250 к максимальной мане";
+            item.details = "Пассивно: увеличивает запас маны на 250. Доля маны сохраняется: с полной маной она остаётся полной.\n\n"
+                           + "Часть Aether Lens.";
+            item.cost = 800;
+            item.unique = false;
+            item.manaBonus = 250f;
+        });
+
+        /// <summary>Void Stone: 700 gold as in Dota 2, +1.75 mana per second.</summary>
+        public static ItemDef VoidStone() => Item("VoidStone", "void_stone", item =>
+        {
+            item.displayName = "Void Stone";
+            item.description = "+1.75 к восстановлению маны";
+            item.details = "Пассивно: мана восстанавливается на 1.75 в секунду быстрее.\n\nЧасть Aether Lens.";
+            item.cost = 700;
+            item.unique = false;
+            item.manaRegenBonus = 1.75f;
+        });
+
+        /// <summary>The Aether Lens recipe: 775 gold as in Dota 2, Dota's recipe scroll icon; gives nothing by itself.</summary>
+        public static ItemDef AetherLensRecipe() => Item("AetherLensRecipe", "recipe", item =>
+        {
+            item.displayName = "Рецепт: Aether Lens";
+            item.description = "Вместе с Energy Booster и Void Stone собирается в Aether Lens";
+            item.details = "Сам ничего не даёт. Когда в инвентаре есть рецепт, Energy Booster и Void Stone, они сразу становятся Aether Lens.";
+            item.cost = 775;
+            item.unique = false;
+            item.sound = ItemSound.Recipe;
+        });
+
         /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
         static ItemDef Item(string asset, string icon, System.Action<ItemDef> fill)
         {
@@ -173,14 +216,35 @@ namespace PudgeWars.EditorTools
                 shop.slots[i].preserveAspect = true;
             }
 
-            // shop panel
-            var panel = Rect(canvas, "ShopPanel", new Vector2(1f, 0f), new Vector2(-24f, 168f), new Vector2(640f, 150f + 150f * catalog.Length));
+            // shop panel: the rows scroll (the wheel, a finger) once they do not fit over the bar
+            const float rowStep = 150f, header = 90f, maxPanelHeight = 860f;
+            var panel = Rect(canvas, "ShopPanel", new Vector2(1f, 0f), new Vector2(-24f, 168f),
+                new Vector2(640f, Mathf.Min(header + 10f + rowStep * catalog.Length, maxPanelHeight)));
             Img(panel, Panel);
             Txt(panel, "Title", font, 40, "Магазин", TextAnchor.MiddleLeft, new Vector2(0f, 1f), new Vector2(24f, -16f), new Vector2(400f, 56f));
             shop.closeButton = Btn(panel, "Close", font, "×", new Vector2(1f, 1f), new Vector2(-16f, -16f), new Vector2(56f, 56f));
+            var viewport = Rect(panel, "Viewport", new Vector2(0f, 1f), Vector2.zero, Vector2.zero);
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.pivot = new Vector2(0.5f, 1f);
+            viewport.offsetMin = new Vector2(0f, 10f);
+            viewport.offsetMax = new Vector2(0f, -header);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            Img(viewport, Color.clear); // takes the drag and the wheel between the rows
+            var content = Rect(viewport, "Content", new Vector2(0f, 1f), Vector2.zero, new Vector2(0f, rowStep * catalog.Length));
+            content.anchorMin = new Vector2(0f, 1f);
+            content.anchorMax = Vector2.one;
+            content.pivot = new Vector2(0.5f, 1f);
+            content.sizeDelta = new Vector2(0f, rowStep * catalog.Length);
+            var scroll = panel.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.scrollSensitivity = 40f;
             shop.rows = new ShopItemRow[catalog.Length];
             for (int i = 0; i < catalog.Length; i++)
-                shop.rows[i] = Row(panel, font, catalog[i], new Vector2(24f, -90f - 150f * i));
+                shop.rows[i] = Row(content, font, catalog[i], new Vector2(24f, -rowStep * i));
             shop.panel = panel.gameObject;
             return shop;
         }

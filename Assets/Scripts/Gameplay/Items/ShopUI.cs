@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -375,11 +376,18 @@ namespace PudgeWars.Gameplay
             text.Append("\n<color=#A8B4C0>");
             if (item.castRangeBonus > 0f) text.Append($"\nДальность способностей: +{(item.castRangeBonus * 100f).ToString("0", ci)}");
             if (item.heroDamageBonus > 0f) text.Append($"\nУрон по героям: +{item.heroDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
+            if (item.manaBonus > 0f) text.Append($"\nМана: +{item.manaBonus.ToString("0", ci)}");
+            if (item.manaRegenBonus > 0f) text.Append($"\nВосстановление маны: +{item.manaRegenBonus.ToString("0.##", ci)} в секунду");
             if (item.creepDamageBonus > 0f) text.Append($"\nУрон по крипам: +{item.creepDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
             if (item.IsUsable) text.Append($"\nДальность применения: {(item.castRange * 100f).ToString("0", ci)}");
             if (item.cooldown > 0f) text.Append($"\nПерезарядка: {item.cooldown.ToString("0.#", ci)} с");
             if (item.charges > 0) text.Append(owner != null ? $"\nЗарядов осталось: {owner.ChargesAt(slot)}" : $"\nЗарядов: {item.charges}");
             text.Append("</color>");
+            if (item.IsAssembled)
+                text.Append("\n\n<color=#8FD0FF>Собирается из: " + string.Join(" + ", item.components.Where(c => c != null).Select(c => $"{c.displayName} ({c.cost})"))
+                            + ". Купленные части входят в цену, сами части в инвентаре собираются в предмет.</color>");
+            var into = item.BuildsInto().Select(r => r.displayName).Distinct().ToArray();
+            if (into.Length > 0) text.Append("\n\n<color=#8FD0FF>Входит в: " + string.Join(", ", into) + "</color>");
             if (owner != null && item.IsUsable && slot < SlotKeys.Length)
                 text.Append($"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — выбрать, клик по цели — применить");
             if (owner != null && owner == LocalHeroInventory())

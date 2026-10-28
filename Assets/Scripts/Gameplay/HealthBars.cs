@@ -15,7 +15,7 @@ namespace PudgeWars.Gameplay
     /// Lost health shows as in Dota: the fill drops at once, a white trail stays where it was and after a moment runs
     /// down to it. Regeneration shows the other way: a dark strip (dark green for allies, dark red for enemies) runs
     /// ahead of the fill over the health the next <see cref="regenPreviewSeconds"/> bring back, and "+2.5" (health per
-    /// second) stands inside the bar at its right end. A dead hero's bar stays a while at 0 (the trail running out), then fades
+    /// second) stands inside the bar at its right end. Under it hangs a thin blue mana bar, as in Dota. A dead hero's bar stays a while at 0 (the trail running out), then fades
     /// away until the respawn.
     /// </summary>
     [RequireComponent(typeof(RectTransform))]
@@ -59,6 +59,10 @@ namespace PudgeWars.Gameplay
         public string regenFormat = "+{0:0.#}";
         public int regenFontSize = 13;
         public Color regenTextColor = new(0.65f, 1f, 0.5f);
+        [Header("Mana")]
+        [Tooltip("Inner height of the mana bar under the health, canvas units.")] public float manaHeight = 7f;
+        public Color manaColor = new(0.25f, 0.5f, 1f);
+        public Color manaEmptyColor = new(0.06f, 0.08f, 0.16f, 0.9f);
         [Header("First person")]
         [Tooltip("In first person the own hero's bar stands at the bottom of the screen, its centre this high, canvas units (over the ability bar).")]
         public float firstPersonY = 205f;
@@ -69,7 +73,7 @@ namespace PudgeWars.Gameplay
 
         class Bar
         {
-            public RectTransform root, fill, trail, regen;
+            public RectTransform root, fill, trail, regen, mana, manaFill;
             public CanvasGroup group;
             public float trailFraction, lastFraction, holdUntil;
             public float deadSince = -1f; // -1 while alive
@@ -117,6 +121,9 @@ namespace PudgeWars.Gameplay
         /// <summary>The "+2.5" regeneration label at the right end of a hero's bar (null if it has no bar yet; inactive without regeneration).</summary>
         public Text RegenLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.regenText : null;
 
+        /// <summary>The mana fill under a hero's health bar (null if it has no bar yet).</summary>
+        public RectTransform ManaFill(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.manaFill : null;
+
         /// <summary>The "current / max" health label on a hero's bar (null if it has none yet).</summary>
         public Text HealthLabel(Pudge hero) => bars.TryGetValue(hero, out var b) ? b.health : null;
 
@@ -145,6 +152,7 @@ namespace PudgeWars.Gameplay
                 bar.regenImage.color = ally ? playerRegenColor : enemyRegenColor;
                 ShowFill(hero, bar);
                 ShowRegen(hero, bar);
+                ShowMana(hero, bar);
                 ShowHealth(hero, bar);
                 ShowLevel(hero, bar);
                 ShowMultiKill(hero, bar);
@@ -183,6 +191,13 @@ namespace PudgeWars.Gameplay
             bar.shownRegen = regen;
             bar.regenText.text = string.Format(CultureInfo.InvariantCulture, regenFormat, regen); // "+2.5" in any locale
             bar.regenText.gameObject.SetActive(regen > 0f);
+        }
+
+        static void ShowMana(Pudge hero, Bar bar)
+        {
+            float max = hero.MaxMana;
+            bar.mana.gameObject.SetActive(max > 0f);
+            bar.manaFill.anchorMax = new Vector2(max > 0f ? Mathf.Clamp01(hero.Mana / max) : 0f, 1f);
         }
 
         /// <summary>Rebuilds the text only when the numbers change (no garbage every frame).</summary>
@@ -303,6 +318,19 @@ namespace PudgeWars.Gameplay
                 Img(notch, new Color(0f, 0f, 0f, 0.6f));
             }
 
+            // mana: a thin blue bar hanging under the health one, sharing its bottom edge
+            var mana = Rect(root, "Mana", new Vector2(size.x + 2f * border, manaHeight + border));
+            mana.anchoredPosition = new Vector2(0f, -(size.y / 2f + border + (manaHeight + border) / 2f));
+            Img(mana, frameColor);
+            var manaInner = Rect(mana, "Inner", new Vector2(size.x, manaHeight));
+            manaInner.anchoredPosition = new Vector2(0f, border / 2f);
+            Img(manaInner, manaEmptyColor);
+            var manaFill = Rect(manaInner, "Fill", Vector2.zero);
+            manaFill.anchorMin = Vector2.zero;
+            manaFill.anchorMax = Vector2.one;
+            manaFill.pivot = new Vector2(0f, 0.5f);
+            Img(manaFill, manaColor);
+
             // over the fill and the notches: white bold digits in a black outline read on green, red and empty alike
             var healthRt = Rect(root, "Health", size + new Vector2(0f, 6f));
             var health = healthRt.gameObject.AddComponent<Text>();
@@ -377,12 +405,13 @@ namespace PudgeWars.Gameplay
             float fraction = Fraction(hero);
             var bar = new Bar
             {
-                root = root, fill = fill, trail = trail, regen = regen, group = group, trailFraction = fraction,
+                root = root, fill = fill, trail = trail, regen = regen, mana = mana, manaFill = manaFill, group = group, trailFraction = fraction,
                 lastFraction = fraction, fillImage = fillImage, regenImage = regenImage, name = name, health = health,
                 level = level, multiKill = multiKill, regenText = regenText,
             };
             ShowFill(hero, bar);
             ShowRegen(hero, bar);
+            ShowMana(hero, bar);
             ShowHealth(hero, bar);
             ShowLevel(hero, bar);
             ShowMultiKill(hero, bar);

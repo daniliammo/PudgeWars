@@ -8,7 +8,7 @@ namespace PudgeWars.Net
 {
     /// <summary>
     /// Network side of a hero. The server simulates the hero with the usual gameplay components and publishes what
-    /// clients need to show it: team and nickname, alive / falling / caught, multi-kill count, its own kills / deaths /
+    /// clients need to show it: team and nickname, alive / falling / caught, health and mana, multi-kill count, its own kills / deaths /
     /// rescues / times rescued, gold and items, the hook's head and cooldown, animations and gold popups (the position goes with
     /// NetworkTransform), and the hook's catches. The owning client sends its input instead of moving the hero itself:
     /// movement direction, hook casts and purchases.
@@ -27,6 +27,9 @@ namespace PudgeWars.Net
         [SyncVar] byte heroFlags = AliveFlag;
         [SyncVar] float health;
         [SyncVar] float regen;
+        [SyncVar] float mana;
+        [SyncVar] float maxMana;
+        [SyncVar] float manaRegen;
         [SyncVar] int multiKill;
         [SyncVar] int kills;
         [SyncVar] int deaths;
@@ -144,6 +147,9 @@ namespace PudgeWars.Net
             heroFlags = (byte)((hookable.IsAlive ? AliveFlag : 0) | (hookable.IsFalling ? FallingFlag : 0) | (hookable.IsHooked ? HookedFlag : 0));
             health = Mathf.Ceil(hookable.Health); // whole points, as the bars show it: not resent for every bit of regen
             regen = Mathf.Round(hookable.HealthRegen * 10f) / 10f;
+            mana = Mathf.Ceil(hookable.Mana);
+            maxMana = hookable.MaxMana;
+            manaRegen = Mathf.Round(hookable.ManaRegen * 100f) / 100f;
             multiKill = Arena.Instance != null ? Arena.Instance.Streaks.MultiKillCount(hookable) : 0;
             var score = Arena.Instance != null ? Arena.Instance.ScoreOf(hookable) : default;
             kills = score.kills;
@@ -281,6 +287,7 @@ namespace PudgeWars.Net
             hookable.ApplyRemoteState((heroFlags & AliveFlag) != 0, (heroFlags & FallingFlag) != 0, (heroFlags & HookedFlag) != 0);
             hookable.ApplyRemoteHealth(health);
             hookable.ApplyRemoteRegen(regen);
+            hookable.ApplyRemoteMana(mana, maxMana, manaRegen);
             if (Arena.Instance != null)
             {
                 Arena.Instance.ApplyRemoteMultiKill(hookable, multiKill);

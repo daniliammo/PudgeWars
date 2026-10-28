@@ -4,7 +4,10 @@ using UnityEngine.UI;
 
 namespace PudgeWars.Gameplay
 {
-    /// <summary>One item line of the shop panel; under the mouse it tells how much gold the item still lacks.</summary>
+    /// <summary>
+    /// One item line of the shop panel; under the mouse it tells how much gold the item still lacks. The price is what
+    /// the buyer pays: for an assembled item only its parts still missing.
+    /// </summary>
     public class ShopItemRow : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         public ItemDef item;
@@ -25,7 +28,7 @@ namespace PudgeWars.Gameplay
         bool hovered;
 
         /// <summary>Gold the buyer still needs for the item; 0 when it is affordable or already owned.</summary>
-        public int Shortage => item == null || buyer == null || (item.unique && buyer.Owns(item)) ? 0 : Mathf.Max(0, item.cost - buyer.Gold);
+        public int Shortage => item == null || buyer == null || (item.unique && buyer.Owns(item)) ? 0 : Mathf.Max(0, buyer.PriceOf(item) - buyer.Gold);
         public bool ShortageShown => shortageLabel != null && shortageLabel.transform.parent.gameObject.activeSelf;
 
         void Awake()
@@ -64,7 +67,7 @@ namespace PudgeWars.Gameplay
             if (icon != null) icon.sprite = item.icon;
             if (title != null) title.text = item.displayName;
             if (description != null) description.text = item.description;
-            if (price != null) price.text = item.cost.ToString();
+            if (price != null) price.text = (buyer != null ? buyer.PriceOf(item) : item.cost).ToString();
             bool owned = buyer != null && item.unique && buyer.Owns(item);
             if (buyButton != null) buyButton.interactable = buyer != null && buyer.CanBuy(item);
             if (buyLabel != null) buyLabel.text = owned ? "Куплено" : "Купить";
