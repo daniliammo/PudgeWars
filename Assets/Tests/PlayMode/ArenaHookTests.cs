@@ -1409,13 +1409,20 @@ namespace PudgeWars.Tests
             ring.manaRegenBonus = 1.5f;
             ring.auraManaRegen = 1f;
             ring.auraRadius = 8f;
+            var slippers = TestItem(ItemAction.None, 140, 0, stacks: false, range: 0f);
+            slippers.moveSpeedBonus = 0.1f;
+            slippers.agilityBonus = 3f;
+            var bootsRecipe = TestItem(ItemAction.None, 360, 0, stacks: false, range: 0f);
             var boots = TestItem(ItemAction.None, 500, 0, stacks: false, range: 0f);
+            boots.components = new[] { slippers, bootsRecipe };
             boots.moveSpeedBonus = 0.45f;
+            boots.boots = true;
             var arcane = TestItem(ItemAction.RestoreAllyMana, 925, 0, stacks: false, range: 8f, cooldown: 55f);
             arcane.unique = true;
             arcane.components = new[] { boots, ring };
             arcane.manaRegenBonus = 1.5f;
             arcane.moveSpeedBonus = 0.45f;
+            arcane.boots = true;
             arcane.auraManaRegen = 1f;
             arcane.auraRadius = 8f;
             arcane.restoreMana = 175f;
@@ -1425,18 +1432,31 @@ namespace PudgeWars.Tests
             try
             {
                 yield return null;
-                inventory.AddGold(5000, popup: false);
+                inventory.AddGold(10000, popup: false);
+                // Slippers of Agility: +10 speed, +3 agility; with the recipe they become Boots of Speed
+                Assert.IsTrue(inventory.TryBuy(slippers));
+                Assert.AreEqual(2.8f + 0.1f, motor.MoveSpeed, 1e-4f, "Slippers of Agility must give +10 speed");
+                Assert.AreEqual(3f, inventory.AgilityBonus, 1e-4f);
+                Assert.AreEqual(360, inventory.PriceOf(boots));
+                Assert.IsTrue(inventory.TryBuy(bootsRecipe));
+                Assert.IsTrue(inventory.Owns(boots), "the slippers and the recipe did not become Boots of Speed");
+                Assert.AreEqual(2.8f + 0.45f, motor.MoveSpeed, 1e-4f);
+                // other slippers add up with boots; two boots do not
+                Assert.IsTrue(inventory.TryBuy(slippers));
+                Assert.AreEqual(2.8f + 0.45f + 0.1f, motor.MoveSpeed, 1e-4f, "slippers must add up with boots");
+                Assert.IsTrue(inventory.TrySell(inventory.SlotOf(slippers)));
+                Assert.IsTrue(inventory.TrySell(inventory.SlotOf(boots)));
                 Assert.IsTrue(inventory.TryBuy(mask));
                 Assert.AreEqual(0.8f + 0.7f, player.ManaRegen, 1e-4f, "Sage's Mask must give +0.7");
-                // the mask counts toward the boots through the ring: only the boots and the ring's recipe are left
-                Assert.AreEqual(500 + 250, inventory.PriceOf(arcane));
+                // the mask counts toward the boots through the ring: only the slippers, the boots' recipe and the ring's are left
+                Assert.AreEqual(140 + 360 + 250, inventory.PriceOf(arcane));
                 int gold = inventory.Gold;
                 Assert.IsTrue(inventory.TryBuy(arcane));
                 Assert.AreEqual(gold - 750, inventory.Gold);
                 Assert.IsTrue(inventory.Owns(arcane));
                 Assert.AreEqual(1, inventory.Items.Count, "the mask must go into the boots");
                 Assert.AreEqual(2.8f + 0.45f, motor.MoveSpeed, 1e-4f, "Arcane Boots must give +45 speed");
-                Assert.AreEqual(0.8f + 1.5f + 1f, player.ManaRegen, 1e-4f, "Arcane Boots: +1.5 and Basilius Aura +1 on the owner");
+                Assert.AreEqual(0.8f + 1.5f + 1f, player.ManaRegen, 1e-4f, "Arcane Boots: +1.5 and Basilius Aura +1 on the owner itself");
 
                 // the aura: allies within 8 m, not enemies
                 enemy.transform.position = player.transform.position + Vector3.right * 3f;
@@ -1461,7 +1481,37 @@ namespace PudgeWars.Tests
             }
             finally
             {
-                foreach (var item in new[] { mask, ringRecipe, ring, boots, arcane }) Object.Destroy(item);
+                foreach (var item in new[] { mask, ringRecipe, ring, slippers, bootsRecipe, boots, arcane }) Object.Destroy(item);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RingOfBasiliusGivesTheKillerAShareOfTheVictimsMana()
+        {
+            var inventory = player.GetComponent<HeroInventory>();
+            var ring = TestItem(ItemAction.None, 425, 0, stacks: false, range: 0f);
+            ring.manaRegenBonus = 1.5f;
+            ring.auraManaRegen = 1f;
+            ring.auraRadius = 8f;
+            ring.killManaSteal = 0.075f;
+            try
+            {
+                inventory.AddGold(ring.cost, popup: false);
+                Assert.IsTrue(inventory.TryBuy(ring));
+                Assert.AreEqual(0.8f + 1.5f + 1f, player.ManaRegen, 1e-4f, "the ring's aura must work on its owner too");
+                Assert.IsTrue(player.SpendMana(150f));
+                var bot = Pudge.All.First(h => h.team == Team.Bots);
+                bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+                float before = 0f;
+                bot.Died += _ => before = player.Mana; // just before the arena counts the kill
+                Assert.IsTrue(hook.TryCast(bot.transform.position));
+                yield return new WaitUntil(() => !bot.IsAlive);
+                Assert.AreEqual(bot.MaxMana, bot.ManaAtDeath, 1f, "the victim's mana at its death is not kept");
+                Assert.AreEqual(before + bot.ManaAtDeath * 0.075f, player.Mana, 0.2f, "the killer did not get 7.5 % of the victim's mana");
+            }
+            finally
+            {
+                Object.Destroy(ring);
             }
         }
 

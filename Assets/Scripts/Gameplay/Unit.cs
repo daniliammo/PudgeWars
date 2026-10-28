@@ -92,6 +92,7 @@ namespace PudgeWars.Gameplay
         float remoteRegen = -1f, remoteMaxMana = -1f, remoteManaRegen = -1f;
         HeroInventory inventory;
         float lastMaxMana;
+        bool cleared; // dead: health and mana cleared
 
         protected virtual void Awake()
         {
@@ -159,13 +160,19 @@ namespace PudgeWars.Gameplay
         /// <summary>Back to full health and mana (a respawn).</summary>
         protected void RestoreHealth()
         {
+            cleared = false;
             Health = maxHealth;
             Mana = lastMaxMana = MaxMana;
         }
 
+        /// <summary>Mana the unit had as it died (what Ring of Basilius takes a share of); 0 before any death.</summary>
+        public float ManaAtDeath { get; private set; }
+
         /// <summary>Death (falling into the pit or damage): health and mana show as zero, the regeneration bonuses end.</summary>
         protected void ClearHealth()
         {
+            if (!cleared) ManaAtDeath = Mana; // a network client clears again with every state: the first one counts
+            cleared = true;
             Health = 0f;
             Mana = 0f;
             regenBonuses.Clear();

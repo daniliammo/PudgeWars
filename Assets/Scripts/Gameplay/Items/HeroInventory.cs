@@ -75,14 +75,38 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        /// <summary>Movement speed bonus from the items, m/s: the biggest one (boots do not stack, as in Dota).</summary>
+        /// <summary>Movement speed bonus from the items, m/s: of boots only the biggest one (as in Dota), the rest add up.</summary>
         public float MoveSpeedBonus
         {
             get
             {
+                float boots = 0f, other = 0f;
+                foreach (var item in owned)
+                    if (item.boots) boots = Mathf.Max(boots, item.moveSpeedBonus);
+                    else other += item.moveSpeedBonus;
+                return boots + other;
+            }
+        }
+
+        /// <summary>Agility from the items (stored only: the attributes do nothing yet).</summary>
+        public float AgilityBonus
+        {
+            get
+            {
                 float bonus = 0f;
-                foreach (var item in owned) bonus = Mathf.Max(bonus, item.moveSpeedBonus);
+                foreach (var item in owned) bonus += item.agilityBonus;
                 return bonus;
+            }
+        }
+
+        /// <summary>The biggest share of a killed unit's mana the items give the killer (Ring of Basilius: 7.5 %).</summary>
+        public float KillManaSteal
+        {
+            get
+            {
+                float best = 0f;
+                foreach (var item in owned) best = Mathf.Max(best, item.killManaSteal);
+                return best;
             }
         }
 

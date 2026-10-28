@@ -181,6 +181,9 @@ namespace PudgeWars.Gameplay
                     wallet.AddGold(KillGold(victim));
                     if (seriesBroken) wallet.AddGold(StreakBreakBonus(victim, streak, rampages));
                 }
+                // Ring of Basilius: a share of the mana the victim had as it died
+                if (killer.TryGetComponent<HeroInventory>(out var items) && items.KillManaSteal > 0f)
+                    killer.RestoreMana(victim.ManaAtDeath * items.KillManaSteal);
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
                     KillAnnounced?.Invoke(killer, announcement);
             }

@@ -70,7 +70,8 @@ namespace PudgeWars.EditorTools
             var lens = AetherLens();
             var catalog = new[]
             {
-                Tango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), BootsOfSpeed(),
+                Tango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), SlippersOfAgility(),
+                BootsOfSpeedRecipe(), BootsOfSpeed(),
                 ArcaneBoots(), EnergyBooster(), VoidStone(), AetherLensRecipe(), lens,
             };
             var net = Net.NetPrefabs.Load();
@@ -210,8 +211,9 @@ namespace PudgeWars.EditorTools
             return Item("RingOfBasilius", "ring_of_basilius", item =>
             {
                 item.displayName = "Ring of Basilius";
-                item.description = "+1.5 к восстановлению маны. Аура: +1 маны в секунду союзникам рядом";
+                item.description = "+1.5 к восстановлению маны. Аура: +1 маны в секунду союзникам рядом. Вампиризм маны";
                 item.details = "Пассивно: мана владельца восстанавливается на 1.5 в секунду быстрее.\n\n"
+                               + "Вампиризм маны: за убийство владелец получает 7.5 % маны, которая была у убитого.\n\n"
                                + $"Basilius Aura: все союзники в радиусе {radius * 100f:0} (и сам владелец) восстанавливают на 1 ману в секунду больше. "
                                + "Одинаковые ауры не складываются.\n\nСобирается из Sage's Mask и рецепта. Часть Arcane Boots.";
                 item.cost = parts.Sum(p => p.cost);
@@ -220,20 +222,52 @@ namespace PudgeWars.EditorTools
                 item.manaRegenBonus = 1.5f;
                 item.auraManaRegen = 1f;
                 item.auraRadius = radius;
+                item.killManaSteal = 0.075f;
                 item.sound = ItemSound.Ring;
             });
         }
 
-        /// <summary>Boots of Speed: 500 gold as in Dota 2, +45 movement speed.</summary>
-        public static ItemDef BootsOfSpeed() => Item("BootsOfSpeed", "boots", item =>
+        /// <summary>Slippers of Agility: 140 gold as in Dota 2, +10 movement speed (by request) and +3 agility (stored, not used yet).</summary>
+        public static ItemDef SlippersOfAgility() => Item("SlippersOfAgility", "slippers", item =>
         {
-            item.displayName = "Boots of Speed";
-            item.description = "+45 к скорости передвижения";
-            item.details = "Пассивно: Пудж бегает на 45 быстрее (280 → 325). Бонусы нескольких сапог не складываются.\n\nЧасть Arcane Boots.";
-            item.cost = 500;
+            item.displayName = "Slippers of Agility";
+            item.description = "+10 к скорости передвижения, +3 к ловкости";
+            item.details = "Пассивно: Пудж бегает на 10 быстрее; складывается с сапогами. +3 к ловкости (характеристики пока ни на что не влияют).\n\n"
+                           + "Часть Boots of Speed.";
+            item.cost = 140;
             item.unique = false;
-            item.moveSpeedBonus = 0.45f;
+            item.moveSpeedBonus = 0.1f;
+            item.agilityBonus = 3f;
         });
+
+        /// <summary>The Boots of Speed recipe: Slippers of Agility 140 + 360 = 500 gold, the boots' price in Dota 2.</summary>
+        public static ItemDef BootsOfSpeedRecipe() => Item("BootsOfSpeedRecipe", "recipe", item =>
+        {
+            item.displayName = "Рецепт: Boots of Speed";
+            item.description = "Вместе с Slippers of Agility собирается в Boots of Speed";
+            item.details = "Сам ничего не даёт. Когда в инвентаре есть рецепт и Slippers of Agility, они сразу становятся Boots of Speed.";
+            item.cost = 360;
+            item.unique = false;
+            item.sound = ItemSound.Recipe;
+        });
+
+        /// <summary>Boots of Speed: Slippers of Agility + recipe, 500 gold; +45 movement speed.</summary>
+        public static ItemDef BootsOfSpeed()
+        {
+            var parts = new[] { SlippersOfAgility(), BootsOfSpeedRecipe() };
+            return Item("BootsOfSpeed", "boots", item =>
+            {
+                item.displayName = "Boots of Speed";
+                item.description = "+45 к скорости передвижения";
+                item.details = "Пассивно: Пудж бегает на 45 быстрее (280 → 325). Бонусы нескольких сапог не складываются.\n\n"
+                               + "Собирается из Slippers of Agility и рецепта. Часть Arcane Boots.";
+                item.cost = parts.Sum(p => p.cost);
+                item.components = parts;
+                item.unique = false;
+                item.boots = true;
+                item.moveSpeedBonus = 0.45f;
+            });
+        }
 
         /// <summary>
         /// Arcane Boots: Boots of Speed + Ring of Basilius (925 gold); +1.5 mana per second, +45 movement speed,
@@ -257,6 +291,7 @@ namespace PudgeWars.EditorTools
                 item.unique = true;
                 item.manaRegenBonus = 1.5f;
                 item.moveSpeedBonus = 0.45f;
+                item.boots = true;
                 item.auraManaRegen = 1f;
                 item.auraRadius = radius;
                 item.action = ItemAction.RestoreAllyMana;

@@ -50,8 +50,14 @@ namespace PudgeWars.Gameplay
         public float manaBonus;
         [Tooltip("Bonus to mana regenerated per second (Void Stone +1.75).")]
         public float manaRegenBonus;
-        [Tooltip("Bonus to movement speed, m/s (Dota units / 100: Boots of Speed +45 = 0.45). Bonuses of several items do not add up: the biggest counts (Dota: boots do not stack).")]
+        [Tooltip("Bonus to movement speed, m/s (Dota units / 100: Boots of Speed +45 = 0.45). Other items' bonuses add up; of boots only the biggest counts.")]
         public float moveSpeedBonus;
+        [Tooltip("Boots (Boots of Speed, Arcane Boots): their speed bonuses do not stack with each other, as in Dota.")]
+        public bool boots;
+        [Tooltip("Bonus to agility (Slippers of Agility +3). Stored only: strength, agility and intelligence do nothing yet.")]
+        public float agilityBonus;
+        [Tooltip("Ring of Basilius: the share of a killed unit's mana (as it had at its death) its killer gets, 0.075 = 7.5 %.")]
+        [Range(0f, 1f)] public float killManaSteal;
         [Tooltip("Basilius Aura: mana regenerated per second by every ally within auraRadius, the owner too. The same aura from several items or heroes counts once (the biggest).")]
         public float auraManaRegen;
         [Tooltip("Radius of the aura, metres from the owner's centre to the ally's.")]
