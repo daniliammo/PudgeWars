@@ -265,7 +265,7 @@ namespace PudgeWars.Gameplay
                 return;
             }
             var item = inventory.ItemIn(slot);
-            ShowRange(item.castRange + (self != null ? self.radius : 0f) + (TerrainTrees.Instance != null ? TerrainTrees.Instance.radius : 0f));
+            ShowRange(item.Active.castRange + (self != null ? self.radius : 0f) + (TerrainTrees.Instance != null ? TerrainTrees.Instance.radius : 0f));
             var pointer = Pointer.current;
             bool click = firstPerson
                 ? mouse != null && mouse.leftButton.wasPressedThisFrame && follow.CursorCaptured && !follow.ClickConsumed

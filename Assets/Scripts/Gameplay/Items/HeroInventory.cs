@@ -62,6 +62,7 @@ namespace PudgeWars.Gameplay
         {
             self = GetComponent<Unit>();
             SyncSlots();
+            if (!Simulation.IsProxy) Combine(); // parts set in the inspector combine too
         }
 
         /// <summary>Bonus to maximum mana from the items (Energy Booster).</summary>
@@ -70,7 +71,7 @@ namespace PudgeWars.Gameplay
             get
             {
                 float bonus = 0f;
-                foreach (var item in owned) bonus += item.manaBonus;
+                foreach (var item in owned) bonus += item.ManaBonus;
                 return bonus;
             }
         }
@@ -82,8 +83,8 @@ namespace PudgeWars.Gameplay
             {
                 float boots = 0f, other = 0f;
                 foreach (var item in owned)
-                    if (item.boots) boots = Mathf.Max(boots, item.moveSpeedBonus);
-                    else other += item.moveSpeedBonus;
+                    if (item.IsBoots) boots = Mathf.Max(boots, item.MoveSpeedBonus);
+                    else other += item.MoveSpeedBonus;
                 return boots + other;
             }
         }
@@ -94,7 +95,7 @@ namespace PudgeWars.Gameplay
             get
             {
                 float bonus = 0f;
-                foreach (var item in owned) bonus += item.agilityBonus;
+                foreach (var item in owned) bonus += item.AgilityBonus;
                 return bonus;
             }
         }
@@ -105,7 +106,7 @@ namespace PudgeWars.Gameplay
             get
             {
                 float best = 0f;
-                foreach (var item in owned) best = Mathf.Max(best, item.killManaSteal);
+                foreach (var item in owned) best = Mathf.Max(best, item.KillManaSteal);
                 return best;
             }
         }
@@ -115,7 +116,7 @@ namespace PudgeWars.Gameplay
         {
             float best = 0f;
             foreach (var item in owned)
-                if (item.auraManaRegen > best && distance <= item.auraRadius) best = item.auraManaRegen;
+                if (item.AuraManaRegen > best && distance <= item.AuraRadius) best = item.AuraManaRegen;
             return best;
         }
 
@@ -125,7 +126,7 @@ namespace PudgeWars.Gameplay
             get
             {
                 float bonus = 0f;
-                foreach (var item in owned) bonus += item.manaRegenBonus;
+                foreach (var item in owned) bonus += item.ManaRegenBonus;
                 return bonus;
             }
         }
@@ -135,7 +136,7 @@ namespace PudgeWars.Gameplay
             get
             {
                 float bonus = 0f;
-                foreach (var item in owned) bonus += item.castRangeBonus;
+                foreach (var item in owned) bonus += item.CastRangeBonus;
                 return bonus;
             }
         }
@@ -148,7 +149,7 @@ namespace PudgeWars.Gameplay
         {
             if (target == null) return 0f;
             float bonus = 0f;
-            foreach (var item in owned) bonus += target.IsHero ? item.heroDamageBonus : item.creepDamageBonus;
+            foreach (var item in owned) bonus += target.IsHero ? item.HeroDamageBonus : item.CreepDamageBonus;
             return bonus;
         }
 
@@ -182,7 +183,7 @@ namespace PudgeWars.Gameplay
         public float CooldownLeft(int slot) => ItemIn(slot) != null ? Mathf.Max(0f, readyAt[slot] - Time.time) : 0f;
 
         /// <summary>Cooldown of the item in a slot, seconds (for the slot's shading).</summary>
-        public float CooldownOf(int slot) => ItemIn(slot) != null ? slots[slot].cooldown : 0f;
+        public float CooldownOf(int slot) => ItemIn(slot)?.Active is { } use ? use.cooldown : 0f;
 
         /// <summary>Where a new item would go: usable ones from the left, passive ones from the right; -1 if full.</summary>
         public int FreeSlotFor(ItemDef item)
@@ -326,7 +327,10 @@ namespace PudgeWars.Gameplay
             Reindex();
         }
 
-        /// <summary>Every assembled item whose parts are all in the slots is made of them (one may lead to the next).</summary>
+        /// <summary>
+        /// Every assembled item whose parts are all in the slots is made of them (one may lead to the next): always on,
+        /// for every item, whatever brought the parts (a purchase, a move, the inspector).
+        /// </summary>
         void Combine()
         {
             bool made, any = false;
@@ -364,44 +368,45 @@ namespace PudgeWars.Gameplay
         {
             if (!CanUse(slot)) return false;
             var item = slots[slot];
+            var use = item.Active; // the item's own use or one inherited from a part
             var trees = TerrainTrees.Instance;
             if (!item.IsInstant)
             {
                 if (trees == null) return false;
-                if (item.TargetsTree ? !trees.IsStanding(tree) || !InReach(trees.Position(tree), trees.radius, item)
-                        : !InReach(point, trees.radius, item) || !trees.CanPlant(point))
+                if (item.TargetsTree ? !trees.IsStanding(tree) || !InReach(trees.Position(tree), trees.radius, use)
+                        : !InReach(point, trees.radius, use) || !trees.CanPlant(point))
                     return false;
             }
             if (Simulation.IsProxy)
             {
                 // the slot shades at once; the server's answer comes with the items
-                readyAt[slot] = Time.time + item.cooldown;
+                readyAt[slot] = Time.time + use.cooldown;
                 UseRequested?.Invoke(slot, point, tree);
                 return true;
             }
-            switch (item.action)
+            switch (use.action)
             {
                 case ItemAction.EatTree:
                     bool planted = TerrainTrees.IsPlanted(tree);
                     trees.Fell(tree, transform.position);
-                    if (self != null) self.AddRegen(item.regenBonus * (planted ? item.plantedTreeBonus : 1f), item.regenDuration);
+                    if (self != null) self.AddRegen(use.regenBonus * (planted ? use.plantedTreeBonus : 1f), use.regenDuration);
                     break;
                 case ItemAction.ChopTree:
                     trees.Fell(tree, transform.position);
                     break;
                 case ItemAction.PlantTree:
-                    if (trees.Plant(point, item.treeLifetime) < 0) return false;
+                    if (trees.Plant(point, use.treeLifetime) < 0) return false;
                     break;
                 case ItemAction.RestoreAllyMana:
                     foreach (var unit in Unit.AllUnits)
                     {
                         var d = unit.transform.position - transform.position;
                         d.y = 0f;
-                        if (self != null && unit.team == self.team && d.magnitude <= item.castRange) unit.RestoreMana(item.restoreMana);
+                        if (self != null && unit.team == self.team && d.magnitude <= use.castRange) unit.RestoreMana(use.restoreMana);
                     }
                     break;
             }
-            readyAt[slot] = Time.time + item.cooldown;
+            readyAt[slot] = Time.time + use.cooldown;
             if (item.charges > 0 && --charges[slot] <= 0)
             {
                 slots[slot] = null;
@@ -451,8 +456,9 @@ namespace PudgeWars.Gameplay
             (readyAt[from], readyAt[to]) = (readyAt[to], readyAt[from]);
             arranged = true;
             Reindex();
-            // a network client shows the move at once, the server's state brings the same
+            // a network client shows the move at once, the server's state brings the same (and combines)
             if (Simulation.IsProxy) MoveRequested?.Invoke(from, to);
+            else Combine();
             Moved?.Invoke(from, to);
             Changed?.Invoke();
             return true;
@@ -487,7 +493,8 @@ namespace PudgeWars.Gameplay
             var d = target - transform.position;
             d.y = 0f;
             float heroRadius = self != null ? self.radius : 0f;
-            return d.magnitude - heroRadius - targetRadius <= item.castRange;
+            var use = item != null ? item.Active : null;
+            return use != null && d.magnitude - heroRadius - targetRadius <= use.castRange;
         }
 
         /// <summary>Network client: gold, and slot by slot the items and their charges as the server has them.</summary>

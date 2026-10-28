@@ -48,6 +48,8 @@ namespace PudgeWars.Gameplay
         public Color slotCooldownColor = new(0f, 0f, 0f, 0.82f);
         [Tooltip("Remaining cooldown over a slot.")] public string cooldownFormat = "0.0";
         [Range(0f, 1f)] public float soundVolume = 0.8f;
+        [Tooltip("The open panel keeps this far below the screen's top edge, canvas units (a long shop is cut and scrolls).")]
+        public float panelTopMargin = 16f;
 
         /// <summary>The item keys, slot by slot (PlayerInputController).</summary>
         public static readonly string[] SlotKeys = { "Z", "X", "C", "V", "B", "N" };
@@ -67,6 +69,7 @@ namespace PudgeWars.Gameplay
         RectTransform panelRect;
         Vector2 shownPosition, hiddenPosition;
         float slide; // 0 = beyond the screen edge, 1 = in place
+        float builtHeight; // the panel's height as built (all the rows), before FitPanel cuts it
         // made at runtime (BuildSlotParts); never restored by a script reload, where they would come back as empty
         // arrays (play mode entered without a domain or scene reload)
         [NonSerialized] Text[] chargeLabels, cooldownLabels, keyLabels;
@@ -187,7 +190,21 @@ namespace PudgeWars.Gameplay
             if (panel == null || IsOpen) return;
             IsOpen = true;
             panel.SetActive(true);
+            FitPanel();
             Refresh();
+        }
+
+        /// <summary>
+        /// A long shop is cut to the screen's height (a short screen, many items): its top stays below the screen's top
+        /// edge and the rows scroll inside.
+        /// </summary>
+        void FitPanel()
+        {
+            if (panelRect == null || !(panelRect.parent is RectTransform canvas)) return;
+            if (builtHeight <= 0f) builtHeight = panelRect.sizeDelta.y;
+            float bottom = panelRect.anchoredPosition.y - panelRect.pivot.y * panelRect.sizeDelta.y + canvas.rect.height * panelRect.anchorMin.y;
+            float room = canvas.rect.height - bottom - panelTopMargin;
+            panelRect.sizeDelta = new Vector2(panelRect.sizeDelta.x, Mathf.Clamp(builtHeight, 200f, Mathf.Max(200f, room)));
         }
 
         public void Close()
@@ -374,18 +391,19 @@ namespace PudgeWars.Gameplay
             if (!string.IsNullOrEmpty(item.description)) text.Append($"\n\n{item.description}");
             if (!string.IsNullOrEmpty(item.details)) text.Append($"\n\n<color=#D8DCE0>{item.details}</color>");
             text.Append("\n<color=#A8B4C0>");
-            if (item.castRangeBonus > 0f) text.Append($"\nДальность способностей: +{(item.castRangeBonus * 100f).ToString("0", ci)}");
-            if (item.heroDamageBonus > 0f) text.Append($"\nУрон по героям: +{item.heroDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
-            if (item.manaBonus > 0f) text.Append($"\nМана: +{item.manaBonus.ToString("0", ci)}");
-            if (item.manaRegenBonus > 0f) text.Append($"\nВосстановление маны: +{item.manaRegenBonus.ToString("0.##", ci)} в секунду");
-            if (item.moveSpeedBonus > 0f) text.Append($"\nСкорость передвижения: +{(item.moveSpeedBonus * 100f).ToString("0", ci)}" + (item.boots ? " (не складывается с другими сапогами)" : ""));
-            if (item.agilityBonus > 0f) text.Append($"\nЛовкость: +{item.agilityBonus.ToString("0", ci)} (пока не действует)");
-            if (item.killManaSteal > 0f) text.Append($"\nВампиризм маны: {(item.killManaSteal * 100f).ToString("0.#", ci)} % маны убитого");
-            if (item.auraManaRegen > 0f) text.Append($"\nBasilius Aura: +{item.auraManaRegen.ToString("0.##", ci)} маны в секунду союзникам и себе в радиусе {(item.auraRadius * 100f).ToString("0", ci)}");
-            if (item.restoreMana > 0f) text.Append($"\nПрименение: +{item.restoreMana.ToString("0", ci)} маны союзникам и себе в радиусе {(item.castRange * 100f).ToString("0", ci)}");
-            if (item.creepDamageBonus > 0f) text.Append($"\nУрон по крипам: +{item.creepDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
-            if (item.IsUsable && !item.IsInstant) text.Append($"\nДальность применения: {(item.castRange * 100f).ToString("0", ci)}");
-            if (item.cooldown > 0f) text.Append($"\nПерезарядка: {item.cooldown.ToString("0.#", ci)} с");
+            var use = item.Active;
+            if (item.CastRangeBonus > 0f) text.Append($"\nДальность способностей: +{(item.CastRangeBonus * 100f).ToString("0", ci)}");
+            if (item.HeroDamageBonus > 0f) text.Append($"\nУрон по героям: +{item.HeroDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
+            if (item.ManaBonus > 0f) text.Append($"\nМана: +{item.ManaBonus.ToString("0", ci)}");
+            if (item.ManaRegenBonus > 0f) text.Append($"\nВосстановление маны: +{item.ManaRegenBonus.ToString("0.##", ci)} в секунду");
+            if (item.MoveSpeedBonus > 0f) text.Append($"\nСкорость передвижения: +{(item.MoveSpeedBonus * 100f).ToString("0", ci)}" + (item.IsBoots ? " (не складывается с другими сапогами)" : ""));
+            if (item.AgilityBonus > 0f) text.Append($"\nЛовкость: +{item.AgilityBonus.ToString("0", ci)} (пока не действует)");
+            if (item.KillManaSteal > 0f) text.Append($"\nВампиризм маны: {(item.KillManaSteal * 100f).ToString("0.#", ci)} % маны убитого");
+            if (item.AuraManaRegen > 0f) text.Append($"\nBasilius Aura: +{item.AuraManaRegen.ToString("0.##", ci)} маны в секунду союзникам и себе в радиусе {(item.AuraRadius * 100f).ToString("0", ci)}");
+            if (use != null && use.restoreMana > 0f) text.Append($"\nПрименение: +{use.restoreMana.ToString("0", ci)} маны союзникам и себе в радиусе {(use.castRange * 100f).ToString("0", ci)}");
+            if (item.CreepDamageBonus > 0f) text.Append($"\nУрон по крипам: +{item.CreepDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
+            if (use != null && !item.IsInstant) text.Append($"\nДальность применения: {(use.castRange * 100f).ToString("0", ci)}");
+            if (use != null && use.cooldown > 0f) text.Append($"\nПерезарядка: {use.cooldown.ToString("0.#", ci)} с");
             if (item.charges > 0) text.Append(owner != null ? $"\nЗарядов осталось: {owner.ChargesAt(slot)}" : $"\nЗарядов: {item.charges}");
             text.Append("</color>");
             if (item.IsAssembled)

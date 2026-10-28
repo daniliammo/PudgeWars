@@ -1516,6 +1516,70 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator AssembledItemsInheritTheirPartsBonusesAndAbilities()
+        {
+            var inventory = player.GetComponent<HeroInventory>();
+            var slippers = TestItem(ItemAction.None, 140, 0, stacks: false, range: 0f);
+            slippers.moveSpeedBonus = 0.1f;
+            slippers.agilityBonus = 3f;
+            var boots = TestItem(ItemAction.None, 500, 0, stacks: false, range: 0f);
+            boots.components = new[] { slippers };
+            boots.moveSpeedBonus = 0.45f;
+            boots.boots = true;
+            var ring = TestItem(ItemAction.None, 425, 0, stacks: false, range: 0f);
+            ring.manaRegenBonus = 1.5f;
+            ring.auraManaRegen = 1f;
+            ring.auraRadius = 8f;
+            ring.killManaSteal = 0.075f;
+            var arcane = TestItem(ItemAction.RestoreAllyMana, 925, 0, stacks: false, range: 8f, cooldown: 55f);
+            arcane.components = new[] { boots, ring };
+            arcane.manaRegenBonus = 1.5f;
+            arcane.restoreMana = 175f;
+            // a part with a use, in an item without one of its own
+            var axe = TestItem(ItemAction.ChopTree, 100, 0, stacks: false, range: 3.5f, cooldown: 4f);
+            axe.heroDamageBonus = 16f;
+            var big = TestItem(ItemAction.None, 600, 0, stacks: false, range: 0f);
+            big.components = new[] { axe, slippers };
+            try
+            {
+                // the boots keep the slippers' agility; their own speed is bigger than the slippers'
+                Assert.AreEqual(3f, boots.AgilityBonus, 1e-4f, "the boots did not inherit the slippers' agility");
+                Assert.AreEqual(0.45f, boots.MoveSpeedBonus, 1e-4f);
+                // Arcane Boots: the ring's vampirism and aura, the boots' speed and agility, their own regeneration
+                Assert.AreEqual(0.075f, arcane.KillManaSteal, 1e-4f, "Arcane Boots did not inherit the ring's mana vampirism");
+                Assert.AreEqual(1f, arcane.AuraManaRegen, 1e-4f, "Arcane Boots did not inherit Basilius Aura");
+                Assert.AreEqual(8f, arcane.AuraRadius, 1e-4f);
+                Assert.AreEqual(0.45f, arcane.MoveSpeedBonus, 1e-4f, "Arcane Boots did not inherit the boots' speed");
+                Assert.IsTrue(arcane.IsBoots, "Arcane Boots are boots through Boots of Speed");
+                Assert.AreEqual(3f, arcane.AgilityBonus, 1e-4f, "the agility did not come down two levels");
+                Assert.AreEqual(1.5f, arcane.ManaRegenBonus, 1e-4f);
+                // without a use of its own the item takes its part's: Quelling Blade's
+                Assert.AreEqual(axe, big.Active, "the part's use was not inherited");
+                Assert.IsTrue(big.TargetsTree);
+                Assert.AreEqual(16f, big.HeroDamageBonus, 1e-4f);
+                Assert.AreEqual(0.1f, big.MoveSpeedBonus, 1e-4f);
+
+                // in the game: vampirism on a kill with Arcane Boots alone
+                inventory.AddGold(arcane.cost, popup: false);
+                Assert.IsTrue(inventory.TryBuy(arcane));
+                Assert.AreEqual(0.075f, inventory.KillManaSteal, 1e-4f);
+                Assert.AreEqual(3f, inventory.AgilityBonus, 1e-4f);
+                Assert.IsTrue(player.SpendMana(150f));
+                var bot = Pudge.All.First(h => h.team == Team.Bots);
+                bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+                float before = 0f;
+                bot.Died += _ => before = player.Mana;
+                Assert.IsTrue(hook.TryCast(bot.transform.position));
+                yield return new WaitUntil(() => !bot.IsAlive);
+                Assert.AreEqual(before + bot.ManaAtDeath * 0.075f, player.Mana, 0.2f, "Arcane Boots give no mana for a kill");
+            }
+            finally
+            {
+                foreach (var item in new[] { slippers, boots, ring, arcane, axe, big }) Object.Destroy(item);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ManaItemsAndCraftingAetherLens()
         {
             var inventory = player.GetComponent<HeroInventory>();
@@ -1737,6 +1801,10 @@ namespace PudgeWars.Tests
             yield return new WaitWhile(() => shop.IsAnimating);
             AssertPointerHits(shop.rows[0].buyButton);
             AssertPointerHits(shop.closeButton);
+            // a long shop is cut to the screen: its top (and the close button) stays on it
+            var panelCorners = new Vector3[4];
+            ((RectTransform)shop.panel.transform).GetWorldCorners(panelCorners);
+            Assert.LessOrEqual(panelCorners[1].y, Screen.height + 0.5f, "the shop's top is off the screen");
         }
 
         [UnityTest]
@@ -2451,7 +2519,8 @@ namespace PudgeWars.Tests
             Assert.IsTrue(shop.inspectLabel.transform.parent.gameObject.activeSelf, "no mark that another hero is inspected");
             Assert.AreEqual($"Осмотр: Бот {bot.Nickname}", shop.inspectLabel.text);
             Assert.AreEqual("300", shop.goldLabel.text, "the bar does not show the clicked hero's gold");
-            Assert.AreEqual(lens.icon, shop.slots[0].sprite, "the bar does not show the clicked hero's items");
+            // a passive item keeps to the far slot
+            Assert.AreEqual(lens.icon, shop.slots[botWallet.SlotOf(lens)].sprite, "the bar does not show the clicked hero's items");
             Assert.IsTrue(shop.statsPanel.gameObject.activeSelf, "no stats of the inspected hero");
             var stats = shop.statsPanel.GetComponentsInChildren<Text>().Select(t => t.text).ToList();
             CollectionAssert.IsSubsetOf(new[] { "У/С/С", "0/0/0", "Спасён", "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);

@@ -258,8 +258,9 @@ namespace PudgeWars.EditorTools
             return Item("BootsOfSpeed", "boots", item =>
             {
                 item.displayName = "Boots of Speed";
-                item.description = "+45 к скорости передвижения";
-                item.details = "Пассивно: Пудж бегает на 45 быстрее (280 → 325). Бонусы нескольких сапог не складываются.\n\n"
+                item.description = "+45 к скорости передвижения, +3 к ловкости (от Slippers of Agility)";
+                item.details = "Пассивно: Пудж бегает на 45 быстрее (280 → 325). Бонусы нескольких сапог не складываются. "
+                               + "От Slippers of Agility остаётся +3 к ловкости (пока не действует).\n\n"
                                + "Собирается из Slippers of Agility и рецепта. Часть Arcane Boots.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
@@ -280,11 +281,12 @@ namespace PudgeWars.EditorTools
             return Item("ArcaneBoots", "arcane_boots", item =>
             {
                 item.displayName = "Arcane Boots";
-                item.description = "+1.5 к восстановлению маны, +45 к скорости. Применение: +175 маны союзникам рядом";
+                item.description = "+1.5 к восстановлению маны, +45 к скорости, аура и вампиризм маны кольца. Применение: +175 маны союзникам рядом";
                 item.details = $"Применение (перезарядка 55 с): все союзники в радиусе {radius * 100f:0}, и сам владелец, сразу получают 175 маны. "
                                + "Цели не нужно: клавиша или клик по слоту применяют сразу.\n\n"
                                + "Пассивно: мана восстанавливается на 1.5 в секунду быстрее, Пудж бегает на 45 быстрее. "
-                               + $"Basilius Aura (от кольца): союзники в радиусе {radius * 100f:0} восстанавливают на 1 ману в секунду больше.\n\n"
+                               + $"Basilius Aura (от кольца): союзники в радиусе {radius * 100f:0} и сам владелец восстанавливают на 1 ману в секунду больше. "
+                               + "Вампиризм маны (от кольца): за убийство — 7.5 % маны убитого. +3 к ловкости (от Slippers of Agility).\n\n"
                                + "Собирается из Boots of Speed и Ring of Basilius.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
