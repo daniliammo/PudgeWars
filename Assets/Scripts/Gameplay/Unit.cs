@@ -6,7 +6,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// Anything on the arena with a side, a name, health and mana: the base of <see cref="Pudge"/> and of whatever other
     /// creatures come later. Mana regenerates while alive (<see cref="ManaRegen"/>) up to <see cref="MaxMana"/>; items
-    /// (<see cref="HeroInventory"/>) add to both, and a bigger maximum keeps the share of mana the unit had, as in Dota.
+    /// (<see cref="HeroInventory"/>) add to both: what an item adds to the maximum comes into the current mana at once
+    /// (a lower maximum only cuts the mana down to it).
     /// Health regenerates while alive (<see cref="HealthRegen"/>: the unit's own and what items add
     /// for a while, <see cref="AddRegen"/>) and runs out from <see cref="Damage"/>, which ends in
     /// <see cref="OnHealthDepleted"/>. On a network client (<see cref="Simulation.IsProxy"/>) health is only shown as
@@ -90,10 +91,10 @@ namespace PudgeWars.Gameplay
                 Health = Mathf.Min(maxHealth, Health + regen * Time.deltaTime);
             if (Simulation.IsProxy) return;
             float max = MaxMana;
-            // an item changed the maximum: the share of mana stays (Dota), not the amount
+            // an item raised the maximum: as much comes into the mana at once; a lower one only cuts it down
             if (!Mathf.Approximately(max, lastMaxMana))
             {
-                Mana = lastMaxMana > 0f ? Mana / lastMaxMana * max : max;
+                if (max > lastMaxMana) Mana += max - lastMaxMana;
                 lastMaxMana = max;
             }
             if (IsAlive) Mana = Mathf.Clamp(Mana + ManaRegen * Time.deltaTime, 0f, max);

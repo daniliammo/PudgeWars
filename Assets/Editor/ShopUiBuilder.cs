@@ -144,7 +144,7 @@ namespace PudgeWars.EditorTools
         {
             item.displayName = "Energy Booster";
             item.description = "+250 к максимальной мане";
-            item.details = "Пассивно: увеличивает запас маны на 250. Доля маны сохраняется: с полной маной она остаётся полной.\n\n"
+            item.details = "Пассивно: увеличивает запас маны на 250. Эти 250 сразу добавляются и к текущей мане.\n\n"
                            + "Часть Aether Lens.";
             item.cost = 800;
             item.unique = false;

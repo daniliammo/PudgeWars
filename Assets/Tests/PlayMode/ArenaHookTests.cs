@@ -1419,12 +1419,21 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(player.MaxMana, player.Mana, 1e-3f, "a hero starts with full mana");
                 foreach (var unit in Unit.AllUnits) Assert.Greater(unit.MaxMana, 0f, $"{unit.name} has no mana");
 
-                // Energy Booster: +250 maximum mana, the share stays (full stays full)
+                // Energy Booster: +250 maximum mana, and the 250 come into the current mana at once
                 inventory.AddGold(10000, popup: false);
+                Assert.IsTrue(player.SpendMana(100f));
+                float before = player.Mana;
                 Assert.IsTrue(inventory.TryBuy(booster));
                 yield return null;
                 Assert.AreEqual(517f, player.MaxMana, 1e-3f, "Energy Booster must give +250 mana");
-                Assert.AreEqual(517f, player.Mana, 1f, "full mana must stay full with a bigger maximum");
+                Assert.AreEqual(before + 250f, player.Mana, 1f, "the 250 the booster adds to the maximum must come into the mana");
+                // selling it only cuts the mana down to the lower maximum
+                Assert.IsTrue(inventory.TrySell(inventory.SlotOf(booster)));
+                yield return null;
+                Assert.AreEqual(267f, player.Mana, 1f);
+                Assert.IsTrue(inventory.TryBuy(booster));
+                yield return null;
+                Assert.AreEqual(517f, player.Mana, 1f);
                 Assert.IsTrue(player.SpendMana(300f));
                 Assert.IsFalse(player.SpendMana(1000f), "more mana than there is was spent");
 
