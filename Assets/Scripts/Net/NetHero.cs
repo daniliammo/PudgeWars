@@ -38,6 +38,8 @@ namespace PudgeWars.Net
         [SyncVar(hook = nameof(OnGoldChanged))] int gold;
         [SyncVar(hook = nameof(OnItemsChanged))] string items = "";
         [SyncVar] string animState;
+        // timed effects from items: "catalogIndex:endsAt(network time):duration" per effect, comma-separated
+        [SyncVar(hook = nameof(OnEffectsChanged))] string effects = "";
         [SyncVar] byte hookFlags;
         [SyncVar] Vector3 hookHead;
         [SyncVar] Vector3 hookDirection;
@@ -57,6 +59,7 @@ namespace PudgeWars.Net
         NetworkTransformBase netTransform;
         NetPrefabs prefabs;
         float lastReadyAt = float.NaN;
+        int lastEffectsVersion = -1;
         Vector3 sentMove, sentLook;
         float sentAt;
 
@@ -152,6 +155,13 @@ namespace PudgeWars.Net
             mana = Mathf.Ceil(hookable.Mana);
             maxMana = hookable.MaxMana;
             manaRegen = Mathf.Round(hookable.ManaRegen * 100f) / 100f;
+            if (hookable.EffectsVersion != lastEffectsVersion && prefabs != null)
+            {
+                lastEffectsVersion = hookable.EffectsVersion;
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                effects = string.Join(",", hookable.TimedEffects().Select(e =>
+                    $"{prefabs.IndexOf(e.item)}:{(NetworkTime.time + (e.until - Time.time)).ToString(ci)}:{e.duration.ToString(ci)}"));
+            }
             multiKill = Arena.Instance != null ? Arena.Instance.Streaks.MultiKillCount(hookable) : 0;
             var score = Arena.Instance != null ? Arena.Instance.ScoreOf(hookable) : default;
             kills = score.kills;
@@ -219,6 +229,7 @@ namespace PudgeWars.Net
             if (isServer) return; // host: the server's objects are shown as they are
             ApplyIdentity();
             ApplyInventory();
+            OnEffectsChanged(null, effects);
             if (!string.IsNullOrEmpty(animState)) anim?.Play(animState, 0f);
             Show();
         }
@@ -327,6 +338,23 @@ namespace PudgeWars.Net
         void RpcItemUsed(int index)
         {
             if (!isServer && inventory != null && prefabs != null) inventory.ShowUsed(prefabs.ItemAt(index));
+        }
+
+        void OnEffectsChanged(string _, string now)
+        {
+            if (isServer || prefabs == null) return;
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            var list = new List<(ItemDef, float, float)>();
+            foreach (var entry in (now ?? "").Split(',', System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                var parts = entry.Split(':');
+                if (parts.Length < 3 || !int.TryParse(parts[0], out var index)) continue;
+                var item = prefabs.ItemAt(index);
+                if (item == null || !double.TryParse(parts[1], System.Globalization.NumberStyles.Float, ci, out var endsAt)
+                    || !float.TryParse(parts[2], System.Globalization.NumberStyles.Float, ci, out var duration)) continue;
+                list.Add((item, Time.time + (float)(endsAt - NetworkTime.time), duration));
+            }
+            hookable.ApplyRemoteEffects(list);
         }
 
         [ClientRpc]

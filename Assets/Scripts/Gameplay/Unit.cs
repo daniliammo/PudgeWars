@@ -1,8 +1,36 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
 {
+    /// <summary>
+    /// An effect on a unit, shown as a round icon over the ability bar (<see cref="EffectBar"/>): a timed one from an
+    /// item's use (Tango's Eat Tree) or an aura from a nearby ally's item (Basilius Aura).
+    /// </summary>
+    public readonly struct UnitEffect
+    {
+        public readonly ItemDef item;
+        public readonly string name, description;
+        /// <summary>Time.time it ends at, and how long it lasts in all; both 0 for one that lasts while it holds (an aura).</summary>
+        public readonly float endsAt, duration;
+        /// <summary>The unit giving it (the aura's owner); null for the unit's own.</summary>
+        public readonly Unit source;
+
+        public UnitEffect(ItemDef item, string name, string description, float endsAt, float duration, Unit source)
+        {
+            this.item = item;
+            this.name = name;
+            this.description = description;
+            this.endsAt = endsAt;
+            this.duration = duration;
+            this.source = source;
+        }
+
+        public bool IsTimed => duration > 0f;
+        public float Left => IsTimed ? Mathf.Max(0f, endsAt - Time.time) : 0f;
+    }
+
     /// <summary>
     /// Anything on the arena with a side, a name, health and mana: the base of <see cref="Pudge"/> and of whatever other
     /// creatures come later. Mana regenerates while alive (<see cref="ManaRegen"/>) up to <see cref="MaxMana"/>; items
@@ -88,7 +116,11 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        readonly List<(float perSecond, float until)> regenBonuses = new();
+        readonly List<(float perSecond, float until, float duration, ItemDef source)> regenBonuses = new();
+        // network client: the timed effects the server keeps (item, Time.time it ends at, its whole duration)
+        readonly List<(ItemDef item, float until, float duration)> remoteTimed = new();
+        /// <summary>Grows whenever a timed effect starts or ends (the network side resends them then).</summary>
+        public int EffectsVersion { get; private set; }
         float remoteRegen = -1f, remoteMaxMana = -1f, remoteManaRegen = -1f;
         HeroInventory inventory;
         float lastMaxMana;
@@ -107,7 +139,7 @@ namespace PudgeWars.Gameplay
 
         protected virtual void Update()
         {
-            regenBonuses.RemoveAll(b => b.until <= Time.time);
+            if (regenBonuses.RemoveAll(b => b.until <= Time.time) > 0) EffectsVersion++;
             float regen = HealthRegen;
             if (IsAlive && !Simulation.IsProxy && regen > 0f)
                 Health = Mathf.Min(maxHealth, Health + regen * Time.deltaTime);
@@ -138,9 +170,81 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Regenerates <paramref name="perSecond"/> more for <paramref name="duration"/> seconds (Tango); death ends it.</summary>
-        public void AddRegen(float perSecond, float duration)
+        /// <param name="source">The item that gave it (its icon and name in the effects).</param>
+        public void AddRegen(float perSecond, float duration, ItemDef source = null)
         {
-            if (IsAlive && perSecond > 0f && duration > 0f) regenBonuses.Add((perSecond, Time.time + duration));
+            if (!IsAlive || perSecond <= 0f || duration <= 0f) return;
+            regenBonuses.Add((perSecond, Time.time + duration, duration, source));
+            EffectsVersion++;
+        }
+
+        /// <summary>The timed effects from items now: item, Time.time each ends at, its whole duration (one per use).</summary>
+        public IEnumerable<(ItemDef item, float until, float duration)> TimedEffects()
+        {
+            if (Simulation.IsProxy)
+            {
+                foreach (var e in remoteTimed)
+                    if (e.until > Time.time) yield return e;
+                yield break;
+            }
+            foreach (var b in regenBonuses)
+                if (b.source != null && b.until > Time.time) yield return (b.source, b.until, b.duration);
+        }
+
+        /// <summary>Network client: the timed effects the server keeps (ends in local Time.time).</summary>
+        public void ApplyRemoteEffects(IEnumerable<(ItemDef item, float until, float duration)> effects)
+        {
+            remoteTimed.Clear();
+            remoteTimed.AddRange(effects);
+        }
+
+        /// <summary>
+        /// The unit's effects now, for the effect bar: the timed ones of the same item as one (the latest end; Tango
+        /// eaten twice heals twice as much), then the aura it stands in.
+        /// </summary>
+        public void Effects(List<UnitEffect> into)
+        {
+            into.Clear();
+            var ci = System.Globalization.CultureInfo.InvariantCulture;
+            var timed = new Dictionary<ItemDef, (int count, float until, float duration)>();
+            foreach (var (item, until, duration) in TimedEffects())
+            {
+                timed.TryGetValue(item, out var t);
+                timed[item] = (t.count + 1, Mathf.Max(t.until, until), Mathf.Max(t.duration, duration));
+            }
+            foreach (var (item, t) in timed)
+            {
+                var use = item.Active;
+                string name = use != null ? item.Abilities.FirstOrDefault(a => a.active)?.name : null;
+                float perSecond = use != null ? use.regenBonus * t.count : 0f;
+                string text = perSecond > 0f ? $"+{perSecond.ToString("0.#", ci)} здоровья в секунду" : "";
+                if (t.count > 1) text += $" ({t.count} одновременно)";
+                into.Add(new UnitEffect(item, string.IsNullOrEmpty(name) ? item.displayName : name, text, t.until, t.duration, null));
+            }
+            if (AuraFrom(out var giver, out var aura))
+            {
+                string name = aura.Abilities.FirstOrDefault(a => a.name != null && a.name.Contains("Aura"))?.name ?? aura.displayName;
+                string from = giver == this ? $"от своего {aura.displayName}" : $"от {aura.displayName} героя {giver.DisplayName}";
+                into.Add(new UnitEffect(aura, name, $"+{aura.AuraManaRegen.ToString("0.##", ci)} маны в секунду — {from}", 0f, 0f, giver));
+            }
+        }
+
+        /// <summary>The ally (itself included) whose item gives this unit the aura it stands in, and that item.</summary>
+        public bool AuraFrom(out Unit giver, out ItemDef item)
+        {
+            giver = null;
+            item = null;
+            float best = 0f;
+            foreach (var ally in allUnits)
+            {
+                if (ally.team != team || !ally.IsAlive || ally.inventory == null) continue;
+                var source = ally.inventory.AuraSourceWithin((ally.transform.position - transform.position).magnitude);
+                if (source == null || source.AuraManaRegen <= best) continue;
+                best = source.AuraManaRegen;
+                giver = ally;
+                item = source;
+            }
+            return item != null;
         }
 
         /// <summary>
@@ -175,6 +279,7 @@ namespace PudgeWars.Gameplay
             cleared = true;
             Health = 0f;
             Mana = 0f;
+            if (regenBonuses.Count > 0) EffectsVersion++;
             regenBonuses.Clear();
         }
 

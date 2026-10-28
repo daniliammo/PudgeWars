@@ -429,7 +429,14 @@ namespace PudgeWars.Gameplay
             if (item.ManaBonus > 0f) lines.Add($"+{item.ManaBonus.ToString("0", ci)} к мане");
             if (item.ManaRegenBonus > 0f) lines.Add($"+{item.ManaRegenBonus.ToString("0.##", ci)} к восстановлению маны");
             if (item.MoveSpeedBonus > 0f) lines.Add($"+{(item.MoveSpeedBonus * 100f).ToString("0", ci)} к скорости передвижения");
-            if (item.AgilityBonus > 0f) lines.Add($"+{item.AgilityBonus.ToString("0", ci)} к ловкости");
+            if (item.StrengthBonus > 0f && Mathf.Approximately(item.StrengthBonus, item.AgilityBonus) && Mathf.Approximately(item.AgilityBonus, item.IntelligenceBonus))
+                lines.Add($"+{item.StrengthBonus.ToString("0", ci)} ко всем атрибутам");
+            else
+            {
+                if (item.StrengthBonus > 0f) lines.Add($"+{item.StrengthBonus.ToString("0", ci)} к силе");
+                if (item.AgilityBonus > 0f) lines.Add($"+{item.AgilityBonus.ToString("0", ci)} к ловкости");
+                if (item.IntelligenceBonus > 0f) lines.Add($"+{item.IntelligenceBonus.ToString("0", ci)} к интеллекту");
+            }
             if (!hasAbilities) // an item without named abilities still tells what it does
             {
                 if (item.CastRangeBonus > 0f) lines.Add($"+{(item.CastRangeBonus * 100f).ToString("0", ci)} к дальности способностей");

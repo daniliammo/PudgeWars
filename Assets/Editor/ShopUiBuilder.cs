@@ -91,7 +91,7 @@ namespace PudgeWars.EditorTools
             item.description = "Съесть дерево: +7 здоровья в секунду 16 с. 3 штуки";
             item.details = "Повторная покупка добавляет ещё 3 штуки в тот же слот.";
             item.abilities = new[] { Ability("Eat Tree", true, "Пудж съедает выбранное дерево — оно падает, а здоровье восстанавливается на 7 в секунду 16 секунд (112 за всё время). Дерево, посаженное веткой, вдвое сытнее: 14 в секунду. Несколько съеденных деревьев лечат одновременно; смерть прерывает лечение. Срубленное дерево отрастает через 20 секунд.") };
-            item.lore = "";
+            item.lore = "Натуральная пища для выживания на поле боя.";
             item.cost = 70;
             item.unique = false;
             item.action = ItemAction.EatTree;
@@ -108,10 +108,13 @@ namespace PudgeWars.EditorTools
         public static ItemDef IronBranch() => Item("IronBranch", "branches", item =>
         {
             item.displayName = "Iron Branch";
-            item.description = "Посадить дерево (навсегда)";
+            item.description = "+1 ко всем атрибутам. Посадить дерево (навсегда)";
             item.details = "";
             item.abilities = new[] { Ability("Happy Little Tree", true, "Сажает дерево в выбранной точке рядом с Пуджем. Дерево стоит навсегда: герои его обходят, хук пролетает насквозь. Его можно съесть танго (вдвое сытнее обычного) или срубить топориком — тогда оно уже не отрастёт. Нельзя сажать над ямой, на другое дерево и на героя. Ветка одноразовая.") };
-            item.lore = "";
+            item.lore = "Обычная, казалось бы, веточка дарует владельцу стойкость железного дерева, с которого она срублена.";
+            item.strengthBonus = 1f;
+            item.agilityBonus = 1f;
+            item.intelligenceBonus = 1f;
             item.cost = 50;
             item.unique = false;
             item.action = ItemAction.PlantTree;
@@ -129,7 +132,7 @@ namespace PudgeWars.EditorTools
             item.description = "Срубить дерево (перезарядка 4 с). +16 урона по героям, +4 по крипам";
             item.details = "";
             item.abilities = new[] { Ability("Quell", false, "+16 урона по героям и +4 по крипам к каждому удару — атак, предметов и способностей: у хука к удару при попадании и к каждому метру, на который он протащил цель (10 + 16 = 26 за метр по герою)."), Ability("Chop Tree", true, "Срубает выбранное дерево: остаётся пень, крона разлетается, а через 20 секунд дерево вырастает снова. Дерево, посаженное веткой, срубается насовсем. Если дерево дальше 350, Пудж сначала подойдёт к нему.") };
-            item.lore = "";
+            item.lore = "Топор павшего гнома, позволяющий с лёгкостью продираться сквозь лес.";
             item.heroDamageBonus = 16f;
             item.creepDamageBonus = 4f;
             item.cost = 100;

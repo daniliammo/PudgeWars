@@ -1729,6 +1729,66 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator EffectsShowAsRoundIconsOverTheAbilityBarWithDescriptions()
+        {
+            var abilities = Object.FindAnyObjectByType<AbilityBar>();
+            var inventory = player.GetComponent<HeroInventory>();
+            yield return null;
+            var bar = abilities.Effects;
+            Assert.IsNotNull(bar, "no effect row over the ability bar");
+            var tango = TestItem(ItemAction.EatTree, 70, 3, stacks: true, range: 1.65f);
+            tango.displayName = "Tango";
+            tango.abilities = new[] { new ItemAbility { name = "Eat Tree", active = true, description = "" } };
+            var ring = TestItem(ItemAction.None, 425, 0, stacks: false, range: 0f);
+            ring.auraManaRegen = 1f;
+            ring.auraRadius = 8f;
+            ring.abilities = new[] { new ItemAbility { name = "Basilius Aura", active = false, description = "" } };
+            try
+            {
+                yield return new WaitForSeconds(0.2f);
+                Assert.AreEqual(0, bar.IconCount, "effects shown with none on the hero");
+                // Tango eaten: a timed effect with its picture; the aura of the own ring: one that holds
+                player.AddRegen(7f, 16f, tango);
+                inventory.AddGold(ring.cost, popup: false);
+                Assert.IsTrue(inventory.TryBuy(ring));
+                yield return new WaitForSeconds(0.2f);
+                Assert.AreEqual(2, bar.IconCount);
+                Assert.AreEqual(tango, bar.Shown[0].item);
+                Assert.IsTrue(bar.Shown[0].IsTimed);
+                Assert.AreEqual(ring, bar.Shown[1].item, "no Basilius Aura among the effects");
+                Assert.IsFalse(bar.Shown[1].IsTimed);
+                // over the ability bar, in the middle
+                var barCorners = new Vector3[4];
+                var abilityCorners = new Vector3[4];
+                ((RectTransform)bar.transform).GetWorldCorners(barCorners);
+                ((RectTransform)abilities.slots[0].transform.parent).GetWorldCorners(abilityCorners);
+                Assert.GreaterOrEqual(barCorners[0].y, abilityCorners[1].y, "the effects must stand over the ability bar");
+                Assert.AreEqual((abilityCorners[0].x + abilityCorners[2].x) / 2f, (barCorners[0].x + barCorners[2].x) / 2f, 1f, "the effects must be centred");
+                // hovering tells what it is
+                var icon = bar.GetComponentsInChildren<EffectIconPointer>()[0];
+                icon.OnPointerEnter(new PointerEventData(EventSystem.current));
+                yield return null;
+                StringAssert.Contains("Eat Tree", bar.TipText);
+                StringAssert.Contains("+7 здоровья в секунду", bar.TipText);
+                StringAssert.Contains("Осталось", bar.TipText);
+                icon.OnPointerExit(new PointerEventData(EventSystem.current));
+                yield return null;
+                Assert.IsNull(bar.TipText, "the description stayed after the pointer left");
+                var aura = bar.GetComponentsInChildren<EffectIconPointer>()[1];
+                aura.OnPointerEnter(new PointerEventData(EventSystem.current));
+                yield return null;
+                StringAssert.Contains("Basilius Aura", bar.TipText);
+                StringAssert.Contains("+1 маны в секунду", bar.TipText);
+                aura.OnPointerExit(new PointerEventData(EventSystem.current));
+            }
+            finally
+            {
+                Object.Destroy(tango);
+                Object.Destroy(ring);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ItemsAreDraggedBetweenSlotsWithShopSounds()
         {
             var shop = Object.FindAnyObjectByType<ShopUI>();

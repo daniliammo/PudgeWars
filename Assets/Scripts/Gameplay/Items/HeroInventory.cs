@@ -91,6 +91,28 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>Strength from the items (stored only: the attributes do nothing yet).</summary>
+        public float StrengthBonus
+        {
+            get
+            {
+                float bonus = 0f;
+                foreach (var item in owned) bonus += item.StrengthBonus;
+                return bonus;
+            }
+        }
+
+        /// <summary>Intelligence from the items (stored only: the attributes do nothing yet).</summary>
+        public float IntelligenceBonus
+        {
+            get
+            {
+                float bonus = 0f;
+                foreach (var item in owned) bonus += item.IntelligenceBonus;
+                return bonus;
+            }
+        }
+
         /// <summary>Agility from the items (stored only: the attributes do nothing yet).</summary>
         public float AgilityBonus
         {
@@ -111,6 +133,15 @@ namespace PudgeWars.Gameplay
                 foreach (var item in owned) best = Mathf.Max(best, item.KillManaSteal);
                 return best;
             }
+        }
+
+        /// <summary>The item with the biggest Basilius Aura reaching <paramref name="distance"/> metres (null if none does).</summary>
+        public ItemDef AuraSourceWithin(float distance)
+        {
+            ItemDef best = null;
+            foreach (var item in owned)
+                if (item.AuraManaRegen > 0f && distance <= item.AuraRadius && (best == null || item.AuraManaRegen > best.AuraManaRegen)) best = item;
+            return best;
         }
 
         /// <summary>The biggest Basilius Aura of the items reaching <paramref name="distance"/> metres (0 if none does).</summary>
@@ -391,7 +422,7 @@ namespace PudgeWars.Gameplay
                 case ItemAction.EatTree:
                     bool planted = TerrainTrees.IsPlanted(tree);
                     trees.Fell(tree, transform.position);
-                    if (self != null) self.AddRegen(use.regenBonus * (planted ? use.plantedTreeBonus : 1f), use.regenDuration);
+                    if (self != null) self.AddRegen(use.regenBonus * (planted ? use.plantedTreeBonus : 1f), use.regenDuration, item);
                     break;
                 case ItemAction.ChopTree:
                     trees.Fell(tree, transform.position);

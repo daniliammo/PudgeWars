@@ -73,8 +73,12 @@ namespace PudgeWars.Gameplay
         public float moveSpeedBonus;
         [Tooltip("Boots (Boots of Speed, Arcane Boots): their speed bonuses do not stack with each other, as in Dota.")]
         public bool boots;
-        [Tooltip("Bonus to agility (Slippers of Agility +3). Stored only: strength, agility and intelligence do nothing yet.")]
+        [Tooltip("Bonus to strength (Iron Branch +1). Stored only: strength, agility and intelligence do nothing yet.")]
+        public float strengthBonus;
+        [Tooltip("Bonus to agility (Slippers of Agility +3, Iron Branch +1). Stored only.")]
         public float agilityBonus;
+        [Tooltip("Bonus to intelligence (Iron Branch +1). Stored only.")]
+        public float intelligenceBonus;
         [Tooltip("Ring of Basilius: the share of a killed unit's mana (as it had at its death) its killer gets, 0.075 = 7.5 %.")]
         [Range(0f, 1f)] public float killManaSteal;
         [Tooltip("Basilius Aura: mana regenerated per second by every ally within auraRadius, the owner too. The same aura from several items or heroes counts once (the biggest).")]
@@ -111,6 +115,8 @@ namespace PudgeWars.Gameplay
         public float ManaRegenBonus => Inherited(i => i.manaRegenBonus);
         public float MoveSpeedBonus => Inherited(i => i.moveSpeedBonus);
         public float AgilityBonus => Inherited(i => i.agilityBonus);
+        public float StrengthBonus => Inherited(i => i.strengthBonus);
+        public float IntelligenceBonus => Inherited(i => i.intelligenceBonus);
         public float CastRangeBonus => Inherited(i => i.castRangeBonus);
         public float HeroDamageBonus => Inherited(i => i.heroDamageBonus);
         public float CreepDamageBonus => Inherited(i => i.creepDamageBonus);

@@ -10,6 +10,7 @@ namespace PudgeWars.Gameplay
     /// selected for targeting. Clicking a slot selects it like its key. As in Dota, the mana cost stands in blue at the
     /// slot's bottom right and the icon turns blue while the hero lacks the mana. In first person the bar rises by
     /// <see cref="firstPersonRise"/>: the own health and mana bar takes the bottom edge under it (<see cref="HealthBars"/>).
+    /// Over the bar stands the row of the hero's effects (<see cref="EffectBar"/>).
     /// </summary>
     public class AbilityBar : MonoBehaviour
     {
@@ -30,6 +31,10 @@ namespace PudgeWars.Gameplay
         RectTransform panel;
         float panelY;
         TopDownCamera follow;
+        EffectBar effects;
+
+        /// <summary>The row of the local hero's effects over the bar (made at start).</summary>
+        public EffectBar Effects => effects;
 
         /// <summary>The hook's mana cost over its slot (made at start).</summary>
         public Text ManaCostLabel => manaCostLabel;
@@ -47,6 +52,7 @@ namespace PudgeWars.Gameplay
                 panel = slot.parent as RectTransform;
                 if (panel != null) panelY = panel.anchoredPosition.y;
                 manaCostLabel = BuildManaCost(slot);
+                if (panel != null) effects = EffectBar.Create(panel, manaCostLabel.font);
             }
             for (int i = 0; i < slots.Length; i++)
             {
