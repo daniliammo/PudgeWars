@@ -161,6 +161,7 @@ MonoBehaviour:
   team: 0
   nickname: 
   maxHealth: 670
+  healthRegen: 2.5
   radius: 0.6
   gravity: 20
   allyMarkerColor: {r: 0.2, g: 0.9, b: 0.3, a: 1}
@@ -195,7 +196,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.HeroInventory
   gold: 0
-  items: []
+  slots:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  charges: 000000000000000000000000000000000000000000000000i
 --- !u!114 &5107265097155918698
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -208,6 +216,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 53da57694deb1624ea907e9709fbb85a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.PlayerInputController
+  treePickRadius: 1.5
+  rangeColor: {r: 0.55, g: 0.95, b: 0.45, a: 0.8}
   viewCamera: {fileID: 0}
   aimIndicator: {fileID: 5610432389755671683}
 --- !u!114 &6806213470979276736
@@ -237,6 +247,9 @@ MonoBehaviour:
   dropCarry: 0.35
   tetherReelSpeed: 8
   tetherTimeout: 4
+  hitDamage: 110
+  hitDamagePerLevel: 0
+  damagePerMeter: 10
   heldPullSlowdown: 3
   hookHead: {fileID: 5359641613882523213}
   chain: {fileID: 2176489718261283249}
@@ -247,6 +260,7 @@ MonoBehaviour:
     cast: {fileID: 0}
     retract: {fileID: 0}
     impact: {fileID: 0}
+    retractStop: {fileID: 0}
     hitVoice: []
     missVoice: []
 --- !u!82 &587047759655208790
