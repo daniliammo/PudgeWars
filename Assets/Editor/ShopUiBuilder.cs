@@ -68,7 +68,11 @@ namespace PudgeWars.EditorTools
         public static ItemDef[] Catalog()
         {
             var lens = AetherLens();
-            var catalog = new[] { Tango(), IronBranch(), QuellingBlade(), EnergyBooster(), VoidStone(), AetherLensRecipe(), lens };
+            var catalog = new[]
+            {
+                Tango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), BootsOfSpeed(),
+                ArcaneBoots(), EnergyBooster(), VoidStone(), AetherLensRecipe(), lens,
+            };
             var net = Net.NetPrefabs.Load();
             if (net != null)
             {
@@ -172,6 +176,97 @@ namespace PudgeWars.EditorTools
             item.unique = false;
             item.sound = ItemSound.Recipe;
         });
+
+        /// <summary>Radius of Basilius Aura and of Arcane Boots' mana: four times Iron Branch's planting reach (2 m × 4 = 8 m).</summary>
+        static float AuraRadius => IronBranch().castRange * 4f;
+
+        /// <summary>Sage's Mask: 175 gold as in Dota 2, +0.7 mana per second.</summary>
+        public static ItemDef SagesMask() => Item("SagesMask", "sobi_mask", item =>
+        {
+            item.displayName = "Sage's Mask";
+            item.description = "+0.7 к восстановлению маны";
+            item.details = "Пассивно: мана восстанавливается на 0.7 в секунду быстрее.\n\nЧасть Ring of Basilius.";
+            item.cost = 175;
+            item.unique = false;
+            item.manaRegenBonus = 0.7f;
+        });
+
+        /// <summary>The Ring of Basilius recipe: 250 gold as in Dota 2 (Sage's Mask 175 + 250 = 425).</summary>
+        public static ItemDef RingOfBasiliusRecipe() => Item("RingOfBasiliusRecipe", "recipe", item =>
+        {
+            item.displayName = "Рецепт: Ring of Basilius";
+            item.description = "Вместе с Sage's Mask собирается в Ring of Basilius";
+            item.details = "Сам ничего не даёт. Когда в инвентаре есть рецепт и Sage's Mask, они сразу становятся Ring of Basilius.";
+            item.cost = 250;
+            item.unique = false;
+            item.sound = ItemSound.Recipe;
+        });
+
+        /// <summary>Ring of Basilius: Sage's Mask + recipe; +1.5 mana per second and Basilius Aura (+1 to allies within 8 m).</summary>
+        public static ItemDef RingOfBasilius()
+        {
+            var parts = new[] { SagesMask(), RingOfBasiliusRecipe() };
+            float radius = AuraRadius;
+            return Item("RingOfBasilius", "ring_of_basilius", item =>
+            {
+                item.displayName = "Ring of Basilius";
+                item.description = "+1.5 к восстановлению маны. Аура: +1 маны в секунду союзникам рядом";
+                item.details = "Пассивно: мана владельца восстанавливается на 1.5 в секунду быстрее.\n\n"
+                               + $"Basilius Aura: все союзники в радиусе {radius * 100f:0} (и сам владелец) восстанавливают на 1 ману в секунду больше. "
+                               + "Одинаковые ауры не складываются.\n\nСобирается из Sage's Mask и рецепта. Часть Arcane Boots.";
+                item.cost = parts.Sum(p => p.cost);
+                item.components = parts;
+                item.unique = false;
+                item.manaRegenBonus = 1.5f;
+                item.auraManaRegen = 1f;
+                item.auraRadius = radius;
+                item.sound = ItemSound.Ring;
+            });
+        }
+
+        /// <summary>Boots of Speed: 500 gold as in Dota 2, +45 movement speed.</summary>
+        public static ItemDef BootsOfSpeed() => Item("BootsOfSpeed", "boots", item =>
+        {
+            item.displayName = "Boots of Speed";
+            item.description = "+45 к скорости передвижения";
+            item.details = "Пассивно: Пудж бегает на 45 быстрее (280 → 325). Бонусы нескольких сапог не складываются.\n\nЧасть Arcane Boots.";
+            item.cost = 500;
+            item.unique = false;
+            item.moveSpeedBonus = 0.45f;
+        });
+
+        /// <summary>
+        /// Arcane Boots: Boots of Speed + Ring of Basilius (925 gold); +1.5 mana per second, +45 movement speed,
+        /// Basilius Aura, and on use +175 mana to the allies within 8 m, cooldown 55 s.
+        /// </summary>
+        public static ItemDef ArcaneBoots()
+        {
+            var parts = new[] { BootsOfSpeed(), RingOfBasilius() };
+            float radius = AuraRadius;
+            return Item("ArcaneBoots", "arcane_boots", item =>
+            {
+                item.displayName = "Arcane Boots";
+                item.description = "+1.5 к восстановлению маны, +45 к скорости. Применение: +175 маны союзникам рядом";
+                item.details = $"Применение (перезарядка 55 с): все союзники в радиусе {radius * 100f:0}, и сам владелец, сразу получают 175 маны. "
+                               + "Цели не нужно: клавиша или клик по слоту применяют сразу.\n\n"
+                               + "Пассивно: мана восстанавливается на 1.5 в секунду быстрее, Пудж бегает на 45 быстрее. "
+                               + $"Basilius Aura (от кольца): союзники в радиусе {radius * 100f:0} восстанавливают на 1 ману в секунду больше.\n\n"
+                               + "Собирается из Boots of Speed и Ring of Basilius.";
+                item.cost = parts.Sum(p => p.cost);
+                item.components = parts;
+                item.unique = true;
+                item.manaRegenBonus = 1.5f;
+                item.moveSpeedBonus = 0.45f;
+                item.auraManaRegen = 1f;
+                item.auraRadius = radius;
+                item.action = ItemAction.RestoreAllyMana;
+                item.restoreMana = 175f;
+                item.castRange = radius;
+                item.cooldown = 55f;
+                item.charges = 0;
+                item.stacks = false;
+            });
+        }
 
         /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
         static ItemDef Item(string asset, string icon, System.Action<ItemDef> fill)

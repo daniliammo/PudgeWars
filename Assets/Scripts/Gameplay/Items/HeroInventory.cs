@@ -75,6 +75,26 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>Movement speed bonus from the items, m/s: the biggest one (boots do not stack, as in Dota).</summary>
+        public float MoveSpeedBonus
+        {
+            get
+            {
+                float bonus = 0f;
+                foreach (var item in owned) bonus = Mathf.Max(bonus, item.moveSpeedBonus);
+                return bonus;
+            }
+        }
+
+        /// <summary>The biggest Basilius Aura of the items reaching <paramref name="distance"/> metres (0 if none does).</summary>
+        public float AuraManaRegenWithin(float distance)
+        {
+            float best = 0f;
+            foreach (var item in owned)
+                if (item.auraManaRegen > best && distance <= item.auraRadius) best = item.auraManaRegen;
+            return best;
+        }
+
         /// <summary>Bonus to mana regeneration from the items (Void Stone).</summary>
         public float ManaRegenBonus
         {
@@ -153,21 +173,42 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// What buying the item costs this hero: its price, or for an assembled one the price of the parts it does not
-        /// have yet (the owned parts go into it).
+        /// have yet — down through the parts' own parts (Sage's Mask counts toward Arcane Boots through Ring of
+        /// Basilius); the owned parts go into it.
         /// </summary>
         public int PriceOf(ItemDef item)
         {
             if (item == null) return 0;
-            if (!item.IsAssembled) return item.cost;
+            return item.IsAssembled ? Plan(item, new bool[SlotCount], new List<int>()) : item.cost;
+        }
+
+        /// <summary>
+        /// The price of the missing parts of an assembled item; the slots of the owned ones (its parts' parts too) go
+        /// into <paramref name="consumed"/>.
+        /// </summary>
+        int Plan(ItemDef item, bool[] used, List<int> consumed)
+        {
             int price = 0;
-            var used = new bool[SlotCount];
             foreach (var part in item.components)
-                if (part != null && FindPart(part, used) < 0) price += part.cost;
+            {
+                if (part == null) continue;
+                int slot = FindPart(part, used);
+                if (slot >= 0) consumed.Add(slot);
+                else price += part.IsAssembled ? Plan(part, used, consumed) : part.cost;
+            }
             return price;
         }
 
-        /// <summary>Slots of the owned parts of an assembled item, one per part (a missing part is left out).</summary>
+        /// <summary>Slots of the owned items that would go into an assembled one bought now (its parts' parts too).</summary>
         List<int> PartSlots(ItemDef item)
+        {
+            var consumed = new List<int>();
+            Plan(item, new bool[SlotCount], consumed);
+            return consumed;
+        }
+
+        /// <summary>Slots of the item's own parts in the inventory, one per part (a missing part is left out).</summary>
+        List<int> DirectPartSlots(ItemDef item)
         {
             var found = new List<int>();
             var used = new bool[SlotCount];
@@ -232,7 +273,7 @@ namespace PudgeWars.Gameplay
             {
                 // no room, but it completes an assembled item: it goes straight into that
                 var result = CompletedBy(item);
-                Assemble(result, PartSlots(result));
+                Assemble(result, DirectPartSlots(result));
             }
             Reindex();
             Combine();
@@ -272,7 +313,7 @@ namespace PudgeWars.Gameplay
                 {
                     foreach (var result in item.BuildsInto())
                     {
-                        var parts = PartSlots(result);
+                        var parts = DirectPartSlots(result);
                         if (parts.Count != result.components.Count(c => c != null)) continue;
                         Assemble(result, parts);
                         made = any = true;
@@ -291,18 +332,22 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Uses the item in <paramref name="slot"/>: on <paramref name="tree"/> (a <see cref="TerrainTrees"/> handle)
-        /// for Tango and Quelling Blade, at <paramref name="point"/> for Iron Branch. The target must be within the
-        /// item's reach. False if it cannot be used so.
+        /// for Tango and Quelling Blade, at <paramref name="point"/> for Iron Branch, at once for an item without a
+        /// target (Arcane Boots: the point and the tree are ignored). The target must be within the item's reach.
+        /// False if it cannot be used so.
         /// </summary>
         public bool TryUse(int slot, Vector3 point, int tree)
         {
             if (!CanUse(slot)) return false;
             var item = slots[slot];
             var trees = TerrainTrees.Instance;
-            if (trees == null) return false;
-            if (item.TargetsTree ? !trees.IsStanding(tree) || !InReach(trees.Position(tree), trees.radius, item)
-                    : !InReach(point, trees.radius, item) || !trees.CanPlant(point))
-                return false;
+            if (!item.IsInstant)
+            {
+                if (trees == null) return false;
+                if (item.TargetsTree ? !trees.IsStanding(tree) || !InReach(trees.Position(tree), trees.radius, item)
+                        : !InReach(point, trees.radius, item) || !trees.CanPlant(point))
+                    return false;
+            }
             if (Simulation.IsProxy)
             {
                 // the slot shades at once; the server's answer comes with the items
@@ -322,6 +367,14 @@ namespace PudgeWars.Gameplay
                     break;
                 case ItemAction.PlantTree:
                     if (trees.Plant(point, item.treeLifetime) < 0) return false;
+                    break;
+                case ItemAction.RestoreAllyMana:
+                    foreach (var unit in Unit.AllUnits)
+                    {
+                        var d = unit.transform.position - transform.position;
+                        d.y = 0f;
+                        if (self != null && unit.team == self.team && d.magnitude <= item.castRange) unit.RestoreMana(item.restoreMana);
+                    }
                     break;
             }
             readyAt[slot] = Time.time + item.cooldown;

@@ -15,6 +15,8 @@ namespace PudgeWars.Gameplay
         PlantTree,
         /// <summary>Quelling Blade: cuts a tree down.</summary>
         ChopTree,
+        /// <summary>Arcane Boots: at once, without a target, gives mana to the allies around (the owner too).</summary>
+        RestoreAllyMana,
     }
 
     /// <summary>The sounds of an item put into a slot and picked from it (Dota: Item.DropShop and its kinds).</summary>
@@ -48,6 +50,14 @@ namespace PudgeWars.Gameplay
         public float manaBonus;
         [Tooltip("Bonus to mana regenerated per second (Void Stone +1.75).")]
         public float manaRegenBonus;
+        [Tooltip("Bonus to movement speed, m/s (Dota units / 100: Boots of Speed +45 = 0.45). Bonuses of several items do not add up: the biggest counts (Dota: boots do not stack).")]
+        public float moveSpeedBonus;
+        [Tooltip("Basilius Aura: mana regenerated per second by every ally within auraRadius, the owner too. The same aura from several items or heroes counts once (the biggest).")]
+        public float auraManaRegen;
+        [Tooltip("Radius of the aura, metres from the owner's centre to the ally's.")]
+        public float auraRadius;
+        [Tooltip("Arcane Boots: mana given to every ally within castRange (from the owner's centre), the owner too.")]
+        public float restoreMana;
 
         [Header("Crafting")]
         [Tooltip("What the item is assembled from, a recipe scroll too if it has one (a part may repeat). Its cost must be their sum.")]
@@ -80,6 +90,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>The assembled items this one is a part of.</summary>
         public IEnumerable<ItemDef> BuildsInto() => Assembled().Where(r => r.components.Contains(this));
+        /// <summary>Used at once on a key or a click, with no target (Arcane Boots).</summary>
+        public bool IsInstant => action == ItemAction.RestoreAllyMana;
         /// <summary>Used on a tree (Tango, Quelling Blade) rather than on a point of the ground (Iron Branch).</summary>
         public bool TargetsTree => action is ItemAction.EatTree or ItemAction.ChopTree;
     }

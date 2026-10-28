@@ -378,8 +378,11 @@ namespace PudgeWars.Gameplay
             if (item.heroDamageBonus > 0f) text.Append($"\nУрон по героям: +{item.heroDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
             if (item.manaBonus > 0f) text.Append($"\nМана: +{item.manaBonus.ToString("0", ci)}");
             if (item.manaRegenBonus > 0f) text.Append($"\nВосстановление маны: +{item.manaRegenBonus.ToString("0.##", ci)} в секунду");
+            if (item.moveSpeedBonus > 0f) text.Append($"\nСкорость передвижения: +{(item.moveSpeedBonus * 100f).ToString("0", ci)} (не складывается с другими сапогами)");
+            if (item.auraManaRegen > 0f) text.Append($"\nBasilius Aura: +{item.auraManaRegen.ToString("0.##", ci)} маны в секунду союзникам и себе в радиусе {(item.auraRadius * 100f).ToString("0", ci)}");
+            if (item.restoreMana > 0f) text.Append($"\nПрименение: +{item.restoreMana.ToString("0", ci)} маны союзникам и себе в радиусе {(item.castRange * 100f).ToString("0", ci)}");
             if (item.creepDamageBonus > 0f) text.Append($"\nУрон по крипам: +{item.creepDamageBonus.ToString("0", ci)} (у хука — к попаданию и к каждому метру)");
-            if (item.IsUsable) text.Append($"\nДальность применения: {(item.castRange * 100f).ToString("0", ci)}");
+            if (item.IsUsable && !item.IsInstant) text.Append($"\nДальность применения: {(item.castRange * 100f).ToString("0", ci)}");
             if (item.cooldown > 0f) text.Append($"\nПерезарядка: {item.cooldown.ToString("0.#", ci)} с");
             if (item.charges > 0) text.Append(owner != null ? $"\nЗарядов осталось: {owner.ChargesAt(slot)}" : $"\nЗарядов: {item.charges}");
             text.Append("</color>");
@@ -389,7 +392,9 @@ namespace PudgeWars.Gameplay
             var into = item.BuildsInto().Select(r => r.displayName).Distinct().ToArray();
             if (into.Length > 0) text.Append("\n\n<color=#8FD0FF>Входит в: " + string.Join(", ", into) + "</color>");
             if (owner != null && item.IsUsable && slot < SlotKeys.Length)
-                text.Append($"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — выбрать, клик по цели — применить");
+                text.Append(item.IsInstant
+                    ? $"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — применить"
+                    : $"\n\nКлавиша <b>{SlotKeys[slot]}</b> или клик по слоту — выбрать, клик по цели — применить");
             if (owner != null && owner == LocalHeroInventory())
                 text.Append($"\n<color=#E8A860>Продать за {owner.SellValue(slot)} золота: правая кнопка мыши (на телефоне — удерживать слот)</color>");
             return text.ToString();

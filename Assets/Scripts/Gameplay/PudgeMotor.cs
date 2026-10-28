@@ -34,8 +34,11 @@ namespace PudgeWars.Gameplay
         Pudge self;
         HookAbility hook;
         PudgeAnimation anim;
+        HeroInventory inventory;
 
         public float TurnSpeedDegrees => turnRate / 0.03f * Mathf.Rad2Deg;
+        /// <summary>Movement speed now: the hero's own and what its items add (Boots of Speed), m/s.</summary>
+        public float MoveSpeed => moveSpeed + (inventory != null ? inventory.MoveSpeedBonus : 0f);
         /// <summary>Movement input as last set (a network client sends it to the server, which moves the hero).</summary>
         public Vector3 MoveInput => input;
         public Vector3? LookDirection => look;
@@ -45,6 +48,7 @@ namespace PudgeWars.Gameplay
             self = GetComponent<Pudge>();
             hook = GetComponent<HookAbility>();
             anim = GetComponent<PudgeAnimation>();
+            inventory = GetComponent<HeroInventory>();
         }
 
         /// <summary>Desired world-space movement direction; its length (clamped to 1) scales the speed.</summary>
@@ -104,7 +108,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Moves by velocity / moveSpeed for this frame within the own side; returns the actual speed.</summary>
         float Step(Vector3 direction)
         {
-            var pos = transform.position + direction * (moveSpeed * Time.deltaTime);
+            var pos = transform.position + direction * (MoveSpeed * Time.deltaTime);
             var arena = Arena.Instance;
             if (arena != null && self != null) pos = arena.ClampToSide(pos, self.team, self.radius, keepOffPit ? pitGap : null);
             if (self != null)

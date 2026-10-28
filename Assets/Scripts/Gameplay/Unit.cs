@@ -52,7 +52,28 @@ namespace PudgeWars.Gameplay
         public float MaxMana => Simulation.IsProxy && remoteMaxMana >= 0f ? remoteMaxMana : maxMana + (inventory != null ? inventory.ManaBonus : 0f);
 
         /// <summary>Mana regenerated per second: the unit's own and what its items add.</summary>
-        public float ManaRegen => Simulation.IsProxy && remoteManaRegen >= 0f ? remoteManaRegen : manaRegen + (inventory != null ? inventory.ManaRegenBonus : 0f);
+        public float ManaRegen => Simulation.IsProxy && remoteManaRegen >= 0f
+            ? remoteManaRegen
+            : manaRegen + (inventory != null ? inventory.ManaRegenBonus : 0f) + AuraManaRegen;
+
+        /// <summary>
+        /// Basilius Aura on this unit: the biggest one among the living allies (itself included) whose items carry it
+        /// and who stand within its radius; the same aura does not add up.
+        /// </summary>
+        public float AuraManaRegen
+        {
+            get
+            {
+                float best = 0f;
+                foreach (var ally in allUnits)
+                {
+                    if (ally.team != team || !ally.IsAlive || ally.inventory == null) continue;
+                    float aura = ally.inventory.AuraManaRegenWithin((ally.transform.position - transform.position).magnitude);
+                    if (aura > best) best = aura;
+                }
+                return best;
+            }
+        }
 
         /// <summary>Health regenerated per second now: the unit's own and the bonuses still running (Tango).</summary>
         public float HealthRegen
@@ -98,6 +119,13 @@ namespace PudgeWars.Gameplay
                 lastMaxMana = max;
             }
             if (IsAlive) Mana = Mathf.Clamp(Mana + ManaRegen * Time.deltaTime, 0f, max);
+        }
+
+        /// <summary>Gives <paramref name="amount"/> of mana, up to the maximum (Arcane Boots). Server / offline only.</summary>
+        public void RestoreMana(float amount)
+        {
+            if (!IsAlive || Simulation.IsProxy || amount <= 0f) return;
+            Mana = Mathf.Min(MaxMana, Mana + amount);
         }
 
         /// <summary>Takes <paramref name="amount"/> of mana if the unit has that much (an ability's or an item's cost). Server / offline only.</summary>

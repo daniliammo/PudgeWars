@@ -115,10 +115,19 @@ namespace PudgeWars.Gameplay
             return true;
         }
 
-        /// <summary>Picks the usable item in an inventory slot for targeting (again: drops it).</summary>
+        /// <summary>
+        /// Picks the usable item in an inventory slot for targeting (again: drops it); one without a target (Arcane
+        /// Boots) is used at once instead and false is returned.
+        /// </summary>
         public bool SelectItem(int slot)
         {
-            if (inventory == null || inventory.ItemIn(slot) is not { IsUsable: true }) return false;
+            if (inventory == null || inventory.ItemIn(slot) is not { IsUsable: true } picked) return false;
+            if (picked.IsInstant)
+            {
+                if (inventory.CooldownLeft(slot) > 0f) AbilityNotReady?.Invoke();
+                else inventory.TryUse(slot, transform.position, HeroInventory.NoTree);
+                return false;
+            }
             if (SelectedItem == slot)
             {
                 DeselectItem();

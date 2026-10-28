@@ -1396,6 +1396,76 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ArcaneBootsFromBootsAndRingOfBasiliusWithAuraAndManaForAllies()
+        {
+            var inventory = player.GetComponent<HeroInventory>();
+            var input = player.GetComponent<PlayerInputController>();
+            var motor = player.GetComponent<PudgeMotor>();
+            var mask = TestItem(ItemAction.None, 175, 0, stacks: false, range: 0f);
+            mask.manaRegenBonus = 0.7f;
+            var ringRecipe = TestItem(ItemAction.None, 250, 0, stacks: false, range: 0f);
+            var ring = TestItem(ItemAction.None, 425, 0, stacks: false, range: 0f);
+            ring.components = new[] { mask, ringRecipe };
+            ring.manaRegenBonus = 1.5f;
+            ring.auraManaRegen = 1f;
+            ring.auraRadius = 8f;
+            var boots = TestItem(ItemAction.None, 500, 0, stacks: false, range: 0f);
+            boots.moveSpeedBonus = 0.45f;
+            var arcane = TestItem(ItemAction.RestoreAllyMana, 925, 0, stacks: false, range: 8f, cooldown: 55f);
+            arcane.unique = true;
+            arcane.components = new[] { boots, ring };
+            arcane.manaRegenBonus = 1.5f;
+            arcane.moveSpeedBonus = 0.45f;
+            arcane.auraManaRegen = 1f;
+            arcane.auraRadius = 8f;
+            arcane.restoreMana = 175f;
+            var enemy = Pudge.All.First(h => h.team != player.team);
+            var ally = Pudge.All.First(h => h.team != player.team && h != enemy);
+            ally.team = player.team; // a teammate for the aura and the mana
+            try
+            {
+                yield return null;
+                inventory.AddGold(5000, popup: false);
+                Assert.IsTrue(inventory.TryBuy(mask));
+                Assert.AreEqual(0.8f + 0.7f, player.ManaRegen, 1e-4f, "Sage's Mask must give +0.7");
+                // the mask counts toward the boots through the ring: only the boots and the ring's recipe are left
+                Assert.AreEqual(500 + 250, inventory.PriceOf(arcane));
+                int gold = inventory.Gold;
+                Assert.IsTrue(inventory.TryBuy(arcane));
+                Assert.AreEqual(gold - 750, inventory.Gold);
+                Assert.IsTrue(inventory.Owns(arcane));
+                Assert.AreEqual(1, inventory.Items.Count, "the mask must go into the boots");
+                Assert.AreEqual(2.8f + 0.45f, motor.MoveSpeed, 1e-4f, "Arcane Boots must give +45 speed");
+                Assert.AreEqual(0.8f + 1.5f + 1f, player.ManaRegen, 1e-4f, "Arcane Boots: +1.5 and Basilius Aura +1 on the owner");
+
+                // the aura: allies within 8 m, not enemies
+                enemy.transform.position = player.transform.position + Vector3.right * 3f;
+                Assert.AreEqual(0f, enemy.AuraManaRegen, 1e-4f, "an enemy must not get the aura");
+                ally.transform.position = player.transform.position + Vector3.right * 5f;
+                Assert.AreEqual(1f, ally.AuraManaRegen, 1e-4f, "an ally within 8 m must get the aura");
+                Assert.AreEqual(0.8f + 1f, ally.ManaRegen, 1e-4f);
+                ally.transform.position = player.transform.position + Vector3.right * 9f;
+                Assert.AreEqual(0f, ally.AuraManaRegen, 1e-4f, "an ally beyond 8 m must not get the aura");
+                ally.transform.position = player.transform.position + Vector3.right * 5f;
+
+                // the use: at once, on the key or the slot, +175 mana to the allies around, the owner too; then 55 s
+                Assert.IsTrue(player.SpendMana(200f) && enemy.SpendMana(200f) && ally.SpendMana(200f));
+                float own = player.Mana, enemyMana = enemy.Mana, allyMana = ally.Mana;
+                int slot = inventory.SlotOf(arcane);
+                Assert.IsFalse(input.SelectItem(slot), "Arcane Boots must be used at once, not wait for a target");
+                Assert.AreEqual(own + 175f, player.Mana, 0.5f, "the owner did not get 175 mana");
+                Assert.AreEqual(enemyMana, enemy.Mana, 0.5f, "an enemy got the mana");
+                Assert.AreEqual(allyMana + 175f, ally.Mana, 0.5f, "an ally within reach did not get 175 mana");
+                Assert.AreEqual(55f, inventory.CooldownLeft(slot), 0.1f);
+                Assert.IsFalse(inventory.TryUse(slot, player.transform.position, HeroInventory.NoTree), "used again during the cooldown");
+            }
+            finally
+            {
+                foreach (var item in new[] { mask, ringRecipe, ring, boots, arcane }) Object.Destroy(item);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ManaItemsAndCraftingAetherLens()
         {
             var inventory = player.GetComponent<HeroInventory>();

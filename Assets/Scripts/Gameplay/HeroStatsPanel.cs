@@ -74,7 +74,7 @@ namespace PudgeWars.Gameplay
             Row("Здоровье", $"{Mathf.CeilToInt(hero.Health)}/{Mathf.CeilToInt(hero.maxHealth)}");
             Row("Мана", $"{Mathf.CeilToInt(hero.Mana)}/{Mathf.CeilToInt(hero.MaxMana)}");
             Row("Реген маны", "+" + hero.ManaRegen.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
-            if (hero.TryGetComponent<PudgeMotor>(out var motor)) Row("Скорость", Units(motor.moveSpeed));
+            if (hero.TryGetComponent<PudgeMotor>(out var motor)) Row("Скорость", Units(motor.MoveSpeed));
             if (hero.TryGetComponent<HookAbility>(out var hook))
             {
                 float bonus = hook.EffectiveRange - hook.range;
