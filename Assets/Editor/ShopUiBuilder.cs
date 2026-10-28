@@ -221,7 +221,7 @@ namespace PudgeWars.EditorTools
                 item.displayName = "Ring of Basilius";
                 item.description = "+1.5 к восстановлению маны. Аура маны и вампиризм маны";
                 item.details = "";
-                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 10 % маны, которая была у убитого.") };
+                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого.") };
                 item.lore = "Кольцо, служившее наградой величайшим магам.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
@@ -229,7 +229,7 @@ namespace PudgeWars.EditorTools
                 item.manaRegenBonus = 1.5f;
                 item.auraManaRegen = 1f;
                 item.auraRadius = radius;
-                item.killManaSteal = 0.1f;
+                item.killManaSteal = 0.13f;
                 item.sound = ItemSound.Ring;
             });
         }
@@ -294,7 +294,7 @@ namespace PudgeWars.EditorTools
                 item.displayName = "Arcane Boots";
                 item.description = "+1.5 к восстановлению маны, +45 к скорости. Применение: +175 маны союзникам рядом";
                 item.details = "Бонусы нескольких сапог к скорости не складываются.";
-                item.abilities = new[] { Ability("Replenish Mana", true, $"+175 маны себе и всем союзникам в радиусе {radius * 100f:0}. Цели не нужно: клавиша или клик по слоту применяют сразу."), Ability("Mana Leech", false, "За убийство владелец получает 11.5 % маны, которая была у убитого.") };
+                item.abilities = new[] { Ability("Replenish Mana", true, $"+175 маны себе и всем союзникам в радиусе {radius * 100f:0}. Цели не нужно: клавиша или клик по слоту применяют сразу."), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого.") };
                 item.lore = "В этих ботинках маг становится более ценным в бою.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
@@ -306,7 +306,7 @@ namespace PudgeWars.EditorTools
                 item.auraRadius = radius;
                 item.action = ItemAction.RestoreAllyMana;
                 item.restoreMana = 175f;
-                item.killManaSteal = 0.115f;
+                item.killManaSteal = 0.13f;
                 item.castRange = radius;
                 item.cooldown = 55f;
                 item.charges = 0;

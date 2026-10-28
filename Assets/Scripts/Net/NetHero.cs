@@ -91,6 +91,7 @@ namespace PudgeWars.Net
             {
                 inventory.Changed += PublishInventory;
                 inventory.GoldAdded += RpcGoldAdded;
+                inventory.Used += OnItemUsed;
             }
             if (anim != null) anim.Played += OnAnimationPlayed;
             hookable.Respawned += OnRespawned;
@@ -105,6 +106,7 @@ namespace PudgeWars.Net
             {
                 inventory.Changed -= PublishInventory;
                 inventory.GoldAdded -= RpcGoldAdded;
+                inventory.Used -= OnItemUsed;
             }
             if (anim != null) anim.Played -= OnAnimationPlayed;
             hookable.Respawned -= OnRespawned;
@@ -312,6 +314,19 @@ namespace PudgeWars.Net
             if (isServer || anim == null) return;
             if (lockSeconds > 0f) anim.PlayAction(state, lockSeconds, fade);
             else anim.Play(state, fade);
+        }
+
+        void OnItemUsed(int slot, ItemDef item)
+        {
+            int index = prefabs != null ? prefabs.IndexOf(item) : -1;
+            if (index >= 0) RpcItemUsed(index);
+        }
+
+        /// <summary>The server's hero used an item: clients play its effect (Arcane Boots' burst).</summary>
+        [ClientRpc]
+        void RpcItemUsed(int index)
+        {
+            if (!isServer && inventory != null && prefabs != null) inventory.ShowUsed(prefabs.ItemAt(index));
         }
 
         [ClientRpc]

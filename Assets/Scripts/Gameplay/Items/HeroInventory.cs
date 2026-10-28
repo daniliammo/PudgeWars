@@ -48,6 +48,8 @@ namespace PudgeWars.Gameplay
         public event Action<int, Vector3, int> UseRequested;
         /// <summary>An item was used (its slot before it was used up, the item).</summary>
         public event Action<int, ItemDef> Used;
+        /// <summary>Any hero used an item (its inventory, the item): for the effects; on a network client too (<see cref="ShowUsed"/>).</summary>
+        public static event Action<HeroInventory, ItemDef> AnyUsed;
         /// <summary>Network client: the player sells the item in a slot; the server decides.</summary>
         public event Action<int> SellRequested;
         /// <summary>An item went from one slot to another (what was there went the other way).</summary>
@@ -414,6 +416,7 @@ namespace PudgeWars.Gameplay
                 Compact();
             }
             Used?.Invoke(slot, item);
+            AnyUsed?.Invoke(this, item);
             Changed?.Invoke();
             return true;
         }
@@ -520,6 +523,9 @@ namespace PudgeWars.Gameplay
             Reindex();
             Changed?.Invoke();
         }
+
+        /// <summary>Network client: the server's hero used <paramref name="item"/> (its effect plays here too).</summary>
+        public void ShowUsed(ItemDef item) => AnyUsed?.Invoke(this, item);
 
         /// <summary>Network client: the server gave this hero gold with a popup.</summary>
         public void ShowGoldAdded(int amount) => GoldAdded?.Invoke(amount);

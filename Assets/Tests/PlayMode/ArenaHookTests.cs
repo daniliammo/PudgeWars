@@ -1479,7 +1479,10 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(player.SpendMana(200f) && enemy.SpendMana(200f) && ally.SpendMana(200f));
                 float own = player.Mana, enemyMana = enemy.Mana, allyMana = ally.Mana;
                 int slot = inventory.SlotOf(arcane);
+                int bursts = ManaBurst.ActiveCount;
                 Assert.IsFalse(input.SelectItem(slot), "Arcane Boots must be used at once, not wait for a target");
+                // the blue burst: a wave on the ground and a column over the owner and the ally (not the enemy)
+                Assert.AreEqual(bursts + 3, ManaBurst.ActiveCount, "no mana burst (Resources/Effects/ManaBurst.shader)");
                 Assert.AreEqual(own + 175f, player.Mana, 0.5f, "the owner did not get 175 mana");
                 Assert.AreEqual(enemyMana, enemy.Mana, 0.5f, "an enemy got the mana");
                 Assert.AreEqual(allyMana + 175f, ally.Mana, 0.5f, "an ally within reach did not get 175 mana");
