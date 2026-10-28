@@ -4,31 +4,41 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// The bright blue burst of Arcane Boots' Replenish Mana: a glowing wave runs out over the ground to the use's
-    /// radius, and a column of light with spiralling streaks and sparks rises over every ally the mana reached (the
-    /// owner too), following it. Drawn by Resources/Effects/ManaBurst.shader; plays wherever an item that gives mana is
-    /// used (<see cref="HeroInventory.AnyUsed"/>), on a network client too.
+    /// The blue burst of Arcane Boots' Replenish Mana with Dota's sound (Resources/Audio/Items/arcane_boots): a faint
+    /// wave runs out over the ground to the use's radius, and every ally the mana reached (the owner too) gets its own,
+    /// brighter effect as the wave comes to it, following it: a rune circle turning under its feet and two strands of
+    /// light winding up round it, narrowing into the hero. Drawn by Resources/Effects/ManaBurst.shader; plays wherever
+    /// an item that gives mana is used (<see cref="HeroInventory.AnyUsed"/>), on a network client too.
     /// </summary>
     public class ManaBurst : MonoBehaviour
     {
         [Tooltip("Seconds the wave takes to run out and fade.")] public float waveDuration = 0.9f;
-        [Tooltip("Seconds a column rises and fades.")] public float columnDuration = 1.1f;
-        [Tooltip("Columns start this much later than the wave: they light up as it reaches them, seconds per metre.")]
-        public float columnDelayPerMetre = 0.035f;
-        public float columnHeight = 3.2f;
-        public float columnRadius = 0.85f;
+        [Tooltip("Brightness of the wave (the heroes' effects are the bright part).")] public float waveIntensity = 1.2f;
+        [Tooltip("Seconds an ally's effect plays.")] public float allyDuration = 1.4f;
+        [Tooltip("An ally's effect starts as the wave reaches it: seconds per metre from the owner.")]
+        public float allyDelayPerMetre = 0.035f;
+        public float allyIntensity = 2.6f;
+        [Tooltip("Height of the winding strands, metres.")] public float helixHeight = 3f;
+        [Tooltip("Radius the strands start at and the one they narrow to, metres.")] public Vector2 helixRadius = new(1.3f, 0.45f);
+        [Tooltip("Radius of the rune circle under an ally, metres.")] public float runeRadius = 1.3f;
+        [Range(0f, 1f)] public float soundVolume = 0.9f;
 
         static ManaBurst instance;
         static Material material;
         static Mesh quad, cylinder;
+        static AudioClip sound;
         static readonly int ProgressId = Shader.PropertyToID("_Progress");
         static readonly int ShapeId = Shader.PropertyToID("_Shape");
         static readonly int SeedId = Shader.PropertyToID("_Seed");
+        static readonly int IntensityId = Shader.PropertyToID("_Intensity");
+
+        enum Shape { Wave = 0, Helix = 1, Runes = 2 }
 
         class Piece
         {
             public Transform transform;
             public MeshRenderer renderer;
+            public Shape shape;
             public float start, duration;
         }
 
@@ -37,6 +47,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>Parts of bursts still playing (for tests).</summary>
         public static int ActiveCount => instance != null ? instance.pieces.Count : 0;
+        /// <summary>How many times the sound was played (for tests).</summary>
+        public static int SoundsPlayed { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
@@ -63,37 +75,58 @@ namespace PudgeWars.Gameplay
         {
             if (owner == null || !EnsureAssets()) return;
             var centre = owner.transform.position;
-            float seed = Random.value * 10f;
-            Add(null, centre + Vector3.up * 0.06f, Vector3.one * radius, quad, 0f, waveDuration, seed);
+            PlaySound(centre);
+            Add(null, centre + Vector3.up * 0.05f, Vector3.one * radius, Shape.Wave, 0f, waveDuration, waveIntensity);
             foreach (var unit in Unit.AllUnits)
             {
                 if (unit.team != owner.team || !unit.IsAlive) continue;
                 var d = unit.transform.position - centre;
                 d.y = 0f;
                 if (d.magnitude > radius) continue;
-                Add(unit.transform, Vector3.zero, new Vector3(columnRadius, columnHeight, columnRadius), cylinder,
-                    d.magnitude * columnDelayPerMetre, columnDuration, seed + Random.value * 10f);
+                float delay = d.magnitude * allyDelayPerMetre;
+                Add(unit.transform, Vector3.up * 0.07f, Vector3.one * runeRadius, Shape.Runes, delay, allyDuration, allyIntensity);
+                Add(unit.transform, Vector3.zero, new Vector3(helixRadius.x, helixHeight, helixRadius.x), Shape.Helix, delay, allyDuration, allyIntensity);
             }
         }
 
-        void Add(Transform follow, Vector3 position, Vector3 scale, Mesh mesh, float delay, float duration, float seed)
+        /// <summary>Dota's Arcane Boots sound where they were used, heard around as the heroes' sounds are.</summary>
+        void PlaySound(Vector3 at)
         {
-            var go = new GameObject(mesh == quad ? "ManaWave" : "ManaColumn");
+            if (sound == null) return;
+            var go = new GameObject("ArcaneBootsSound");
+            go.transform.position = at;
+            var source = go.AddComponent<AudioSource>();
+            source.clip = sound;
+            source.volume = soundVolume;
+            source.spatialBlend = 0.8f;
+            source.minDistance = 8f;
+            source.maxDistance = 45f;
+            source.Play();
+            Destroy(go, sound.length + 0.1f);
+            SoundsPlayed++;
+        }
+
+        void Add(Transform follow, Vector3 offset, Vector3 scale, Shape shape, float delay, float duration, float intensity)
+        {
+            var go = new GameObject("Mana" + shape);
             go.transform.SetParent(follow != null ? follow : transform, false);
-            if (follow == null) go.transform.position = position;
+            if (follow == null) go.transform.position = offset;
+            else go.transform.localPosition = offset;
             go.transform.localScale = scale;
-            go.AddComponent<MeshFilter>().sharedMesh = mesh;
+            go.AddComponent<MeshFilter>().sharedMesh = shape == Shape.Helix ? cylinder : quad;
             var renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterial = material;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             block ??= new MaterialPropertyBlock();
-            block.SetFloat(ShapeId, mesh == quad ? 0f : 1f);
-            block.SetFloat(SeedId, seed);
+            block.Clear();
+            block.SetFloat(ShapeId, (float)shape);
+            block.SetFloat(SeedId, Random.value * 10f);
+            block.SetFloat(IntensityId, intensity);
             block.SetFloat(ProgressId, 0f);
             renderer.SetPropertyBlock(block);
             renderer.enabled = delay <= 0f;
-            pieces.Add(new Piece { transform = go.transform, renderer = renderer, start = Time.time + delay, duration = duration });
+            pieces.Add(new Piece { transform = go.transform, renderer = renderer, shape = shape, start = Time.time + delay, duration = duration });
         }
 
         void Update()
@@ -115,6 +148,19 @@ namespace PudgeWars.Gameplay
                 }
                 piece.renderer.enabled = t >= 0f;
                 if (t < 0f) continue;
+                float eased = 1f - (1f - t) * (1f - t);
+                if (piece.shape == Shape.Helix)
+                {
+                    // the strands narrow into the hero
+                    float r = Mathf.Lerp(helixRadius.x, helixRadius.y, eased);
+                    piece.transform.localScale = new Vector3(r, helixHeight, r);
+                }
+                else if (piece.shape == Shape.Runes)
+                {
+                    // the circle springs open a little past its size and settles
+                    float pop = 0.6f + 0.4f * Mathf.Min(1f, t * 5f) + 0.08f * Mathf.Sin(Mathf.Min(1f, t * 5f) * Mathf.PI);
+                    piece.transform.localScale = Vector3.one * (runeRadius * pop);
+                }
                 piece.renderer.GetPropertyBlock(block);
                 block.SetFloat(ProgressId, t);
                 piece.renderer.SetPropertyBlock(block);
@@ -129,6 +175,7 @@ namespace PudgeWars.Gameplay
                 if (shader == null) return false;
                 material = new Material(shader) { name = "ManaBurst" };
             }
+            if (sound == null) sound = Resources.Load<AudioClip>("Audio/Items/arcane_boots");
             if (quad == null) quad = Quad();
             if (cylinder == null) cylinder = Cylinder(32);
             return true;
