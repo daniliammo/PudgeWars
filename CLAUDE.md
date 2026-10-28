@@ -49,7 +49,7 @@
 - `Scripts/Gameplay` (сборка PudgeWars.Gameplay) — механики: `Unit` (база любой сущности: команда, имя, здоровье с регеном,
   урон `Damage`, смерть `OnHealthDepleted`), `Pudge : Unit` (герой: хук ловит, тащит, падение в яму, тело), `HookAbility`
   (урон хука: `hitDamage` при попадании + `damagePerMeter`), `PudgeMotor`, `BotBrain`, `Arena`,
-  HUD (`ScoreHud`, `HealthBars`, `KillAnnouncer`, магазин в `Items/`), `TerrainTrees` (деревья террейна: препятствия, рубка),
+  HUD (`ScoreHud`, `HealthBars`, `KillAnnouncer`, магазин и сборка предметов в `Items/`), `Unit` (здоровье и мана всех существ), `TerrainTrees` (деревья террейна: препятствия, рубка),
   `MenuLandscape`, `GraphicsQuality` (пресеты), `Corpse` (тело-рэгдолл упавшего героя до возрождения), `BloodSplatter`
   (брызги и пятна крови; шейдер `Resources/Effects/Blood.shader`). `HeroVoice` — голос своего Пуджа (`Resources/Audio/Voice`),
   звуки хука — `Resources/Audio/Hook` (подгружаются в `HookSounds.FillMissing`). `Simulation.IsProxy` — сетевой клиент только показывает состояние сервера.
