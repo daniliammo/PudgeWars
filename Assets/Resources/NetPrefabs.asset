@@ -19,6 +19,16 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 9e6a4ee02ce4d21ee8a19cadd51d1201, type: 2}
   - {fileID: 11400000, guid: af11c969aedf72c64bd6eaa57ff04403, type: 2}
   - {fileID: 11400000, guid: 4f082cea2ed65956892c21210e5a44ff, type: 2}
+  - {fileID: 11400000, guid: 0cd71ed1f379419aeae5bbe24266f61b, type: 2}
+  - {fileID: 11400000, guid: 756c35e9ed08c31b3b142f03083a5781, type: 2}
+  - {fileID: 11400000, guid: a93fde7b1fa1fed958fe2ef2d86ac2d4, type: 2}
+  - {fileID: 11400000, guid: e030563b46d9504f2998e1af812efa91, type: 2}
+  - {fileID: 11400000, guid: 8d98691eaf2ce35e381e5f0496cf5f64, type: 2}
+  - {fileID: 11400000, guid: cdf366d45621cf471b5ffbc161cbf688, type: 2}
+  - {fileID: 11400000, guid: 9d948d6174cca8449a59d71ac1886b8b, type: 2}
+  - {fileID: 11400000, guid: 4b3e7a58552c0f4a09137bed395d13f2, type: 2}
+  - {fileID: 11400000, guid: 116883f3e89ea3de3944b703a835a2a4, type: 2}
+  - {fileID: 11400000, guid: 210616c07e4fd0ec8bd46d14f95ede2c, type: 2}
   botNames:
   - "\u041C\u044F\u0441\u043D\u0438\u043A"
   - "\u041A\u0440\u044E\u043A\u043E\u0434\u0435\u043B"

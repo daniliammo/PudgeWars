@@ -162,6 +162,8 @@ MonoBehaviour:
   nickname: 
   maxHealth: 670
   healthRegen: 2.5
+  maxMana: 267
+  manaRegen: 0.8
   radius: 0.6
   gravity: 20
   allyMarkerColor: {r: 0.2, g: 0.9, b: 0.3, a: 1}
@@ -238,6 +240,7 @@ MonoBehaviour:
   returnSpeed: 15
   castDelay: 0.29
   cooldown: 1
+  manaCost: 120
   hitsAllies: 1
   resetCooldownOnHit: 1
   hitRadius: 0.65

@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0e775617caeabd90b27b8cebc7e4fc1, type: 3}
+  m_Name: RingOfBasilius
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.ItemDef
+  displayName: Ring of Basilius
+  description: "+1.5 \u043A \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044E \u043C\u0430\u043D\u044B. \u0410\u0443\u0440\u0430: +1 \u043C\u0430\u043D\u044B \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443 \u0441\u043E\u044E\u0437\u043D\u0438\u043A\u0430\u043C \u0440\u044F\u0434\u043E\u043C. \u0412\u0430\u043C\u043F\u0438\u0440\u0438\u0437\u043C \u043C\u0430\u043D\u044B"
+  details: "\u041F\u0430\u0441\u0441\u0438\u0432\u043D\u043E: \u043C\u0430\u043D\u0430 \u0432\u043B\u0430\u0434\u0435\u043B\u044C\u0446\u0430 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u043D\u0430 1.5 \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443 \u0431\u044B\u0441\u0442\u0440\u0435\u0435.\n\n\u0412\u0430\u043C\u043F\u0438\u0440\u0438\u0437\u043C \u043C\u0430\u043D\u044B: \u0437\u0430 \u0443\u0431\u0438\u0439\u0441\u0442\u0432\u043E \u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446 \u043F\u043E\u043B\u0443\u0447\u0430\u0435\u0442 7.5 % \u043C\u0430\u043D\u044B, \u043A\u043E\u0442\u043E\u0440\u0430\u044F \u0431\u044B\u043B\u0430 \u0443 \u0443\u0431\u0438\u0442\u043E\u0433\u043E.\n\nBasilius Aura: \u0432\u0441\u0435 \u0441\u043E\u044E\u0437\u043D\u0438\u043A\u0438 \u0432 \u0440\u0430\u0434\u0438\u0443\u0441\u0435 800 (\u0438 \u0441\u0430\u043C \u0432\u043B\u0430\u0434\u0435\u043B\u0435\u0446) \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u044E\u0442 \u043D\u0430 1 \u043C\u0430\u043D\u0443 \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443 \u0431\u043E\u043B\u044C\u0448\u0435. \u041E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u044B\u0435 \u0430\u0443\u0440\u044B \u043D\u0435 \u0441\u043A\u043B\u0430\u0434\u044B\u0432\u0430\u044E\u0442\u0441\u044F.\n\n\u0421\u043E\u0431\u0438\u0440\u0430\u0435\u0442\u0441\u044F \u0438\u0437 Sage's Mask \u0438 \u0440\u0435\u0446\u0435\u043F\u0442\u0430. \u0427\u0430\u0441\u0442\u044C Arcane Boots."
+  icon: {fileID: 21300000, guid: f1512dd97ba849d3bf5afb73f58f412c, type: 3}
+  sound: 1
+  cost: 425
+  castRangeBonus: 0
+  unique: 0
+  heroDamageBonus: 0
+  creepDamageBonus: 0
+  manaBonus: 0
+  manaRegenBonus: 1.5
+  moveSpeedBonus: 0
+  boots: 0
+  agilityBonus: 0
+  killManaSteal: 0.075
+  auraManaRegen: 1
+  auraRadius: 8
+  restoreMana: 0
+  components:
+  - {fileID: 11400000, guid: 0cd71ed1f379419aeae5bbe24266f61b, type: 2}
+  - {fileID: 11400000, guid: 756c35e9ed08c31b3b142f03083a5781, type: 2}
+  action: 0
+  charges: 0
+  stacks: 0
+  castRange: 0
+  cooldown: 0
+  regenBonus: 0
+  regenDuration: 0
+  plantedTreeBonus: 1
+  treeLifetime: 0
