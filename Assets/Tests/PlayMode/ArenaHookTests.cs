@@ -2625,18 +2625,62 @@ namespace PudgeWars.Tests
             var wallet = bot.GetComponent<HeroInventory>();
             var shopper = bot.GetComponent<BotShopper>();
             Assert.IsNotNull(shopper, "bots have no shopper");
-            var lens = shopper.catalog.First();
-            var botHook = bot.GetComponent<HookAbility>();
+            // the build order: Quelling Blade, Arcane Boots, Aether Lens
+            var order = shopper.catalog;
+            Assert.AreEqual(3, order.Length, "the bot's build order: Pudge Wars → Build Test Arena");
+            Assert.Greater(order[0].heroDamageBonus, 0f, "Quelling Blade must come first: Pudge Wars → Build Test Arena");
+            Assert.AreEqual(ItemAction.RestoreAllyMana, order[1].action, "Arcane Boots must come second: Pudge Wars → Build Test Arena");
+            Assert.Greater(order[2].castRangeBonus, 0f, "Aether Lens must come last: Pudge Wars → Build Test Arena");
 
-            wallet.AddGold(lens.cost - 1);
-            yield return new WaitForSeconds(shopper.checkInterval + 0.2f);
-            Assert.IsFalse(wallet.Owns(lens), "bought without enough gold");
+            // a simple item, then an assembled one piece by piece; the recipe only with the item it completes
+            var blade = TestItem(ItemAction.None, 100, 0, stacks: false, range: 0f);
+            var slippers = TestItem(ItemAction.None, 140, 0, stacks: false, range: 0f);
+            var mask = TestItem(ItemAction.None, 175, 0, stacks: false, range: 0f);
+            var recipe = TestItem(ItemAction.None, 100, 0, stacks: false, range: 0f);
+            recipe.recipe = true;
+            var boots = TestItem(ItemAction.None, 415, 0, stacks: false, range: 0f);
+            boots.components = new[] { slippers, mask, recipe };
+            float interval = shopper.checkInterval;
+            shopper.catalog = new[] { blade, boots };
+            shopper.checkInterval = 0.1f;
+            try
+            {
+                IEnumerator Give(int gold)
+                {
+                    wallet.AddGold(gold, popup: false);
+                    yield return new WaitForSeconds(0.3f);
+                }
 
-            wallet.AddGold(1);
-            yield return new WaitForSeconds(shopper.checkInterval + 0.2f);
-            Assert.IsTrue(wallet.Owns(lens), "bot did not buy Aether Lens");
-            Assert.AreEqual(0, wallet.Gold);
-            Assert.AreEqual(botHook.range + lens.castRangeBonus, botHook.EffectiveRange, 1e-4f);
+                yield return Give(blade.cost - 1);
+                Assert.IsFalse(wallet.Owns(blade), "bought without enough gold");
+                yield return Give(1);
+                Assert.IsTrue(wallet.Owns(blade), "the bot did not buy the first item of its build order");
+                Assert.AreEqual(0, wallet.Gold);
+                Assert.AreEqual(boots, shopper.Goal);
+
+                yield return Give(150);
+                Assert.IsTrue(wallet.Owns(slippers), "the bot did not buy the part it can afford");
+                Assert.IsFalse(wallet.Owns(mask));
+                Assert.AreEqual(10, wallet.Gold);
+                yield return Give(165);
+                Assert.IsTrue(wallet.Owns(mask), "the bot did not buy the next part");
+                Assert.AreEqual(0, wallet.Gold);
+
+                yield return Give(recipe.cost - 1);
+                Assert.IsFalse(wallet.Owns(recipe), "a recipe must not be bought on its own");
+                Assert.AreEqual(recipe.cost - 1, wallet.Gold);
+                yield return Give(1);
+                Assert.IsTrue(wallet.Owns(boots), "the recipe did not complete the assembled item");
+                Assert.IsFalse(wallet.Owns(slippers) || wallet.Owns(mask), "the parts must go into the item");
+                Assert.AreEqual(0, wallet.Gold);
+                Assert.IsNull(shopper.Goal, "the build order is done");
+            }
+            finally
+            {
+                shopper.catalog = order;
+                shopper.checkInterval = interval;
+                foreach (var item in new[] { blade, slippers, mask, recipe, boots }) Object.Destroy(item);
+            }
         }
 
         [UnityTest]

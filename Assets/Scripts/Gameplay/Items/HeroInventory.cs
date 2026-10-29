@@ -242,9 +242,9 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// The price of the missing parts of an assembled item; the slots of the owned ones (its parts' parts too) go
-        /// into <paramref name="consumed"/>.
+        /// into <paramref name="consumed"/>, the missing simple parts into <paramref name="missing"/> (if given).
         /// </summary>
-        int Plan(ItemDef item, bool[] used, List<int> consumed)
+        int Plan(ItemDef item, bool[] used, List<int> consumed, List<ItemDef> missing = null)
         {
             int price = 0;
             foreach (var part in item.components)
@@ -252,9 +252,27 @@ namespace PudgeWars.Gameplay
                 if (part == null) continue;
                 int slot = FindPart(part, used);
                 if (slot >= 0) consumed.Add(slot);
-                else price += part.IsAssembled ? Plan(part, used, consumed) : part.cost;
+                else if (part.IsAssembled) price += Plan(part, used, consumed, missing);
+                else
+                {
+                    price += part.cost;
+                    missing?.Add(part);
+                }
             }
             return price;
+        }
+
+        /// <summary>
+        /// The simple parts (no parts of their own) still to buy for an item, in its build order; the item itself for a
+        /// simple one not owned (a bot buys an assembled item piece by piece).
+        /// </summary>
+        public List<ItemDef> MissingParts(ItemDef item)
+        {
+            var missing = new List<ItemDef>();
+            if (item == null) return missing;
+            if (item.IsAssembled) Plan(item, new bool[SlotCount], new List<int>(), missing);
+            else if (!Owns(item)) missing.Add(item);
+            return missing;
         }
 
         /// <summary>Slots of the owned items that would go into an assembled one bought now (its parts' parts too).</summary>

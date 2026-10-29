@@ -102,7 +102,8 @@ namespace PudgeWars.EditorTools
             SetupHook(bot, spatialAudio: true);
             bot.AddComponent<BotBrain>();
             bot.GetComponent<PudgeMotor>().keepOffPit = true;
-            bot.AddComponent<BotShopper>().catalog = new[] { ShopUiBuilder.AetherLens() };
+            // build order: the blade's damage on the hook first, then speed, mana and the aura, then the hook's reach
+            bot.AddComponent<BotShopper>().catalog = new[] { ShopUiBuilder.QuellingBlade(), ShopUiBuilder.ArcaneBoots(), ShopUiBuilder.AetherLens() };
             var botPrefab = PrefabUtility.SaveAsPrefabAsset(bot, BotPrefabPath);
             Object.DestroyImmediate(bot);
             return (playerPrefab, botPrefab);
