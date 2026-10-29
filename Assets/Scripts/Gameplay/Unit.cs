@@ -85,21 +85,21 @@ namespace PudgeWars.Gameplay
             : manaRegen + (inventory != null ? inventory.ManaRegenBonus : 0f) + AuraManaRegen;
 
         /// <summary>
-        /// Basilius Aura on this unit: the biggest one among the living allies (itself included) whose items carry it
-        /// and who stand within its radius; the same aura does not add up.
+        /// Basilius Aura on this unit: of every living ally (itself included) whose items carry it and who stands within
+        /// its radius, that ally's biggest one; the allies' auras add up (two heroes with Ring of Basilius give +2), one
+        /// hero's several do not.
         /// </summary>
         public float AuraManaRegen
         {
             get
             {
-                float best = 0f;
+                float sum = 0f;
                 foreach (var ally in allUnits)
                 {
                     if (ally.team != team || !ally.IsAlive || ally.inventory == null) continue;
-                    float aura = ally.inventory.AuraManaRegenWithin((ally.transform.position - transform.position).magnitude);
-                    if (aura > best) best = aura;
+                    sum += ally.inventory.AuraManaRegenWithin((ally.transform.position - transform.position).magnitude);
                 }
-                return best;
+                return sum;
             }
         }
 
@@ -200,7 +200,7 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// The unit's effects now, for the effect bar: the timed ones of the same item as one (the latest end; Tango
-        /// eaten twice heals twice as much), then the aura it stands in.
+        /// eaten twice heals twice as much), then the auras it stands in (the same one from several allies as one).
         /// </summary>
         public void Effects(List<UnitEffect> into)
         {
@@ -221,30 +221,36 @@ namespace PudgeWars.Gameplay
                 if (t.count > 1) text += $" ({t.count} одновременно)";
                 into.Add(new UnitEffect(item, string.IsNullOrEmpty(name) ? item.displayName : name, text, t.until, t.duration, null));
             }
-            if (AuraFrom(out var giver, out var aura))
+            // the same aura from several allies as one: its picture is the first giver's item (the own one first)
+            AurasFrom(auras);
+            foreach (var group in auras.GroupBy(a => AuraName(a.item)))
             {
-                string name = aura.Abilities.FirstOrDefault(a => a.name != null && a.name.Contains("Aura"))?.name ?? aura.displayName;
-                string from = giver == this ? $"от своего {aura.displayName}" : $"от {aura.displayName} героя {giver.DisplayName}";
-                into.Add(new UnitEffect(aura, name, $"+{aura.AuraManaRegen.ToString("0.##", ci)} маны в секунду — {from}", 0f, 0f, giver));
+                var givers = group.OrderBy(a => a.giver == this ? 0 : 1).ToList();
+                float perSecond = givers.Sum(a => a.item.AuraManaRegen);
+                string from = string.Join(", ", givers.Select(a =>
+                    a.giver == this ? $"от своего {a.item.displayName}" : $"от {a.item.displayName} героя {a.giver.DisplayName}"));
+                into.Add(new UnitEffect(givers[0].item, group.Key, $"+{perSecond.ToString("0.##", ci)} маны в секунду — {from}", 0f, 0f, givers[0].giver));
             }
         }
 
-        /// <summary>The ally (itself included) whose item gives this unit the aura it stands in, and that item.</summary>
-        public bool AuraFrom(out Unit giver, out ItemDef item)
+        readonly List<(Unit giver, ItemDef item)> auras = new();
+
+        static string AuraName(ItemDef item) =>
+            item.Abilities.FirstOrDefault(a => a.name != null && a.name.Contains("Aura"))?.name ?? item.displayName;
+
+        /// <summary>
+        /// The allies (itself included) whose items give this unit an aura now, each with its item carrying the biggest
+        /// one (see <see cref="AuraManaRegen"/>).
+        /// </summary>
+        public void AurasFrom(List<(Unit giver, ItemDef item)> into)
         {
-            giver = null;
-            item = null;
-            float best = 0f;
+            into.Clear();
             foreach (var ally in allUnits)
             {
                 if (ally.team != team || !ally.IsAlive || ally.inventory == null) continue;
                 var source = ally.inventory.AuraSourceWithin((ally.transform.position - transform.position).magnitude);
-                if (source == null || source.AuraManaRegen <= best) continue;
-                best = source.AuraManaRegen;
-                giver = ally;
-                item = source;
+                if (source != null) into.Add((ally, source));
             }
-            return item != null;
         }
 
         /// <summary>

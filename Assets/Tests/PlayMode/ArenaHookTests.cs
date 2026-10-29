@@ -1418,6 +1418,7 @@ namespace PudgeWars.Tests
             ring.manaRegenBonus = 1.5f;
             ring.auraManaRegen = 1f;
             ring.auraRadius = 8f;
+            ring.abilities = new[] { new ItemAbility { name = "Basilius Aura", active = false, description = "" } };
             var slippers = TestItem(ItemAction.None, 140, 0, stacks: false, range: 0f);
             slippers.moveSpeedBonus = 0.1f;
             slippers.agilityBonus = 3f;
@@ -1476,6 +1477,23 @@ namespace PudgeWars.Tests
                 ally.transform.position = player.transform.position + Vector3.right * 9f;
                 Assert.AreEqual(0f, ally.AuraManaRegen, 1e-4f, "an ally beyond 8 m must not get the aura");
                 ally.transform.position = player.transform.position + Vector3.right * 5f;
+
+                // the same aura of two allies adds up (one effect icon), two of one hero do not
+                var allyWallet = ally.GetComponent<HeroInventory>();
+                allyWallet.AddGold(ring.cost * 2, popup: false);
+                Assert.IsTrue(allyWallet.TryBuy(ring));
+                Assert.AreEqual(2f, ally.AuraManaRegen, 1e-4f, "the allies' auras must add up");
+                Assert.AreEqual(2f, player.AuraManaRegen, 1e-4f);
+                Assert.AreEqual(0f, enemy.AuraManaRegen, 1e-4f);
+                var effects = new List<UnitEffect>();
+                player.Effects(effects);
+                Assert.AreEqual(1, effects.Count(e => !e.IsTimed), "the same aura from two heroes must show as one effect");
+                StringAssert.Contains("+2 маны в секунду", effects.First(e => !e.IsTimed).description);
+                Assert.IsTrue(allyWallet.TryBuy(ring));
+                Assert.AreEqual(2f, ally.AuraManaRegen, 1e-4f, "one hero's two rings must not add up");
+                Assert.IsTrue(allyWallet.TrySell(allyWallet.SlotOf(ring)));
+                Assert.IsTrue(allyWallet.TrySell(allyWallet.SlotOf(ring)));
+                Assert.AreEqual(1f, ally.AuraManaRegen, 1e-4f);
 
                 // the use: at once, on the key or the slot, +175 mana to the allies around, the owner too; then 55 s
                 Assert.IsTrue(player.SpendMana(200f) && enemy.SpendMana(200f) && ally.SpendMana(200f));

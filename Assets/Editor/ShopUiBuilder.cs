@@ -322,7 +322,7 @@ namespace PudgeWars.EditorTools
 
         /// <summary>Basilius Aura of Ring of Basilius (and of Arcane Boots through it).</summary>
         static ItemAbility BasiliusAura(float radius) =>
-            Ability("Basilius Aura", false, $"+1 маны в секунду всем союзникам в радиусе {radius * 100f:0}, и самому владельцу. Одинаковые ауры не складываются.");
+            Ability("Basilius Aura", false, $"+1 маны в секунду всем союзникам в радиусе {radius * 100f:0}, и самому владельцу. Ауры разных союзников складываются, несколько у одного героя — нет.");
 
                 /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
         static ItemDef Item(string asset, string icon, System.Action<ItemDef> fill)

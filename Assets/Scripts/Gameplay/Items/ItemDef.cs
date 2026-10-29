@@ -81,7 +81,7 @@ namespace PudgeWars.Gameplay
         public float intelligenceBonus;
         [Tooltip("Ring of Basilius: the share of a killed unit's mana (as it had at its death) its killer gets, 0.075 = 7.5 %.")]
         [Range(0f, 1f)] public float killManaSteal;
-        [Tooltip("Basilius Aura: mana regenerated per second by every ally within auraRadius, the owner too. The same aura from several items or heroes counts once (the biggest).")]
+        [Tooltip("Basilius Aura: mana regenerated per second by every ally within auraRadius, the owner too. Several heroes' auras add up; one hero's several count once (the biggest).")]
         public float auraManaRegen;
         [Tooltip("Radius of the aura, metres from the owner's centre to the ally's.")]
         public float auraRadius;
