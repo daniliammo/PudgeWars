@@ -1240,7 +1240,9 @@ namespace PudgeWars.Tests
             Assert.AreEqual(0f, branch.treeLifetime, "the branch's tree stands for good: Pudge Wars → Build Test Arena");
             Assert.AreEqual(16f, blade.heroDamageBonus, "Quelling Blade: +16 damage on heroes: Pudge Wars → Build Test Arena");
             Assert.AreEqual(4f, blade.creepDamageBonus, "Quelling Blade: +4 damage on creeps");
-            StringAssert.Contains("на 16 или на 4", blade.details, "Quelling Blade's description: Pudge Wars → Build Test Arena");
+            var quell = blade.abilities?.FirstOrDefault(a => !a.active);
+            Assert.IsNotNull(quell, "Quelling Blade has no passive ability: Pudge Wars → Build Test Arena");
+            StringAssert.Contains("+16 урона по героям и +4 по крипам", quell.description, "Quelling Blade's description: Pudge Wars → Build Test Arena");
             Assert.IsTrue(sold.All(i => i.icon != null), "an item has no icon");
             var net = PudgeWars.Net.NetPrefabs.Load();
             Assert.IsTrue(sold.All(i => net.IndexOf(i) >= 0), "an item is missing from the network catalog: Pudge Wars → Build Test Arena");
@@ -1715,7 +1717,8 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(FontStyle.Italic, loreText.fontStyle, "the lore must be in italics");
                 shop.HideTooltip();
 
-                // a sale says its price over the hero
+                // a sale says its price over the hero (the test boots are made of the ring alone: it would go into them at once)
+                boots.components = null;
                 var popups = Object.FindAnyObjectByType<GoldPopups>();
                 inventory.AddGold(ring.cost, popup: false);
                 Assert.IsTrue(inventory.TryBuy(ring));
