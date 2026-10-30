@@ -98,6 +98,7 @@ namespace PudgeWars.Net
             }
             if (anim != null) anim.Played += OnAnimationPlayed;
             hookable.Respawned += OnRespawned;
+            hookable.ManaRestoredShown += RpcManaRestored;
             if (hook != null) hook.TargetCaught += OnTargetCaught;
             PublishInventory();
         }
@@ -113,6 +114,7 @@ namespace PudgeWars.Net
             }
             if (anim != null) anim.Played -= OnAnimationPlayed;
             hookable.Respawned -= OnRespawned;
+            hookable.ManaRestoredShown -= RpcManaRestored;
             if (hook != null) hook.TargetCaught -= OnTargetCaught;
         }
 
@@ -355,6 +357,13 @@ namespace PudgeWars.Net
                 list.Add((item, Time.time + (float)(endsAt - NetworkTime.time), duration));
             }
             hookable.ApplyRemoteEffects(list);
+        }
+
+        /// <summary>The server's active use gave this hero mana: clients show the blue "+N" too.</summary>
+        [ClientRpc]
+        void RpcManaRestored(float amount)
+        {
+            if (!isServer) hookable.ShowManaRestored(amount);
         }
 
         [ClientRpc]

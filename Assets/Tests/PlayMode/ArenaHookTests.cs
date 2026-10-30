@@ -1505,6 +1505,9 @@ namespace PudgeWars.Tests
                 // ally (not the enemy), and Dota's sound
                 Assert.AreEqual(bursts + 1 + 2 * 2, ManaBurst.ActiveCount, "no mana burst (Resources/Effects/ManaBurst.shader)");
                 Assert.AreEqual(sounds + 1, ManaBurst.SoundsPlayed, "no Arcane Boots sound (Resources/Audio/Items/arcane_boots)");
+                // each ally's mana pops up in blue: what it really got
+                Assert.AreEqual("+175", ManaPopups.LastText, "the mana given did not pop up");
+                Assert.GreaterOrEqual(ManaPopups.ActiveCount, 2, "a popup over the owner and over the ally");
                 Assert.AreEqual(own + 175f, player.Mana, 0.5f, "the owner did not get 175 mana");
                 Assert.AreEqual(enemyMana, enemy.Mana, 0.5f, "an enemy got the mana");
                 Assert.AreEqual(allyMana + 175f, ally.Mana, 0.5f, "an ally within reach did not get 175 mana");
@@ -2771,9 +2774,13 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(mango.IsInstant, "the mango is eaten at once, without a target");
                 Assert.IsTrue(player.SpendMana(150f));
                 float mana = player.Mana;
-                int sounds = WorldAudio.Played;
+                int sounds = WorldAudio.Played, bursts = ManaBurst.ActiveCount;
                 Assert.IsFalse(input.SelectItem(inventory.SlotOf(mango)), "the mango must be eaten at once");
                 Assert.AreEqual(mana + 100f, player.Mana, 0.5f, "eating the mango must give 100 mana");
+                // its effect: petals under the feet and strands winding into the hero; the mana pops up in blue
+                Assert.AreEqual(bursts + 2, ManaBurst.ActiveCount, "no mango effect (Resources/Effects/ManaBurst.shader)");
+                Assert.AreEqual("+100", ManaPopups.LastText, "the mango's mana did not pop up as \"+100\"");
+                Assert.Greater(ManaPopups.ActiveCount, 0);
                 Assert.IsFalse(inventory.Owns(mango), "the mango is used up");
                 Assert.AreEqual(0.8f, player.ManaRegen, 1e-4f, "its regeneration goes with it");
                 Assert.AreEqual(sounds + 1, WorldAudio.Played, "no mango sound (Resources/Audio/Items/mango)");

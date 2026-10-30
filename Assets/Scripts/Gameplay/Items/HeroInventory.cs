@@ -447,14 +447,14 @@ namespace PudgeWars.Gameplay
                     if (trees.Plant(point, use.treeLifetime) < 0) return false;
                     break;
                 case ItemAction.RestoreMana:
-                    if (self != null) self.RestoreMana(use.restoreMana);
+                    if (self != null) self.RestoreMana(use.restoreMana, shown: true);
                     break;
                 case ItemAction.RestoreAllyMana:
                     foreach (var unit in Unit.AllUnits)
                     {
                         var d = unit.transform.position - transform.position;
                         d.y = 0f;
-                        if (self != null && unit.team == self.team && d.magnitude <= use.castRange) unit.RestoreMana(use.restoreMana);
+                        if (self != null && unit.team == self.team && d.magnitude <= use.castRange) unit.RestoreMana(use.restoreMana, shown: true);
                     }
                     break;
             }

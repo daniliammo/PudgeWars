@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -159,10 +160,26 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Gives <paramref name="amount"/> of mana, up to the maximum (Arcane Boots). Server / offline only.</summary>
-        public void RestoreMana(float amount)
+        /// <param name="shown">From an active use (Arcane Boots, Enchanted Mango): the mana it really added pops up as a
+        /// blue "+N" over the unit (<see cref="ManaPopups"/>).</param>
+        public void RestoreMana(float amount, bool shown = false)
         {
             if (!IsAlive || Simulation.IsProxy || amount <= 0f) return;
+            float before = Mana;
             Mana = Mathf.Min(MaxMana, Mana + amount);
+            if (shown && Mana - before > 0f) ShowManaRestored(Mana - before);
+        }
+
+        /// <summary>Mana an active use gave this unit, to show (on a network client the server's amount arrives here).</summary>
+        public event Action<float> ManaRestoredShown;
+        /// <summary>The same for any unit.</summary>
+        public static event Action<Unit, float> AnyManaRestoredShown;
+
+        /// <summary>Shows <paramref name="amount"/> of mana given to the unit by an active use; called on a network client by the server's message.</summary>
+        public void ShowManaRestored(float amount)
+        {
+            ManaRestoredShown?.Invoke(amount);
+            AnyManaRestoredShown?.Invoke(this, amount);
         }
 
         /// <summary>Takes <paramref name="amount"/> of mana if the unit has that much (an ability's or an item's cost). Server / offline only.</summary>

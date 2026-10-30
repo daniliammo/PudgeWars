@@ -1,9 +1,11 @@
-// Mana burst of Arcane Boots (ManaBurst): blue, additive, drawn in three shapes by _Shape. 0 — a wave on the
+// Mana bursts (ManaBurst) of Arcane Boots and Enchanted Mango: additive, drawn in four shapes by _Shape. 0 — a wave on the
 // ground (a flat quad, uv -1..1 from its centre): a faint ring runs out to the edge with fine rays behind it.
 // 1 — a helix round a hero who got the mana (an open cylinder that narrows as it plays, uv.x around, uv.y up): two
 // bright strands wind up it with sparks running along them, and a light flows down into the hero. 2 — a rune circle
 // under that hero (a flat quad): two rings with turning dashes and marks between them and a glow in the middle.
-// _Progress runs 0 → 1 over the effect's life; colours go over 1 so a bloom (if the camera has one) makes them shine.
+// 3 — mango petals under a hero who ate one (a flat quad): juicy petals open and turn, glowing at their middles, with
+// drops of light flying out. _Color and _Core tint every shape. _Progress runs 0 → 1 over the effect's life;
+// colours go over 1 so a bloom (if the camera has one) makes them shine.
 Shader "PudgeWars/ManaBurst"
 {
     Properties
@@ -12,7 +14,7 @@ Shader "PudgeWars/ManaBurst"
         _Core ("Core colour", Color) = (0.85, 0.97, 1, 1)
         _Intensity ("Intensity", Float) = 2.5
         _Progress ("Progress", Range(0, 1)) = 0
-        _Shape ("Shape (0 wave, 1 helix, 2 rune circle)", Float) = 0
+        _Shape ("Shape (0 wave, 1 helix, 2 rune circle, 3 mango petals)", Float) = 0
         _Seed ("Seed", Float) = 0
     }
     SubShader
@@ -107,6 +109,30 @@ Shader "PudgeWars/ManaBurst"
                 return lerp(_Color.rgb, _Core.rgb, saturate(sparks + strands * 0.3)) * shape;
             }
 
+            // Enchanted Mango eaten: juicy petals opening round the hero's feet and turning, glowing at their middles,
+            // with drops of light flying out among them
+            half3 Petals(float2 uv)
+            {
+                float d = length(uv);
+                if (d > 1) return 0;
+                float t = _Progress;
+                float open = 1 - pow(1 - saturate(t * 1.6), 3);           // they open fast and settle
+                float fade = smoothstep(0, 0.08, t) * pow(1 - t, 1.4);
+                float angle = atan2(uv.y, uv.x) / 6.2832 + 0.5;
+                float reach = 0.25 + 0.75 * open;
+                float across = abs(frac(angle * 6 + t * 0.25 + _Seed) - 0.5); // 0 along a petal's middle
+                float width = 0.22 * saturate(1 - d / reach) * saturate(d * 6);
+                float petal = smoothstep(width, width - 0.04, across) * step(d, reach);
+                float vein = smoothstep(0.03, 0, across) * step(d, reach) * saturate(1 - d / reach);
+                float edge = exp(-pow((d - reach) / 0.04, 2)) * 0.6;
+                // drops flying out between the petals
+                float2 cell = float2(angle * 40, d * 10 - t * 9);
+                float drop = step(0.9, Hash(floor(cell))) * smoothstep(0.45, 0, length(frac(cell) - 0.5)) * step(d, reach + 0.1);
+                float core = exp(-pow(d / 0.22, 2)) * 0.8;
+                float shape = (petal * 0.55 + vein * 0.9 + edge + drop * 1.4 + core) * fade;
+                return lerp(_Color.rgb, _Core.rgb, saturate(vein + drop + core)) * shape;
+            }
+
             half3 Runes(float2 uv)
             {
                 float d = length(uv);
@@ -127,7 +153,7 @@ Shader "PudgeWars/ManaBurst"
 
             half4 frag(Varyings i) : SV_Target
             {
-                half3 c = _Shape < 0.5 ? Wave(i.uv) : _Shape < 1.5 ? Helix(i.uv) : Runes(i.uv);
+                half3 c = _Shape < 0.5 ? Wave(i.uv) : _Shape < 1.5 ? Helix(i.uv) : _Shape < 2.5 ? Runes(i.uv) : Petals(i.uv);
                 return half4(c * _Intensity, 1);
             }
             ENDHLSL

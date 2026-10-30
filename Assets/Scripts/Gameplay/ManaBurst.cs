@@ -22,6 +22,15 @@ namespace PudgeWars.Gameplay
         [Tooltip("Radius the strands start at and the one they narrow to, metres.")] public Vector2 helixRadius = new(1.3f, 0.45f);
         [Tooltip("Radius of the rune circle under an ally, metres.")] public float runeRadius = 1.3f;
         [Range(0f, 1f)] public float soundVolume = 0.9f;
+        [Header("Enchanted Mango")]
+        [Tooltip("Seconds the mango's effect plays.")] public float mangoDuration = 1.2f;
+        [Tooltip("Radius of the petals opening under the hero, metres.")] public float mangoRadius = 1.5f;
+        public float mangoIntensity = 2.4f;
+        [Tooltip("The petals: juicy orange, their middles and the drops golden.")]
+        public Color mangoColor = new(1f, 0.5f, 0.1f);
+        public Color mangoCore = new(1f, 0.88f, 0.4f);
+        [Tooltip("The strands winding into the hero: mana blue, sparks golden — the fruit turning into mana.")]
+        public Color mangoStrands = new(0.3f, 0.65f, 1f);
 
         static ManaBurst instance;
         static Material material;
@@ -31,14 +40,17 @@ namespace PudgeWars.Gameplay
         static readonly int ShapeId = Shader.PropertyToID("_Shape");
         static readonly int SeedId = Shader.PropertyToID("_Seed");
         static readonly int IntensityId = Shader.PropertyToID("_Intensity");
+        static readonly int ColorId = Shader.PropertyToID("_Color");
+        static readonly int CoreId = Shader.PropertyToID("_Core");
 
-        enum Shape { Wave = 0, Helix = 1, Runes = 2 }
+        enum Shape { Wave = 0, Helix = 1, Runes = 2, Petals = 3 }
 
         class Piece
         {
             public Transform transform;
             public MeshRenderer renderer;
             public Shape shape;
+            public Vector3 size; // the scale it was made with: the helix narrows from it, the circle springs to it
             public float start, duration;
         }
 
@@ -66,8 +78,9 @@ namespace PudgeWars.Gameplay
         void OnUsed(HeroInventory owner, ItemDef item)
         {
             var use = item != null ? item.Active : null;
-            if (owner == null || use == null || use.action != ItemAction.RestoreAllyMana) return;
-            Play(owner.GetComponent<Unit>(), use.castRange);
+            if (owner == null || use == null) return;
+            if (use.action == ItemAction.RestoreAllyMana) Play(owner.GetComponent<Unit>(), use.castRange);
+            else if (use.action == ItemAction.RestoreMana) PlayMango(owner.GetComponent<Unit>());
         }
 
         /// <summary>A burst around <paramref name="owner"/>, reaching its allies within <paramref name="radius"/> metres.</summary>
@@ -89,6 +102,19 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>
+        /// Enchanted Mango eaten: juicy orange petals open and turn round the hero's feet with golden drops flying out,
+        /// and two strands of light wind up into it, blue with golden sparks — the fruit turning into mana. Its sound is
+        /// <see cref="ItemUseSounds"/>'.
+        /// </summary>
+        public void PlayMango(Unit eater)
+        {
+            if (eater == null || !EnsureAssets()) return;
+            Add(eater.transform, Vector3.up * 0.07f, Vector3.one * mangoRadius, Shape.Petals, 0f, mangoDuration, mangoIntensity, mangoColor, mangoCore);
+            Add(eater.transform, Vector3.zero, new Vector3(helixRadius.y * 1.6f, helixHeight * 0.8f, helixRadius.y * 1.6f), Shape.Helix,
+                0.1f, mangoDuration, mangoIntensity, mangoStrands, mangoCore);
+        }
+
         /// <summary>Dota's Arcane Boots sound where they were used, heard around as the heroes' sounds are.</summary>
         void PlaySound(Vector3 at)
         {
@@ -106,7 +132,8 @@ namespace PudgeWars.Gameplay
             SoundsPlayed++;
         }
 
-        void Add(Transform follow, Vector3 offset, Vector3 scale, Shape shape, float delay, float duration, float intensity)
+        void Add(Transform follow, Vector3 offset, Vector3 scale, Shape shape, float delay, float duration, float intensity,
+            Color? color = null, Color? core = null)
         {
             var go = new GameObject("Mana" + shape);
             go.transform.SetParent(follow != null ? follow : transform, false);
@@ -123,10 +150,12 @@ namespace PudgeWars.Gameplay
             block.SetFloat(ShapeId, (float)shape);
             block.SetFloat(SeedId, Random.value * 10f);
             block.SetFloat(IntensityId, intensity);
+            if (color is { } c) block.SetColor(ColorId, c);
+            if (core is { } k) block.SetColor(CoreId, k);
             block.SetFloat(ProgressId, 0f);
             renderer.SetPropertyBlock(block);
             renderer.enabled = delay <= 0f;
-            pieces.Add(new Piece { transform = go.transform, renderer = renderer, shape = shape, start = Time.time + delay, duration = duration });
+            pieces.Add(new Piece { transform = go.transform, renderer = renderer, shape = shape, size = scale, start = Time.time + delay, duration = duration });
         }
 
         void Update()
@@ -152,14 +181,14 @@ namespace PudgeWars.Gameplay
                 if (piece.shape == Shape.Helix)
                 {
                     // the strands narrow into the hero
-                    float r = Mathf.Lerp(helixRadius.x, helixRadius.y, eased);
-                    piece.transform.localScale = new Vector3(r, helixHeight, r);
+                    float r = piece.size.x * Mathf.Lerp(1f, helixRadius.y / Mathf.Max(0.01f, helixRadius.x), eased);
+                    piece.transform.localScale = new Vector3(r, piece.size.y, r);
                 }
                 else if (piece.shape == Shape.Runes)
                 {
                     // the circle springs open a little past its size and settles
                     float pop = 0.6f + 0.4f * Mathf.Min(1f, t * 5f) + 0.08f * Mathf.Sin(Mathf.Min(1f, t * 5f) * Mathf.PI);
-                    piece.transform.localScale = Vector3.one * (runeRadius * pop);
+                    piece.transform.localScale = piece.size * pop;
                 }
                 piece.renderer.GetPropertyBlock(block);
                 block.SetFloat(ProgressId, t);
