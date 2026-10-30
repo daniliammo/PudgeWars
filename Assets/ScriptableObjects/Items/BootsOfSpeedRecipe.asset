@@ -13,8 +13,11 @@ MonoBehaviour:
   m_Name: BootsOfSpeedRecipe
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.ItemDef
   displayName: "\u0420\u0435\u0446\u0435\u043F\u0442: Boots of Speed"
-  description: "\u0412\u043C\u0435\u0441\u0442\u0435 \u0441 Slippers of Agility \u0441\u043E\u0431\u0438\u0440\u0430\u0435\u0442\u0441\u044F \u0432 Boots of Speed"
-  details: "\u0421\u0430\u043C \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0434\u0430\u0451\u0442. \u041A\u043E\u0433\u0434\u0430 \u0432 \u0438\u043D\u0432\u0435\u043D\u0442\u0430\u0440\u0435 \u0435\u0441\u0442\u044C \u0440\u0435\u0446\u0435\u043F\u0442 \u0438 Slippers of Agility, \u043E\u043D\u0438 \u0441\u0440\u0430\u0437\u0443 \u0441\u0442\u0430\u043D\u043E\u0432\u044F\u0442\u0441\u044F Boots of Speed."
+  description: "\u041F\u043E\u043A\u0443\u043F\u0430\u0435\u0442\u0441\u044F \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 Boots of Speed"
+  details: "\u0421\u0430\u043C \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0434\u0430\u0451\u0442."
+  abilities: []
+  lore: 
+  recipe: 1
   icon: {fileID: 21300000, guid: bd15c73f819045078f093ec006549d75, type: 3}
   sound: 3
   cost: 360
@@ -26,7 +29,9 @@ MonoBehaviour:
   manaRegenBonus: 0
   moveSpeedBonus: 0
   boots: 0
+  strengthBonus: 0
   agilityBonus: 0
+  intelligenceBonus: 0
   killManaSteal: 0
   auraManaRegen: 0
   auraRadius: 0

@@ -14,7 +14,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.ItemDef
   displayName: Sage's Mask
   description: "+0.7 \u043A \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044E \u043C\u0430\u043D\u044B"
-  details: "\u041F\u0430\u0441\u0441\u0438\u0432\u043D\u043E: \u043C\u0430\u043D\u0430 \u0432\u043E\u0441\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u0435\u0442\u0441\u044F \u043D\u0430 0.7 \u0432 \u0441\u0435\u043A\u0443\u043D\u0434\u0443 \u0431\u044B\u0441\u0442\u0440\u0435\u0435.\n\n\u0427\u0430\u0441\u0442\u044C Ring of Basilius."
+  details: 
+  abilities: []
+  lore: "\u041C\u0430\u0441\u043A\u0430, \u043A\u043E\u0442\u043E\u0440\u0443\u044E \u0437\u0430\u0447\u0430\u0441\u0442\u0443\u044E \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u0443\u044E\u0442 \u0432 \u0441\u0432\u043E\u0438\u0445 \u0440\u0438\u0442\u0443\u0430\u043B\u0430\u0445 \u043C\u0430\u0433\u0438 \u0438 \u043A\u043E\u043B\u0434\u0443\u043D\u044B."
+  recipe: 0
   icon: {fileID: 21300000, guid: e9988c39a30f4c0584f70dc704d2a9ca, type: 3}
   sound: 0
   cost: 175
@@ -26,7 +29,9 @@ MonoBehaviour:
   manaRegenBonus: 0.7
   moveSpeedBonus: 0
   boots: 0
+  strengthBonus: 0
   agilityBonus: 0
+  intelligenceBonus: 0
   killManaSteal: 0
   auraManaRegen: 0
   auraRadius: 0
