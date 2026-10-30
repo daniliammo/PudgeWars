@@ -9,7 +9,8 @@ namespace PudgeWars.Gameplay
     /// The effects (<see cref="Unit.Effects"/>) of the picked creature (<see cref="SelectionMarker"/>: a hero clicked to
     /// look at it, the own hero by default) as a row of round icons over the ability bar, in the
     /// bottom centre: the item's picture in a circle with a light rim, a timed effect darkening clockwise as it runs
-    /// out. Hovering an icon shows the effect's name, what it does and the seconds left. Made by
+    /// out. Hovering an icon shows the effect's name, what it does and the seconds left; an aura's also shows its reach on the
+    /// ground around the allies giving it (<see cref="AuraRange"/>). Made by
     /// <see cref="AbilityBar"/> at start; follows its panel (it rises in first person).
     /// </summary>
     public class EffectBar : MonoBehaviour
@@ -120,6 +121,7 @@ namespace PudgeWars.Gameplay
                 icons[i].rim.color = e.IsTimed ? rimColor : auraRimColor;
             }
             if (hovered >= effects.Count) hovered = -1;
+            ShowAuraReach(); // the givers may come and go while it is hovered
         }
 
         void FillTip(UnitEffect e)
@@ -178,7 +180,17 @@ namespace PudgeWars.Gameplay
         {
             if (on) hovered = index;
             else if (hovered == index) hovered = -1;
+            ShowAuraReach();
         }
+
+        /// <summary>A hovered aura shows its reach on the ground around the allies giving it (<see cref="AuraRange"/>).</summary>
+        void ShowAuraReach()
+        {
+            if (hovered >= 0 && hovered < effects.Count && !effects[hovered].IsTimed) AuraRange.ShowFor(Shows);
+            else AuraRange.Hide();
+        }
+
+        void OnDisable() => AuraRange.Hide();
 
         void BuildTip()
         {

@@ -1823,6 +1823,16 @@ namespace PudgeWars.Tests
                 SelectionMarker.Instance.Select(player);
                 yield return new WaitForSeconds(0.2f);
                 Assert.AreEqual(2, bar.IconCount, "the player's effects did not come back");
+
+                // hovering the aura shows its reach on the ground around its giver; it goes when the pointer leaves
+                Assert.AreEqual(0, AuraRange.Count);
+                var auraIcon = bar.GetComponentsInChildren<EffectIconPointer>()[1];
+                auraIcon.OnPointerEnter(new PointerEventData(EventSystem.current));
+                yield return null;
+                Assert.AreEqual(1, AuraRange.Count, "no aura reach on the ground (Resources/Effects/AuraRange.shader)");
+                auraIcon.OnPointerExit(new PointerEventData(EventSystem.current));
+                yield return new WaitForSeconds(0.4f);
+                Assert.AreEqual(0, AuraRange.Count, "the aura reach stayed after the pointer left");
             }
             finally
             {
@@ -2704,6 +2714,47 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator AbilityBarShowsTheInspectedHerosCooldownAndMana()
+        {
+            var abilities = Object.FindAnyObjectByType<AbilityBar>();
+            var input = player.GetComponent<PlayerInputController>();
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            var botHook = bot.GetComponent<HookAbility>();
+            yield return null;
+            Assert.AreEqual(hook, abilities.ShownHook, "the own hook by default");
+            var view = abilities.slots[PlayerInputController.HookSlot];
+
+            // a hero looked at: its hook on the bar, its cooldown, dark blue without its mana
+            botHook.manaCost = 120f;
+            Assert.IsTrue(bot.SpendMana(bot.Mana - 10f));
+            SelectionMarker.Instance.Select(bot);
+            yield return null;
+            Assert.AreEqual(botHook, abilities.ShownHook, "the bar does not follow the inspected hero");
+            Assert.IsTrue(abilities.ShowsOther);
+            Assert.AreEqual(abilities.noManaColor, view.icon.color, "the inspected hero's hook must be dark blue without its mana");
+            Assert.AreEqual("120", abilities.ManaCostLabel.text);
+            bot.RestoreMana(1000f);
+            Assert.IsTrue(botHook.TryCast(bot.transform.position + Vector3.forward * 5f)); // away from the pit and the player
+            yield return new WaitUntil(() => !botHook.IsBusy);
+            yield return null;
+            if (botHook.CooldownRemaining > 0f)
+            {
+                Assert.IsTrue(view.cooldownOverlay.enabled, "the inspected hero's cooldown is not shown");
+                StringAssert.IsMatch(@"^\d+\.\d+$", view.cooldownLabel.text);
+            }
+            Assert.AreEqual(Color.white, view.icon.color);
+            // its slot is only looked at: a click does not pick the player's hook
+            if (view.button != null) view.button.onClick.Invoke();
+            Assert.AreEqual(PlayerInputController.NoAbility, input.SelectedAbility, "another hero's slot picked the own hook");
+
+            // back to the own hero
+            SelectionMarker.Instance.Select(player);
+            yield return null;
+            Assert.AreEqual(hook, abilities.ShownHook);
+            Assert.IsFalse(abilities.ShowsOther);
+        }
+
+        [UnityTest]
         public IEnumerator MangoGivesManaRegenAndIsEatenForManaWithItsSound()
         {
             var inventory = player.GetComponent<HeroInventory>();
@@ -2869,7 +2920,10 @@ namespace PudgeWars.Tests
             Assert.AreEqual(lens.icon, shop.slots[botWallet.SlotOf(lens)].sprite, "the bar does not show the clicked hero's items");
             Assert.IsTrue(shop.statsPanel.gameObject.activeSelf, "no stats of the inspected hero");
             var stats = shop.statsPanel.GetComponentsInChildren<Text>().Select(t => t.text).ToList();
-            CollectionAssert.IsSubsetOf(new[] { "У/С/С", "0/0/0", "Спасён", "Здоровье", "670/670", "Скорость", "280", "Дальность хука", "Перезарядка" }, stats);
+            CollectionAssert.IsSubsetOf(new[] { "У/С/С", "0/0/0", "Спасён", "Скорость", "280", "Дальность хука" }, stats);
+            // health and mana are on the bars, the hook's cooldown on the ability bar
+            foreach (var gone in new[] { "Здоровье", "Мана", "Реген маны", "Перезарядка" })
+                CollectionAssert.DoesNotContain(stats, gone, $"the inspect panel must not show «{gone}»");
             StringAssert.Contains("+275", stats[stats.IndexOf("Дальность хука") + 1], "the lens's bonus to the hook range is not shown");
             StringAssert.StartsWith("1300", stats[stats.IndexOf("Дальность хука") + 1]);
             botWallet.AddGold(50, popup: false);

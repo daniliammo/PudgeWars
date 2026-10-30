@@ -8,7 +8,9 @@ namespace PudgeWars.Gameplay
     /// Ability list at the bottom centre of the HUD. Slot 0 is the hook: its icon dims while the hook is out
     /// or on cooldown, the remaining cooldown is written over the icon, the frame lights up while it is
     /// selected for targeting. Clicking a slot selects it like its key. As in Dota, the mana cost stands in blue at the
-    /// slot's bottom right and the icon turns blue while the hero lacks the mana. In first person the bar rises by
+    /// slot's bottom right and the icon turns dark blue while the hero lacks the mana. The bar shows the abilities of the
+    /// hero looked at (<see cref="SelectionMarker"/>: a click on a hero, the own one by default) — its cooldowns and its
+    /// mana; another hero's slots are only looked at, not picked. In first person the bar rises by
     /// <see cref="firstPersonRise"/>: the own health and mana bar takes the bottom edge under it (<see cref="HealthBars"/>).
     /// Over the bar stands the row of the hero's effects (<see cref="EffectBar"/>).
     /// </summary>
@@ -22,7 +24,7 @@ namespace PudgeWars.Gameplay
         public Color selectedFrameColor = new(0.25f, 0.95f, 0.35f, 1f);
         public Color manaCostColor = new(0.45f, 0.7f, 1f);
         [Tooltip("The icon's tint while the hero lacks the mana for the ability.")]
-        public Color noManaTint = new(0.35f, 0.5f, 1f);
+        public Color noManaColor = new(0.14f, 0.2f, 0.55f);
         [Tooltip("In first person the bar stands this much higher, canvas units (the own health bar goes under it).")]
         public float firstPersonRise = 86f;
 
@@ -38,6 +40,11 @@ namespace PudgeWars.Gameplay
 
         /// <summary>The hook's mana cost over its slot (made at start).</summary>
         public Text ManaCostLabel => manaCostLabel;
+        /// <summary>The hook the bar shows: the picked hero's (looked at with a click), the own one by default.</summary>
+        public HookAbility ShownHook => Shown(out _);
+        /// <summary>The bar shows another hero's abilities: they cannot be picked from it.</summary>
+        public bool ShowsOther => Shown(out var own) != null && !own;
+
         /// <summary>The bar is raised over the own health bar (first person).</summary>
         public bool Raised => panel != null && !Mathf.Approximately(panel.anchoredPosition.y, panelY);
 
@@ -58,7 +65,10 @@ namespace PudgeWars.Gameplay
             {
                 int slot = i;
                 if (slots[i] != null && slots[i].button != null)
-                    slots[i].button.onClick.AddListener(() => input?.SelectAbility(slot));
+                    slots[i].button.onClick.AddListener(() =>
+                    {
+                        if (!ShowsOther) input?.SelectAbility(slot); // another hero's slot is only looked at
+                    });
             }
         }
 
@@ -105,10 +115,25 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>The picked creature's hook (<paramref name="own"/>: it is the player's), or the player's own.</summary>
+        HookAbility Shown(out bool own)
+        {
+            var picked = SelectionMarker.HasInstance ? SelectionMarker.Instance.SelectedUnit : null;
+            if (picked != null && picked.TryGetComponent<HookAbility>(out var other) && other != hook)
+            {
+                own = false;
+                return other;
+            }
+            own = true;
+            return hook;
+        }
+
         void Update()
         {
             if (slots.Length == 0 || slots[PlayerInputController.HookSlot] == null) return;
             var view = slots[PlayerInputController.HookSlot];
+            // the bar follows the hero looked at: its hook's cooldown and mana, not the player's
+            var hook = Shown(out bool own);
             if (panel != null)
                 panel.anchoredPosition = new Vector2(panel.anchoredPosition.x, panelY + (IsFirstPerson && LocalPlayer.Hero != null ? firstPersonRise : 0f));
             if (manaCostLabel != null)
@@ -116,7 +141,8 @@ namespace PudgeWars.Gameplay
                 int cost = hook != null ? Mathf.CeilToInt(hook.manaCost) : 0;
                 manaCostLabel.text = cost > 0 ? cost.ToString() : "";
             }
-            if (view.icon != null) view.icon.color = hook != null && !hook.HasMana ? noManaTint : Color.white;
+            // dark blue while the hero lacks the mana (on cooldown too, as in Dota)
+            if (view.icon != null) view.icon.color = hook != null && !hook.HasMana ? noManaColor : Color.white;
             float remaining = hook != null ? hook.CooldownRemaining : 0f;
             bool busy = hook != null && hook.IsBusy;
             bool cooling = !busy && remaining > 0f;
@@ -128,7 +154,7 @@ namespace PudgeWars.Gameplay
             }
             if (view.cooldownLabel != null) view.cooldownLabel.text = cooling ? remaining.ToString(cooldownFormat, CultureInfo.InvariantCulture) : "";
             if (view.frame != null)
-                view.frame.color = input != null && input.SelectedAbility == PlayerInputController.HookSlot ? selectedFrameColor : frameColor;
+                view.frame.color = own && input != null && input.SelectedAbility == PlayerInputController.HookSlot ? selectedFrameColor : frameColor;
         }
     }
 }

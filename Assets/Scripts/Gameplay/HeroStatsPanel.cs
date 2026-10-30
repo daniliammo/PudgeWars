@@ -6,8 +6,9 @@ namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Stats of the inspected hero, as Dota shows a selected unit's: its own kills / deaths / rescues (У/С/С, like the
-    /// player's own in the corner of the HUD) and how many times it was rescued, level, health, movement speed and the hook's range (item bonuses in green),
-    /// flight and pull speed and cooldown. Speeds and range are in Dota units like the
+    /// player's own in the corner of the HUD) and how many times it was rescued, level, movement speed and the hook's range (item bonuses in green),
+    /// flight and pull speed (health and mana are on its bars, the hook's cooldown on the ability bar, which shows the
+    /// inspected hero's). Speeds and range are in Dota units like the
     /// tooltips (1 m = 100). A dark panel over the inspect tab, refreshed a few times a second while shown.
     /// </summary>
     public class HeroStatsPanel : MonoBehaviour
@@ -71,9 +72,6 @@ namespace PudgeWars.Gameplay
             Row("У/С/С", $"{score.kills}/{score.deaths}/{score.rescues}");
             Row("Спасён", score.rescued.ToString());
             Row("Уровень", hero.Level.ToString());
-            Row("Здоровье", $"{Mathf.CeilToInt(hero.Health)}/{Mathf.CeilToInt(hero.maxHealth)}");
-            Row("Мана", $"{Mathf.CeilToInt(hero.Mana)}/{Mathf.CeilToInt(hero.MaxMana)}");
-            Row("Реген маны", "+" + hero.ManaRegen.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
             if (hero.TryGetComponent<PudgeMotor>(out var motor)) Row("Скорость", Units(motor.MoveSpeed));
             if (hero.TryGetComponent<HookAbility>(out var hook))
             {
@@ -83,7 +81,6 @@ namespace PudgeWars.Gameplay
                 Row("Дальность хука", range);
                 Row("Скорость хука", Units(hook.flySpeed));
                 Row("Подтягивание", Units(hook.pullSpeed));
-                Row("Перезарядка", $"{hook.cooldown:0.##} с");
             }
             for (int i = shownRows; i < rows.Count; i++)
             {
