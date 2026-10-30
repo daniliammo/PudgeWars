@@ -25,6 +25,10 @@ namespace PudgeWars.Gameplay
     [RequireComponent(typeof(Terrain))]
     public class TerrainTrees : MonoBehaviour
     {
+        [Tooltip("Volume of Dota's tree sounds: a tree falling (Resources/Audio/Trees/tree_fall), a planted one growing (tree_grow).")]
+        [Range(0f, 1f)] public float soundVolume = 0.85f;
+        [Tooltip("A cut tree growing back is this much quieter than a planted one.")]
+        [Range(0f, 1f)] public float regrowVolume = 0.45f;
         [Tooltip("Trunk radius heroes cannot walk into, metres, whatever the tree's scale.")]
         public float radius = 0.5f;
         [Tooltip("Stump of each tree prototype (by index), none if the model has no stump.")]
@@ -234,7 +238,8 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>A planted tree as the server made it (a client's copy); false if it stands already.</summary>
-        public bool Plant(int handle, Vector3 position, int prototype, float rotation, float scale)
+        /// <param name="sound">false for a tree that stood before (a client joining a game in progress): no growing sound.</param>
+        public bool Plant(int handle, Vector3 position, int prototype, float rotation, float scale, bool sound = true)
         {
             if (!IsPlanted(handle) || planted.ContainsKey(handle)) return false;
             if (data.treePrototypes.Length == 0) return false;
@@ -249,6 +254,7 @@ namespace PudgeWars.Gameplay
             planted[handle] = tree;
             nextPlanted = Mathf.Max(nextPlanted, handle - PlantedBase + 1);
             UpdateObstacles();
+            if (sound) WorldAudio.PlayAt("Audio/Trees/tree_grow", spot.position, soundVolume);
             Planted?.Invoke(handle, spot.position, prototype, rotation, scale);
             return true;
         }
@@ -290,7 +296,11 @@ namespace PudgeWars.Gameplay
             var spot = SpotOf(index);
             var stump = Part(stumps, spot.prototype);
             if (stump != null) stumpsUp[index] = Place(stump, spot, transform);
-            if (animate) StartCoroutine(Fall(spot, from, whole: false));
+            if (animate)
+            {
+                StartCoroutine(Fall(spot, from, whole: false));
+                WorldAudio.PlayAt("Audio/Trees/tree_fall", spot.position, soundVolume);
+            }
             // a client's trees grow back when the server's do
             if (!Simulation.IsProxy) regrowing[index] = StartCoroutine(RegrowLater(index));
             Felled?.Invoke(index, from);
@@ -302,7 +312,11 @@ namespace PudgeWars.Gameplay
         {
             if (!planted.TryGetValue(handle, out var tree)) return false;
             if (tree.model != null) tree.model.SetActive(false); // the falling copy takes its place
-            if (animate) StartCoroutine(Fall(tree.spot, from, whole: true));
+            if (animate)
+            {
+                StartCoroutine(Fall(tree.spot, from, whole: true));
+                WorldAudio.PlayAt("Audio/Trees/tree_fall", tree.spot.position, soundVolume);
+            }
             Felled?.Invoke(handle, from);
             Unplant(handle);
             return true;
@@ -320,6 +334,7 @@ namespace PudgeWars.Gameplay
             if (growTime > 0f && isActiveAndEnabled) growing[index] = StartCoroutine(Grow(index));
             else data.SetTreeInstance(index, trees[index]);
             UpdateObstacles(); // it stands in the way at once, while it grows
+            WorldAudio.PlayAt("Audio/Trees/tree_grow", Position(index), soundVolume * regrowVolume);
             Regrown?.Invoke(index);
             return true;
         }

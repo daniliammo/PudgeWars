@@ -99,8 +99,8 @@ namespace PudgeWars.Net
             if (i >= 0) plantedTrees.RemoveAt(i);
         }
 
-        static void Plant(PlantedTreeState tree) =>
-            TerrainTrees.Instance?.Plant(tree.handle, tree.position, tree.prototype, tree.rotation, tree.scale);
+        static void Plant(PlantedTreeState tree, bool sound = true) =>
+            TerrainTrees.Instance?.Plant(tree.handle, tree.position, tree.prototype, tree.rotation, tree.scale, sound);
 
         void OnTreeRegrown(int index)
         {
@@ -125,7 +125,7 @@ namespace PudgeWars.Net
             // cut before this client joined: already lying, not falling now
             if (TerrainTrees.Instance != null)
                 foreach (var tree in felledTrees) TerrainTrees.Instance.Fell(tree.index, tree.from, animate: false);
-            foreach (var tree in plantedTrees) Plant(tree);
+            foreach (var tree in plantedTrees) Plant(tree, sound: false);
         }
 
         void PublishScore(int score, int deaths)
