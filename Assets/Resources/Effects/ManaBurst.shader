@@ -72,8 +72,8 @@ Shader "PudgeWars/ManaBurst"
             {
                 float d = length(uv);
                 if (d > 1) return 0;
-                float t = 1 - pow(1 - _Progress, 3);           // fast out, soft landing
-                float fade = pow(1 - _Progress, 1.4);
+                float t = 1 - pow(saturate(1 - _Progress), 3);           // fast out, soft landing
+                float fade = pow(saturate(1 - _Progress), 1.4);
                 float angle = atan2(uv.y, uv.x);
                 // the main ring and a thinner one behind it: thin and faint, the heroes' effects are the bright part
                 float ring = exp(-pow((d - t) / 0.035, 2)) * 0.6;
@@ -90,7 +90,7 @@ Shader "PudgeWars/ManaBurst"
             half3 Helix(float2 uv)
             {
                 float t = _Progress;
-                float fade = smoothstep(0, 0.12, t) * pow(1 - t, 1.3);
+                float fade = smoothstep(0, 0.12, t) * pow(saturate(1 - t), 1.3);
                 float turn = uv.y * 1.6 - _Time.y * 1.4 - t * 2;    // the strands wind up and turn
                 float strands = 0;
                 for (int k = 0; k < 2; k++)
@@ -119,7 +119,7 @@ Shader "PudgeWars/ManaBurst"
                 if (d > 1) return 0;
                 float t = _Progress;
                 float open = 1 - pow(1 - saturate(t * 1.6), 3);           // they open fast and settle
-                float fade = smoothstep(0, 0.08, t) * pow(1 - t, 1.4);
+                float fade = smoothstep(0, 0.08, t) * pow(saturate(1 - t), 1.4);
                 float angle = atan2(uv.y, uv.x) / 6.2832 + 0.5;
                 float reach = 0.25 + 0.75 * open;
                 float across = abs(frac(angle * 6 + t * 0.25 + _Seed) - 0.5); // 0 along a petal's middle
@@ -140,7 +140,7 @@ Shader "PudgeWars/ManaBurst"
                 float d = length(uv);
                 if (d > 1) return 0;
                 float t = _Progress;
-                float fade = smoothstep(0, 0.1, t) * pow(1 - t, 1.5);
+                float fade = smoothstep(0, 0.1, t) * pow(saturate(1 - t), 1.5);
                 float angle = atan2(uv.y, uv.x) / 6.2832 + 0.5;       // 0..1 round
                 float outer = exp(-pow((d - 0.86) / 0.025, 2));
                 float inner = exp(-pow((d - 0.62) / 0.018, 2));
