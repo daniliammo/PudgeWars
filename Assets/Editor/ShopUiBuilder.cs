@@ -105,15 +105,15 @@ namespace PudgeWars.EditorTools
         });
 
         /// <summary>
-        /// Enchanted Mango: 65 gold as in Dota 2; +0.7 mana per second while carried (by request), eaten at once for
-        /// 100 mana (Dota 2's Eat Mango), used up.
+        /// Enchanted Mango: 65 gold as in Dota 2; +0.7 mana per second while carried (by request); fed to an allied hero
+        /// within 400 (the owner itself on a double click) for 100 mana (Dota 2's Eat Mango), used up.
         /// </summary>
         public static ItemDef EnchantedMango() => Item("EnchantedMango", "enchanted_mango", item =>
         {
             item.displayName = "Enchanted Mango";
-            item.description = "+0.7 к восстановлению маны. Съесть: +100 маны";
+            item.description = "+0.7 к восстановлению маны. Скормить себе или союзнику: +100 маны";
             item.details = "";
-            item.abilities = new[] { Ability("Eat Mango", true, "Пудж съедает манго и сразу получает 100 маны. Цели не нужно: клавиша или клик по слоту применяют сразу. Манго одноразовое: вместе с ним уходит и прибавка к восстановлению маны.") };
+            item.abilities = new[] { Ability("Eat Mango", true, "Манго съедает выбранный герой своей команды — союзник или сам Пудж — и сразу получает 100 маны. Клик по слоту (или клавиша) — выбрать, клик по герою — скормить; двойной клик по слоту — съесть самому. Союзник дальше 400 — Пудж сначала подойдёт. Манго одноразовое: вместе с ним уходит и прибавка к восстановлению маны.") };
             item.lore = "Горьковато-сладкий вкус плодов с острова Джиди неотразим для амфибий.";
             item.cost = 65;
             item.unique = false;
@@ -122,7 +122,7 @@ namespace PudgeWars.EditorTools
             item.restoreMana = 100f;
             item.charges = 1;
             item.stacks = false;
-            item.castRange = 0f;
+            item.castRange = 4f; // 400, as in Dota
             item.cooldown = 0f;
         });
 
@@ -132,7 +132,7 @@ namespace PudgeWars.EditorTools
             item.displayName = "Iron Branch";
             item.description = "+1 ко всем атрибутам. Посадить дерево (навсегда)";
             item.details = "";
-            item.abilities = new[] { Ability("Happy Little Tree", true, "Сажает дерево в выбранной точке рядом с Пуджем. Дерево стоит навсегда: герои его обходят, хук пролетает насквозь. Его можно съесть танго (вдвое сытнее обычного) или срубить топориком — тогда оно уже не отрастёт. Нельзя сажать над ямой, на другое дерево и на героя. Ветка одноразовая.") };
+            item.abilities = new[] { Ability("Happy Little Tree", true, "Сажает дерево в выбранной точке рядом с Пуджем — случайное из деревьев арены. Дерево стоит навсегда: герои его обходят, хук пролетает насквозь. Его можно съесть танго (вдвое сытнее обычного) или срубить топориком — тогда оно уже не отрастёт. Нельзя сажать над ямой, на другое дерево и на героя. Ветка одноразовая.") };
             item.lore = "Обычная, казалось бы, веточка дарует владельцу стойкость железного дерева, с которого она срублена.";
             item.strengthBonus = 1f;
             item.agilityBonus = 1f;

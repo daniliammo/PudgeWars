@@ -214,22 +214,19 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Server / offline: plants a tree at <paramref name="position"/> that stands <paramref name="lifetime"/>
-        /// seconds (for good if not positive); it takes after the nearest terrain tree (the side's kind), a little
-        /// smaller. Its handle, or -1.
+        /// seconds (for good if not positive); it takes after a random tree of the landscape (its kind and size, a little
+        /// smaller), so a branch can grow any of the trees the arena has. Its handle, or -1.
         /// </summary>
         public int Plant(Vector3 position, float lifetime)
         {
             if (!CanPlant(position)) return -1;
             int prototype = 0;
-            float scale = plantedScale, bestSqr = float.MaxValue;
-            for (int i = 0; i < trees.Length; i++)
+            float scale = plantedScale;
+            if (trees.Length > 0)
             {
-                var d = Position(i) - position;
-                d.y = 0f;
-                if (d.sqrMagnitude >= bestSqr) continue;
-                bestSqr = d.sqrMagnitude;
-                prototype = trees[i].prototypeIndex;
-                scale = trees[i].heightScale * plantedScale;
+                var model = trees[UnityEngine.Random.Range(0, trees.Length)];
+                prototype = model.prototypeIndex;
+                scale = model.heightScale * plantedScale;
             }
             int handle = PlantedBase + nextPlanted++;
             Plant(handle, position, prototype, UnityEngine.Random.Range(0f, Mathf.PI * 2f), scale);

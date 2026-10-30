@@ -17,7 +17,7 @@ namespace PudgeWars.Gameplay
         ChopTree,
         /// <summary>Arcane Boots: at once, without a target, gives mana to the allies around (the owner too).</summary>
         RestoreAllyMana,
-        /// <summary>Enchanted Mango: eaten at once, gives its owner mana (used up).</summary>
+        /// <summary>Enchanted Mango: fed to an allied hero within reach (its owner too), gives it mana (used up).</summary>
         RestoreMana,
     }
 
@@ -88,7 +88,7 @@ namespace PudgeWars.Gameplay
         public float auraManaRegen;
         [Tooltip("Radius of the aura, metres from the owner's centre to the ally's.")]
         public float auraRadius;
-        [Tooltip("Arcane Boots: mana given to every ally within castRange (from the owner's centre), the owner too; Enchanted Mango: to its owner.")]
+        [Tooltip("Arcane Boots: mana given to every ally within castRange (from the owner's centre), the owner too; Enchanted Mango: to the ally it is fed to.")]
         public float restoreMana;
 
         [Header("Crafting")]
@@ -174,7 +174,9 @@ namespace PudgeWars.Gameplay
         /// <summary>The assembled items this one is a part of.</summary>
         public IEnumerable<ItemDef> BuildsInto() => Assembled().Where(r => r.components.Contains(this));
         /// <summary>Used at once on a key or a click, with no target (Arcane Boots).</summary>
-        public bool IsInstant => Active is { action: ItemAction.RestoreAllyMana or ItemAction.RestoreMana };
+        public bool IsInstant => Active is { action: ItemAction.RestoreAllyMana };
+        /// <summary>Used on an allied unit picked with a click, or on the owner itself (Enchanted Mango).</summary>
+        public bool TargetsUnit => Active is { action: ItemAction.RestoreMana };
         /// <summary>Used on a tree (Tango, Quelling Blade) rather than on a point of the ground (Iron Branch).</summary>
         public bool TargetsTree => Active is { action: ItemAction.EatTree or ItemAction.ChopTree };
     }

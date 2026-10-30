@@ -207,9 +207,9 @@ namespace PudgeWars.Net
         }
 
         [Command]
-        void CmdUseItem(int slot, Vector3 point, int tree)
+        void CmdUseItem(int slot, Vector3 point, int tree, GameObject target)
         {
-            if (inventory != null) inventory.TryUse(slot, point, tree);
+            if (inventory != null) inventory.TryUse(slot, point, tree, target != null ? target.GetComponent<Unit>() : null);
         }
 
         [Command]
@@ -244,7 +244,7 @@ namespace PudgeWars.Net
             if (inventory != null)
             {
                 inventory.BuyRequested += RequestBuy;
-                inventory.UseRequested += CmdUseItem;
+                inventory.UseRequested += RequestUse;
                 inventory.SellRequested += CmdSellItem;
                 inventory.MoveRequested += CmdMoveItem;
             }
@@ -256,7 +256,7 @@ namespace PudgeWars.Net
             if (inventory != null)
             {
                 inventory.BuyRequested -= RequestBuy;
-                inventory.UseRequested -= CmdUseItem;
+                inventory.UseRequested -= RequestUse;
                 inventory.SellRequested -= CmdSellItem;
                 inventory.MoveRequested -= CmdMoveItem;
             }
@@ -329,17 +329,21 @@ namespace PudgeWars.Net
             else anim.Play(state, fade);
         }
 
-        void OnItemUsed(int slot, ItemDef item)
+        void RequestUse(int slot, Vector3 point, int tree, Unit target) =>
+            CmdUseItem(slot, point, tree, target != null ? target.gameObject : null);
+
+        void OnItemUsed(int slot, ItemDef item, Unit target)
         {
             int index = prefabs != null ? prefabs.IndexOf(item) : -1;
-            if (index >= 0) RpcItemUsed(index);
+            if (index >= 0) RpcItemUsed(index, target != null ? target.gameObject : null);
         }
 
         /// <summary>The server's hero used an item: clients play its effect (Arcane Boots' burst).</summary>
         [ClientRpc]
-        void RpcItemUsed(int index)
+        void RpcItemUsed(int index, GameObject target)
         {
-            if (!isServer && inventory != null && prefabs != null) inventory.ShowUsed(prefabs.ItemAt(index));
+            if (!isServer && inventory != null && prefabs != null)
+                inventory.ShowUsed(prefabs.ItemAt(index), target != null ? target.GetComponent<Unit>() : null);
         }
 
         void OnEffectsChanged(string _, string now)

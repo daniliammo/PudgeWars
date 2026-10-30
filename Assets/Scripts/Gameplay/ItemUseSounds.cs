@@ -25,7 +25,7 @@ namespace PudgeWars.Gameplay
 
         void OnDisable() => HeroInventory.AnyUsed -= OnUsed;
 
-        static void OnUsed(HeroInventory owner, ItemDef item)
+        static void OnUsed(HeroInventory owner, ItemDef item, Unit target)
         {
             var use = item != null ? item.Active : null;
             if (owner == null || use == null) return;
@@ -35,8 +35,8 @@ namespace PudgeWars.Gameplay
                 case ItemAction.EatTree:
                     WorldAudio.PlayAt("Audio/Items/tango", at);
                     break;
-                case ItemAction.RestoreMana:
-                    WorldAudio.PlayAt("Audio/Items/mango", at);
+                case ItemAction.RestoreMana: // where the one fed eats it
+                    WorldAudio.PlayAt("Audio/Items/mango", target != null ? target.transform.position + Vector3.up : at);
                     break;
                 case ItemAction.ChopTree:
                     WorldAudio.PlayAt($"Audio/Trees/chop_0{Random.Range(1, 4)}", at);

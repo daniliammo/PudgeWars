@@ -2758,32 +2758,63 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator MangoGivesManaRegenAndIsEatenForManaWithItsSound()
+        public IEnumerator MangoGivesManaRegenAndIsFedToAnAllyOrEatenOnADoubleClick()
         {
             var inventory = player.GetComponent<HeroInventory>();
             var input = player.GetComponent<PlayerInputController>();
-            var mango = TestItem(ItemAction.RestoreMana, 65, 1, stacks: false, range: 0f);
+            var mango = TestItem(ItemAction.RestoreMana, 65, 1, stacks: false, range: 4f);
             mango.manaRegenBonus = 0.7f;
             mango.restoreMana = 100f;
+            var enemy = Pudge.All.First(h => h.team != player.team);
+            var ally = Pudge.All.First(h => h.team != player.team && h != enemy);
+            ally.team = player.team;
             try
             {
                 yield return null;
-                inventory.AddGold(mango.cost, popup: false);
+                inventory.AddGold(mango.cost * 3, popup: false);
                 Assert.IsTrue(inventory.TryBuy(mango));
                 Assert.AreEqual(0.8f + 0.7f, player.ManaRegen, 1e-4f, "the mango must give +0.7 mana regeneration while carried");
-                Assert.IsTrue(mango.IsInstant, "the mango is eaten at once, without a target");
+                Assert.IsTrue(mango.TargetsUnit, "the mango goes to a hero picked with a click");
+                Assert.IsFalse(mango.IsInstant);
+                int slot = inventory.SlotOf(mango);
+
+                // one click picks it and waits for a hero; a second one later drops the pick
+                Assert.IsTrue(input.SelectItem(slot), "one click must pick the mango for a target");
+                Assert.AreEqual(slot, input.SelectedItem);
+                yield return new WaitForSecondsRealtime(input.doubleTapTime + 0.1f);
+                Assert.IsFalse(input.SelectItem(slot));
+                Assert.IsTrue(inventory.Owns(mango), "a slow second click must only drop the pick");
+
+                // a quick double click: the hero eats it itself
                 Assert.IsTrue(player.SpendMana(150f));
                 float mana = player.Mana;
                 int sounds = WorldAudio.Played, bursts = ManaBurst.ActiveCount;
-                Assert.IsFalse(input.SelectItem(inventory.SlotOf(mango)), "the mango must be eaten at once");
+                Assert.IsTrue(input.SelectItem(slot));
+                Assert.IsFalse(input.SelectItem(slot), "a double click must eat the mango, not wait");
                 Assert.AreEqual(mana + 100f, player.Mana, 0.5f, "eating the mango must give 100 mana");
                 // its effect: blue petals under the feet and two shells of light wrapping the hero; the mana pops up in blue
                 Assert.AreEqual(bursts + 3, ManaBurst.ActiveCount, "no mango effect (Resources/Effects/ManaBurst.shader)");
                 Assert.AreEqual("+100", ManaPopups.LastText, "the mango's mana did not pop up as \"+100\"");
-                Assert.Greater(ManaPopups.ActiveCount, 0);
                 Assert.IsFalse(inventory.Owns(mango), "the mango is used up");
                 Assert.AreEqual(0.8f, player.ManaRegen, 1e-4f, "its regeneration goes with it");
                 Assert.AreEqual(sounds + 1, WorldAudio.Played, "no mango sound (Resources/Audio/Items/mango)");
+
+                // fed to an ally within reach; not to an enemy, not to an ally too far
+                Assert.IsTrue(inventory.TryBuy(mango));
+                slot = inventory.SlotOf(mango);
+                Assert.IsTrue(ally.SpendMana(150f) && enemy.SpendMana(150f));
+                enemy.transform.position = player.transform.position + Vector3.right * 2f;
+                Assert.IsFalse(inventory.TryUse(slot, enemy.transform.position, HeroInventory.NoTree, enemy), "the mango was fed to an enemy");
+                ally.transform.position = player.transform.position + Vector3.right * 15f;
+                Assert.IsFalse(inventory.TryUse(slot, ally.transform.position, HeroInventory.NoTree, ally), "the mango reached an ally too far");
+                ally.transform.position = player.transform.position + Vector3.right * 3f;
+                float own = player.Mana, allyMana = ally.Mana;
+                bursts = ManaBurst.ActiveCount;
+                Assert.IsTrue(inventory.TryUse(slot, ally.transform.position, HeroInventory.NoTree, ally), "the mango was not fed to the ally");
+                Assert.AreEqual(allyMana + 100f, ally.Mana, 0.5f, "the ally did not get the mango's mana");
+                Assert.AreEqual(own, player.Mana, 0.5f, "the feeder got the mana instead");
+                Assert.AreEqual(bursts + 3, ManaBurst.ActiveCount, "the effect must wrap the ally");
+                Assert.AreEqual(ally.transform, ManaBurst.LastTarget, "the effect played on the feeder, not on the ally");
             }
             finally
             {

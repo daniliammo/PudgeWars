@@ -36,6 +36,8 @@ namespace PudgeWars.Gameplay
 
         public Camera viewCamera;
         public HookAimIndicator aimIndicator;
+        [Tooltip("An item used on a unit (Enchanted Mango) picked twice within this many seconds goes to the hero itself, as a double tap in Dota.")]
+        public float doubleTapTime = 0.35f;
 
         /// <summary>Ability waiting for a target (Dota-style quick cast is off), or NoAbility.</summary>
         public int SelectedAbility { get; private set; } = NoAbility;
@@ -57,6 +59,8 @@ namespace PudgeWars.Gameplay
         int pendingSlot = NoItem, pendingTree = HeroInventory.NoTree;
         ItemDef pendingItem;
         Vector3 pendingPoint;
+        Unit pendingUnit; // the ally an item goes to (Enchanted Mango), followed as it moves
+        float itemPickedAt; // Time.unscaledTime the item waiting for a target was picked
         static readonly Key[] ItemKeys = { Key.Z, Key.X, Key.C, Key.V, Key.B, Key.N };
 
         void Awake()
@@ -117,7 +121,8 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Picks the usable item in an inventory slot for targeting (again: drops it); one without a target (Arcane
-        /// Boots) is used at once instead and false is returned.
+        /// Boots) is used at once instead and false is returned. One used on a unit (Enchanted Mango) picked twice
+        /// quickly (<see cref="doubleTapTime"/>: a double click on the slot, the key pressed twice) goes to the hero itself.
         /// </summary>
         public bool SelectItem(int slot)
         {
@@ -130,7 +135,9 @@ namespace PudgeWars.Gameplay
             }
             if (SelectedItem == slot)
             {
+                bool doubleTap = picked.TargetsUnit && Time.unscaledTime - itemPickedAt <= doubleTapTime;
                 DeselectItem();
+                if (doubleTap) inventory.TryUse(slot, transform.position, HeroInventory.NoTree, self);
                 return false;
             }
             if (!inventory.CanUse(slot))
@@ -140,6 +147,7 @@ namespace PudgeWars.Gameplay
             }
             Deselect();
             SelectedItem = slot;
+            itemPickedAt = Time.unscaledTime;
             return true;
         }
 
@@ -158,6 +166,7 @@ namespace PudgeWars.Gameplay
         {
             pendingSlot = NoItem;
             pendingItem = null;
+            pendingUnit = null;
         }
 
         /// <summary>The item picked for use was moved to another slot: the pick goes with it.</summary>
@@ -274,6 +283,11 @@ namespace PudgeWars.Gameplay
             var screen = firstPerson || pointer == null
                 ? new Vector2(Screen.width / 2f, Screen.height / 2f) // the crosshair
                 : pointer.position.ReadValue();
+            if (item.TargetsUnit)
+            {
+                TargetUnit(slot, item, screen);
+                return;
+            }
             if (!TryGetGroundPoint(screen, out var point)) return;
             int tree = HeroInventory.NoTree;
             var trees = TerrainTrees.Instance;
@@ -294,12 +308,30 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        /// <summary>
+        /// An item used on a unit waits for a click on a hero of the own side, the hero itself too (a click on anything
+        /// else, an enemy included, keeps it waiting); an ally out of reach is walked up to.
+        /// </summary>
+        void TargetUnit(int slot, ItemDef item, Vector2 screen)
+        {
+            var hero = HeroPicker.PickAt(screen, viewCamera);
+            if (hero == null || !hero.IsAlive || (self != null && hero.team != self.team)) return;
+            DeselectItem();
+            if (inventory.TryUse(slot, hero.transform.position, HeroInventory.NoTree, hero)) return;
+            pendingSlot = slot;
+            pendingItem = item;
+            pendingUnit = hero;
+            pendingPoint = hero.transform.position;
+            pendingTree = HeroInventory.NoTree;
+        }
+
         /// <summary>Walking up to an ordered item's target; uses the item once within reach.</summary>
         Vector3 WalkToPendingTarget()
         {
             var trees = TerrainTrees.Instance;
             // the item may have moved to another slot meanwhile (another one used up or sold)
             if (inventory != null && inventory.ItemIn(pendingSlot) != pendingItem) pendingSlot = inventory.SlotOf(pendingItem);
+            if (pendingUnit != null) return WalkToPendingUnit();
             bool gone = inventory == null || pendingSlot < 0
                         || trees == null || (pendingItem.TargetsTree && !trees.IsStanding(pendingTree))
                         || (self != null && !self.IsControllable);
@@ -312,6 +344,26 @@ namespace PudgeWars.Gameplay
             {
                 inventory.TryUse(pendingSlot, pendingPoint, pendingTree);
                 CancelPendingUse(); // used, or cannot be (a hero on the spot): either way the order is done
+                return Vector3.zero;
+            }
+            var to = pendingPoint - transform.position;
+            to.y = 0f;
+            return to.normalized;
+        }
+
+        /// <summary>Walking up to the ally an item goes to; it is given once the ally is within reach.</summary>
+        Vector3 WalkToPendingUnit()
+        {
+            if (inventory == null || pendingSlot < 0 || !pendingUnit.IsAlive || (self != null && !self.IsControllable))
+            {
+                CancelPendingUse();
+                return Vector3.zero;
+            }
+            pendingPoint = pendingUnit.transform.position; // it moves
+            if (inventory.CanTarget(pendingUnit, pendingItem))
+            {
+                inventory.TryUse(pendingSlot, pendingPoint, HeroInventory.NoTree, pendingUnit);
+                CancelPendingUse();
                 return Vector3.zero;
             }
             var to = pendingPoint - transform.position;

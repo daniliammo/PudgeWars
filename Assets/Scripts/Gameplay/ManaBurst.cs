@@ -60,7 +60,9 @@ namespace PudgeWars.Gameplay
 
         /// <summary>Parts of bursts still playing (for tests).</summary>
         public static int ActiveCount => instance != null ? instance.pieces.Count : 0;
-        /// <summary>How many times the sound was played (for tests).</summary>
+        /// <summary>The hero the last mango effect wrapped (for tests).</summary>
+        public static Transform LastTarget { get; private set; }
+                /// <summary>How many times the sound was played (for tests).</summary>
         public static int SoundsPlayed { get; private set; }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -76,12 +78,12 @@ namespace PudgeWars.Gameplay
 
         void OnDisable() => HeroInventory.AnyUsed -= OnUsed;
 
-        void OnUsed(HeroInventory owner, ItemDef item)
+        void OnUsed(HeroInventory owner, ItemDef item, Unit target)
         {
             var use = item != null ? item.Active : null;
             if (owner == null || use == null) return;
             if (use.action == ItemAction.RestoreAllyMana) Play(owner.GetComponent<Unit>(), use.castRange);
-            else if (use.action == ItemAction.RestoreMana) PlayMango(owner.GetComponent<Unit>());
+            else if (use.action == ItemAction.RestoreMana) PlayMango(target != null ? target : owner.GetComponent<Unit>());
         }
 
         /// <summary>A burst around <paramref name="owner"/>, reaching its allies within <paramref name="radius"/> metres.</summary>
@@ -111,6 +113,7 @@ namespace PudgeWars.Gameplay
         public void PlayMango(Unit eater)
         {
             if (eater == null || !EnsureAssets()) return;
+            LastTarget = eater.transform;
             Add(eater.transform, Vector3.up * 0.07f, Vector3.one * mangoRadius, Shape.Petals, 0f, mangoDuration, mangoIntensity, mangoColor, mangoCore);
             float closeTo = mangoWrap.y / Mathf.Max(0.01f, mangoWrap.x);
             Add(eater.transform, Vector3.zero, new Vector3(mangoWrap.x, mangoWrap.z, mangoWrap.x), Shape.Helix,

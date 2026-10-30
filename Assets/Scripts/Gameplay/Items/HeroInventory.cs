@@ -44,12 +44,15 @@ namespace PudgeWars.Gameplay
         public event Action<int> GoldAdded;
         /// <summary>Network client: the player wants to buy this item; the server decides.</summary>
         public event Action<ItemDef> BuyRequested;
-        /// <summary>Network client: the player uses the item in a slot on a point or a tree; the server decides.</summary>
-        public event Action<int, Vector3, int> UseRequested;
-        /// <summary>An item was used (its slot before it was used up, the item).</summary>
-        public event Action<int, ItemDef> Used;
-        /// <summary>Any hero used an item (its inventory, the item): for the effects; on a network client too (<see cref="ShowUsed"/>).</summary>
-        public static event Action<HeroInventory, ItemDef> AnyUsed;
+        /// <summary>Network client: the player uses the item in a slot on a point, a tree or a unit; the server decides.</summary>
+        public event Action<int, Vector3, int, Unit> UseRequested;
+        /// <summary>An item was used (its slot before it was used up, the item, the unit it was used on or null).</summary>
+        public event Action<int, ItemDef, Unit> Used;
+        /// <summary>
+        /// Any hero used an item (its inventory, the item, the unit it was used on or null): for the effects; on a network
+        /// client too (<see cref="ShowUsed"/>).
+        /// </summary>
+        public static event Action<HeroInventory, ItemDef, Unit> AnyUsed;
         /// <summary>Network client: the player sells the item in a slot; the server decides.</summary>
         public event Action<int> SellRequested;
         /// <summary>An item went from one slot to another (what was there went the other way).</summary>
@@ -409,17 +412,23 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Uses the item in <paramref name="slot"/>: on <paramref name="tree"/> (a <see cref="TerrainTrees"/> handle)
-        /// for Tango and Quelling Blade, at <paramref name="point"/> for Iron Branch, at once for an item without a
-        /// target (Arcane Boots: the point and the tree are ignored). The target must be within the item's reach.
-        /// False if it cannot be used so.
+        /// for Tango and Quelling Blade, at <paramref name="point"/> for Iron Branch, on <paramref name="target"/> for
+        /// Enchanted Mango (an allied unit, the owner itself if null), at once for an item without a target (Arcane
+        /// Boots: the point and the tree are ignored). The target must be within the item's reach. False if it cannot be
+        /// used so.
         /// </summary>
-        public bool TryUse(int slot, Vector3 point, int tree)
+        public bool TryUse(int slot, Vector3 point, int tree, Unit target = null)
         {
             if (!CanUse(slot)) return false;
             var item = slots[slot];
             var use = item.Active; // the item's own use or one inherited from a part
             var trees = TerrainTrees.Instance;
-            if (!item.IsInstant)
+            if (item.TargetsUnit)
+            {
+                if (target == null) target = self;
+                if (!CanTarget(target, item)) return false;
+            }
+            else if (!item.IsInstant)
             {
                 if (trees == null) return false;
                 if (item.TargetsTree ? !trees.IsStanding(tree) || !InReach(trees.Position(tree), trees.radius, use)
@@ -430,7 +439,7 @@ namespace PudgeWars.Gameplay
             {
                 // the slot shades at once; the server's answer comes with the items
                 readyAt[slot] = Time.time + use.cooldown;
-                UseRequested?.Invoke(slot, point, tree);
+                UseRequested?.Invoke(slot, point, tree, target);
                 return true;
             }
             switch (use.action)
@@ -447,7 +456,7 @@ namespace PudgeWars.Gameplay
                     if (trees.Plant(point, use.treeLifetime) < 0) return false;
                     break;
                 case ItemAction.RestoreMana:
-                    if (self != null) self.RestoreMana(use.restoreMana, shown: true);
+                    target.RestoreMana(use.restoreMana, shown: true);
                     break;
                 case ItemAction.RestoreAllyMana:
                     foreach (var unit in Unit.AllUnits)
@@ -465,8 +474,8 @@ namespace PudgeWars.Gameplay
                 charges[slot] = 0;
                 Compact();
             }
-            Used?.Invoke(slot, item);
-            AnyUsed?.Invoke(this, item);
+            Used?.Invoke(slot, item, target);
+            AnyUsed?.Invoke(this, item, target);
             Changed?.Invoke();
             return true;
         }
@@ -543,6 +552,17 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>The target (a trunk of <paramref name="targetRadius"/>) is within the item's reach of the hero's edge.</summary>
+        /// <summary>
+        /// <paramref name="target"/> can take the item now: the owner itself, or a living ally whose edge is within the
+        /// item's reach of the owner's (Enchanted Mango).
+        /// </summary>
+        public bool CanTarget(Unit target, ItemDef item)
+        {
+            if (target == null || !target.IsAlive) return false;
+            if (target == self) return true;
+            return self != null && target.team == self.team && InReach(target.transform.position, target.radius, item);
+        }
+
         public bool InReach(Vector3 target, float targetRadius, ItemDef item)
         {
             var d = target - transform.position;
@@ -575,7 +595,7 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Network client: the server's hero used <paramref name="item"/> (its effect plays here too).</summary>
-        public void ShowUsed(ItemDef item) => AnyUsed?.Invoke(this, item);
+        public void ShowUsed(ItemDef item, Unit target = null) => AnyUsed?.Invoke(this, item, target);
 
         /// <summary>Network client: the server gave this hero gold with a popup.</summary>
         public void ShowGoldAdded(int amount) => GoldAdded?.Invoke(amount);
