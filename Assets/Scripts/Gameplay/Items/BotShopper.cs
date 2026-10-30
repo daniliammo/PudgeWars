@@ -58,6 +58,8 @@ namespace PudgeWars.Gameplay
         {
             if (Simulation.IsProxy || inventory == null) return;
             UseItems();
+            // a shorter interval set meanwhile counts at once, not after the check already planned
+            nextCheck = Mathf.Min(nextCheck, Time.time + checkInterval);
             if (Time.time < nextCheck) return;
             nextCheck = Time.time + checkInterval;
             Shop();

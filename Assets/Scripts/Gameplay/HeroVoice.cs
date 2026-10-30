@@ -214,7 +214,7 @@ namespace PudgeWars.Gameplay
             if (wasDown != IsDown)
             {
                 wasDown = IsDown;
-                if (!wasDown) Say(RespawnLines, Weight.Normal);
+                if (!wasDown) Say(RespawnLines, Weight.Major); // back: a death line still playing gives way
                 else
                 {
                     pendingKills = 0;
