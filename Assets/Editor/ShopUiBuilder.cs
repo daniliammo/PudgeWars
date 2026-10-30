@@ -53,7 +53,7 @@ namespace PudgeWars.EditorTools
             item.cost = parts.Sum(p => p.cost);
             item.castRangeBonus = 2.75f;
             item.manaBonus = 250f;
-            item.manaRegenBonus = 1.75f;
+            item.manaRegenBonus = 0f; // Void Stone's 1.75, inherited: not twice
             item.components = parts;
             item.unique = true;
             EditorUtility.SetDirty(item);
@@ -70,7 +70,7 @@ namespace PudgeWars.EditorTools
             var lens = AetherLens();
             var catalog = new[]
             {
-                Tango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), SlippersOfAgility(),
+                Tango(), EnchantedMango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), SlippersOfAgility(),
                 BootsOfSpeedRecipe(), BootsOfSpeed(),
                 ArcaneBoots(), EnergyBooster(), VoidStone(), AetherLensRecipe(), lens,
             };
@@ -102,6 +102,28 @@ namespace PudgeWars.EditorTools
             item.regenBonus = 7f;
             item.regenDuration = 16f;
             item.plantedTreeBonus = 2f;
+        });
+
+        /// <summary>
+        /// Enchanted Mango: 65 gold as in Dota 2; +0.7 mana per second while carried (by request), eaten at once for
+        /// 100 mana (Dota 2's Eat Mango), used up.
+        /// </summary>
+        public static ItemDef EnchantedMango() => Item("EnchantedMango", "enchanted_mango", item =>
+        {
+            item.displayName = "Enchanted Mango";
+            item.description = "+0.7 к восстановлению маны. Съесть: +100 маны";
+            item.details = "";
+            item.abilities = new[] { Ability("Eat Mango", true, "Пудж съедает манго и сразу получает 100 маны. Цели не нужно: клавиша или клик по слоту применяют сразу. Манго одноразовое: вместе с ним уходит и прибавка к восстановлению маны.") };
+            item.lore = "Горьковато-сладкий вкус плодов с острова Джиди неотразим для амфибий.";
+            item.cost = 65;
+            item.unique = false;
+            item.manaRegenBonus = 0.7f;
+            item.action = ItemAction.RestoreMana;
+            item.restoreMana = 100f;
+            item.charges = 1;
+            item.stacks = false;
+            item.castRange = 0f;
+            item.cooldown = 0f;
         });
 
         /// <summary>Iron Branch: 50 gold, plants a tree for good (by request; Dota 2's Happy Little Tree stands 20 s) within 200 units, used up.</summary>
@@ -187,17 +209,17 @@ namespace PudgeWars.EditorTools
         /// <summary>Radius of Basilius Aura and of Arcane Boots' mana: four times Iron Branch's planting reach (2 m × 4 = 8 m).</summary>
         static float AuraRadius => IronBranch().castRange * 4f;
 
-        /// <summary>Sage's Mask: 175 gold as in Dota 2, +0.7 mana per second.</summary>
+        /// <summary>Sage's Mask: 175 gold as in Dota 2, +0.8 mana per second (by request; 0.7 in Dota 2).</summary>
         public static ItemDef SagesMask() => Item("SagesMask", "sobi_mask", item =>
         {
             item.displayName = "Sage's Mask";
-            item.description = "+0.7 к восстановлению маны";
+            item.description = "+0.8 к восстановлению маны";
             item.details = "";
             item.abilities = System.Array.Empty<ItemAbility>();
             item.lore = "Маска, которую зачастую используют в своих ритуалах маги и колдуны.";
             item.cost = 175;
             item.unique = false;
-            item.manaRegenBonus = 0.7f;
+            item.manaRegenBonus = 0.8f;
         });
 
         /// <summary>The Ring of Basilius recipe: 250 gold as in Dota 2 (Sage's Mask 175 + 250 = 425).</summary>
@@ -222,9 +244,9 @@ namespace PudgeWars.EditorTools
             return Item("RingOfBasilius", "ring_of_basilius", item =>
             {
                 item.displayName = "Ring of Basilius";
-                item.description = "+1.5 к восстановлению маны. Аура маны и вампиризм маны";
+                item.description = "+2.3 к восстановлению маны (1.5 и 0.8 маски). Аура маны и вампиризм маны";
                 item.details = "";
-                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого.") };
+                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого, и сразу столько маны, сколько убитый восстанавливал в секунду. Вампиризм нескольких предметов складывается.") };
                 item.lore = "Кольцо, служившее наградой величайшим магам.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
@@ -295,9 +317,9 @@ namespace PudgeWars.EditorTools
             return Item("ArcaneBoots", "arcane_boots", item =>
             {
                 item.displayName = "Arcane Boots";
-                item.description = "+1.5 к восстановлению маны, +45 к скорости. Применение: +175 маны союзникам рядом";
+                item.description = "+3.8 к восстановлению маны (1.5 и 2.3 кольца), +45 к скорости. Применение: +175 маны союзникам рядом";
                 item.details = "Бонусы нескольких сапог к скорости не складываются.";
-                item.abilities = new[] { Ability("Replenish Mana", true, $"+175 маны себе и всем союзникам в радиусе {radius * 100f:0}. Цели не нужно: клавиша или клик по слоту применяют сразу."), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого.") };
+                item.abilities = new[] { Ability("Replenish Mana", true, $"+175 маны себе и всем союзникам в радиусе {radius * 100f:0}. Цели не нужно: клавиша или клик по слоту применяют сразу.") }; // Basilius Aura and Mana Leech: the ring's
                 item.lore = "В этих ботинках маг становится более ценным в бою.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;
@@ -305,11 +327,10 @@ namespace PudgeWars.EditorTools
                 item.manaRegenBonus = 1.5f;
                 item.moveSpeedBonus = 0.45f;
                 item.boots = true;
-                item.auraManaRegen = 1f;
-                item.auraRadius = radius;
+                item.auraManaRegen = 0f; // the ring's aura, inherited: not twice
                 item.action = ItemAction.RestoreAllyMana;
                 item.restoreMana = 175f;
-                item.killManaSteal = 0.13f;
+                item.killManaSteal = 0f; // the ring's vampirism, inherited: not twice
                 item.castRange = radius;
                 item.cooldown = 55f;
                 item.charges = 0;
@@ -322,7 +343,7 @@ namespace PudgeWars.EditorTools
 
         /// <summary>Basilius Aura of Ring of Basilius (and of Arcane Boots through it).</summary>
         static ItemAbility BasiliusAura(float radius) =>
-            Ability("Basilius Aura", false, $"+1 маны в секунду всем союзникам в радиусе {radius * 100f:0}, и самому владельцу. Ауры разных союзников складываются, несколько у одного героя — нет.");
+            Ability("Basilius Aura", false, $"+1 маны в секунду всем союзникам в радиусе {radius * 100f:0}, и самому владельцу. Ауры складываются: и разных союзников, и нескольких предметов одного героя.");
 
                 /// <summary>The item asset (made if missing) with the Dota icon and the values <paramref name="fill"/> sets.</summary>
         static ItemDef Item(string asset, string icon, System.Action<ItemDef> fill)

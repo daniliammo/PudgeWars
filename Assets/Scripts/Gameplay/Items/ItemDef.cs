@@ -17,6 +17,8 @@ namespace PudgeWars.Gameplay
         ChopTree,
         /// <summary>Arcane Boots: at once, without a target, gives mana to the allies around (the owner too).</summary>
         RestoreAllyMana,
+        /// <summary>Enchanted Mango: eaten at once, gives its owner mana (used up).</summary>
+        RestoreMana,
     }
 
     /// <summary>A named ability of an item, shown in its own frame in the description: blue for an active one, grey for a passive one.</summary>
@@ -36,8 +38,9 @@ namespace PudgeWars.Gameplay
     /// Aether Lens) is made of others, a recipe scroll among them, as in Dota: once its owner has them all in the slots
     /// they combine into it, and buying it buys only the parts still missing (<see cref="HeroInventory.PriceOf"/>).
     /// An assembled item inherits everything of its cheaper ancestors (its parts, their parts…): every bonus is at least
-    /// what its parts give together (<see cref="ManaBonus"/> and the like — its own value wins when bigger), auras and
-    /// mana vampirism the biggest one, a part's active use (<see cref="Active"/>) when it has none of its own.
+    /// what its parts give together (<see cref="ManaBonus"/> and the like — its own value wins when bigger), while mana
+    /// regeneration, Basilius Aura and mana vampirism stack: its own value plus all its parts' (Ring of Basilius 1.5 +
+    /// Sage's Mask 0.8), and a part's active use (<see cref="Active"/>) when it has none of its own.
     /// The gameplay reads these properties, not the fields.
     /// </summary>
     [CreateAssetMenu(menuName = "Pudge Wars/Item", fileName = "Item")]
@@ -85,7 +88,7 @@ namespace PudgeWars.Gameplay
         public float auraManaRegen;
         [Tooltip("Radius of the aura, metres from the owner's centre to the ally's.")]
         public float auraRadius;
-        [Tooltip("Arcane Boots: mana given to every ally within castRange (from the owner's centre), the owner too.")]
+        [Tooltip("Arcane Boots: mana given to every ally within castRange (from the owner's centre), the owner too; Enchanted Mango: to its owner.")]
         public float restoreMana;
 
         [Header("Crafting")]
@@ -112,7 +115,7 @@ namespace PudgeWars.Gameplay
 
         // inherited from the parts (see the summary); the fields are the item's own values
         public float ManaBonus => Inherited(i => i.manaBonus);
-        public float ManaRegenBonus => Inherited(i => i.manaRegenBonus);
+        public float ManaRegenBonus => Stacked(i => i.manaRegenBonus);
         public float MoveSpeedBonus => Inherited(i => i.moveSpeedBonus);
         public float AgilityBonus => Inherited(i => i.agilityBonus);
         public float StrengthBonus => Inherited(i => i.strengthBonus);
@@ -120,12 +123,13 @@ namespace PudgeWars.Gameplay
         public float CastRangeBonus => Inherited(i => i.castRangeBonus);
         public float HeroDamageBonus => Inherited(i => i.heroDamageBonus);
         public float CreepDamageBonus => Inherited(i => i.creepDamageBonus);
-        public float KillManaSteal => Best(i => i.killManaSteal);
+        public float KillManaSteal => Stacked(i => i.killManaSteal);
         /// <summary>Boots, or made of boots: the speed does not stack with other boots.</summary>
         public bool IsBoots => boots || Parts.Any(p => p.IsBoots);
-        /// <summary>Basilius Aura of the item or of the part with the biggest one.</summary>
-        public float AuraManaRegen => AuraSource != null ? AuraSource.auraManaRegen : 0f;
-        public float AuraRadius => AuraSource != null ? AuraSource.auraRadius : 0f;
+        /// <summary>Basilius Aura of the item and of its parts together.</summary>
+        public float AuraManaRegen => Stacked(i => i.auraManaRegen);
+        /// <summary>The widest radius of the item's and its parts' auras.</summary>
+        public float AuraRadius => Parts.Select(p => p.AuraRadius).DefaultIfEmpty(0f).Prepend(auraManaRegen > 0f ? auraRadius : 0f).Max();
 
         /// <summary>
         /// What the item does when used: its own action, or the first part's (down the tree) that has one; null for a
@@ -138,22 +142,8 @@ namespace PudgeWars.Gameplay
         /// <summary>The item's own value or what its parts give together, whichever is bigger.</summary>
         float Inherited(Func<ItemDef, float> own) => Mathf.Max(own(this), Parts.Sum(p => p.Inherited(own)));
 
-        /// <summary>The biggest value of the item and its parts (what does not add up: an aura, vampirism).</summary>
-        float Best(Func<ItemDef, float> own) => Parts.Select(p => p.Best(own)).DefaultIfEmpty(0f).Prepend(own(this)).Max();
-
-        ItemDef AuraSource
-        {
-            get
-            {
-                ItemDef best = auraManaRegen > 0f ? this : null;
-                foreach (var part in Parts)
-                {
-                    var aura = part.AuraSource;
-                    if (aura != null && (best == null || aura.auraManaRegen > best.auraManaRegen)) best = aura;
-                }
-                return best;
-            }
-        }
+        /// <summary>The item's own value and its parts' together (mana regeneration, auras, vampirism stack up the tree).</summary>
+        float Stacked(Func<ItemDef, float> own) => own(this) + Parts.Sum(p => p.Stacked(own));
 
         public bool IsUsable => Active != null;
         /// <summary>Made of other items (<see cref="components"/>).</summary>
@@ -184,7 +174,7 @@ namespace PudgeWars.Gameplay
         /// <summary>The assembled items this one is a part of.</summary>
         public IEnumerable<ItemDef> BuildsInto() => Assembled().Where(r => r.components.Contains(this));
         /// <summary>Used at once on a key or a click, with no target (Arcane Boots).</summary>
-        public bool IsInstant => Active is { action: ItemAction.RestoreAllyMana };
+        public bool IsInstant => Active is { action: ItemAction.RestoreAllyMana or ItemAction.RestoreMana };
         /// <summary>Used on a tree (Tango, Quelling Blade) rather than on a point of the ground (Iron Branch).</summary>
         public bool TargetsTree => Active is { action: ItemAction.EatTree or ItemAction.ChopTree };
     }

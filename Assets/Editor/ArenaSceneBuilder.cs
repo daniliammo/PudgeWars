@@ -103,7 +103,11 @@ namespace PudgeWars.EditorTools
             bot.AddComponent<BotBrain>();
             bot.GetComponent<PudgeMotor>().keepOffPit = true;
             // build order: the blade's damage on the hook first, then speed, mana and the aura, then the hook's reach
-            bot.AddComponent<BotShopper>().catalog = new[] { ShopUiBuilder.QuellingBlade(), ShopUiBuilder.ArcaneBoots(), ShopUiBuilder.AetherLens() };
+            var shopper = bot.AddComponent<BotShopper>();
+            shopper.catalog = new[] { ShopUiBuilder.QuellingBlade(), ShopUiBuilder.ArcaneBoots(), ShopUiBuilder.AetherLens() };
+            // then stacked regeneration, auras and vampirism; a mango when the hook waits too long for its mana
+            shopper.extras = new[] { ShopUiBuilder.RingOfBasilius(), ShopUiBuilder.VoidStone() };
+            shopper.emergency = ShopUiBuilder.EnchantedMango();
             var botPrefab = PrefabUtility.SaveAsPrefabAsset(bot, BotPrefabPath);
             Object.DestroyImmediate(bot);
             return (playerPrefab, botPrefab);

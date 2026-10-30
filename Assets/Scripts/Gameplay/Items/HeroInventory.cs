@@ -124,33 +124,31 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        /// <summary>The biggest share of a killed unit's mana the items give the killer (Ring of Basilius: 7.5 %).</summary>
+        /// <summary>The share of a killed unit's mana the items give the killer, all of them together (Ring of Basilius: 13 %).</summary>
         public float KillManaSteal
         {
             get
             {
-                float best = 0f;
-                foreach (var item in owned) best = Mathf.Max(best, item.KillManaSteal);
-                return best;
+                float sum = 0f;
+                foreach (var item in owned) sum += item.KillManaSteal;
+                return sum;
             }
         }
 
-        /// <summary>The item with the biggest Basilius Aura reaching <paramref name="distance"/> metres (null if none does).</summary>
-        public ItemDef AuraSourceWithin(float distance)
+        /// <summary>The items whose Basilius Aura reaches <paramref name="distance"/> metres.</summary>
+        public IEnumerable<ItemDef> AuraSourcesWithin(float distance)
         {
-            ItemDef best = null;
             foreach (var item in owned)
-                if (item.AuraManaRegen > 0f && distance <= item.AuraRadius && (best == null || item.AuraManaRegen > best.AuraManaRegen)) best = item;
-            return best;
+                if (item.AuraManaRegen > 0f && distance <= item.AuraRadius) yield return item;
         }
 
-        /// <summary>The biggest Basilius Aura of the items reaching <paramref name="distance"/> metres (0 if none does).</summary>
+        /// <summary>The Basilius Auras of the items reaching <paramref name="distance"/> metres, all together (0 if none does).</summary>
         public float AuraManaRegenWithin(float distance)
         {
-            float best = 0f;
+            float sum = 0f;
             foreach (var item in owned)
-                if (item.AuraManaRegen > best && distance <= item.AuraRadius) best = item.AuraManaRegen;
-            return best;
+                if (item.AuraManaRegen > 0f && distance <= item.AuraRadius) sum += item.AuraManaRegen;
+            return sum;
         }
 
         /// <summary>Bonus to mana regeneration from the items (Void Stone).</summary>
@@ -447,6 +445,9 @@ namespace PudgeWars.Gameplay
                     break;
                 case ItemAction.PlantTree:
                     if (trees.Plant(point, use.treeLifetime) < 0) return false;
+                    break;
+                case ItemAction.RestoreMana:
+                    if (self != null) self.RestoreMana(use.restoreMana);
                     break;
                 case ItemAction.RestoreAllyMana:
                     foreach (var unit in Unit.AllUnits)

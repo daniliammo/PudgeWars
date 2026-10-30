@@ -166,6 +166,10 @@ namespace PudgeWars.Gameplay
             return false;
         }
 
+        /// <summary>Mana a killer with mana vampirism <paramref name="share"/> gets for <paramref name="victim"/>.</summary>
+        public static float ManaStolen(Unit victim, float share) =>
+            share > 0f && victim != null ? victim.ManaAtDeath * share + victim.ManaRegenAtDeath : 0f;
+
         public void ReportDeath(Pudge victim, Pudge killer)
         {
             if (killer != null && killer.team == victim.team) killer = null;
@@ -181,9 +185,10 @@ namespace PudgeWars.Gameplay
                     wallet.AddGold(KillGold(victim));
                     if (seriesBroken) wallet.AddGold(StreakBreakBonus(victim, streak, rampages));
                 }
-                // Ring of Basilius: a share of the mana the victim had as it died
+                // mana vampirism (Ring of Basilius): a share of the mana the victim had as it died, and once its mana
+                // regeneration per second on top
                 if (killer.TryGetComponent<HeroInventory>(out var items) && items.KillManaSteal > 0f)
-                    killer.RestoreMana(victim.ManaAtDeath * items.KillManaSteal);
+                    killer.RestoreMana(ManaStolen(victim, items.KillManaSteal));
                 foreach (var announcement in Streaks.RegisterKill(killer, Time.time))
                     KillAnnounced?.Invoke(killer, announcement);
             }

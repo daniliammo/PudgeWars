@@ -1433,9 +1433,7 @@ namespace PudgeWars.Tests
             arcane.manaRegenBonus = 1.5f;
             arcane.moveSpeedBonus = 0.45f;
             arcane.boots = true;
-            arcane.auraManaRegen = 1f;
-            arcane.auraRadius = 8f;
-            arcane.restoreMana = 175f;
+            arcane.restoreMana = 175f; // the aura is the ring's
             var enemy = Pudge.All.First(h => h.team != player.team);
             var ally = Pudge.All.First(h => h.team != player.team && h != enemy);
             ally.team = player.team; // a teammate for the aura and the mana
@@ -1466,7 +1464,9 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(inventory.Owns(arcane));
                 Assert.AreEqual(1, inventory.Items.Count, "the mask must go into the boots");
                 Assert.AreEqual(2.8f + 0.45f, motor.MoveSpeed, 1e-4f, "Arcane Boots must give +45 speed");
-                Assert.AreEqual(0.8f + 1.5f + 1f, player.ManaRegen, 1e-4f, "Arcane Boots: +1.5 and Basilius Aura +1 on the owner itself");
+                // regeneration stacks up the tree: the boots' 1.5, the ring's 1.5 and the mask's 0.7; the aura on the owner too
+                Assert.AreEqual(3.7f, arcane.ManaRegenBonus, 1e-4f, "the boots' regeneration must stack with the ring's and the mask's");
+                Assert.AreEqual(0.8f + 3.7f + 1f, player.ManaRegen, 1e-4f, "Arcane Boots: +3.7 and Basilius Aura +1 on the owner itself");
 
                 // the aura: allies within 8 m, not enemies
                 enemy.transform.position = player.transform.position + Vector3.right * 3f;
@@ -1478,7 +1478,7 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(0f, ally.AuraManaRegen, 1e-4f, "an ally beyond 8 m must not get the aura");
                 ally.transform.position = player.transform.position + Vector3.right * 5f;
 
-                // the same aura of two allies adds up (one effect icon), two of one hero do not
+                // the same aura of two allies adds up (one effect icon), and so do two of one hero
                 var allyWallet = ally.GetComponent<HeroInventory>();
                 allyWallet.AddGold(ring.cost * 2, popup: false);
                 Assert.IsTrue(allyWallet.TryBuy(ring));
@@ -1490,7 +1490,7 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(1, effects.Count(e => !e.IsTimed), "the same aura from two heroes must show as one effect");
                 StringAssert.Contains("+2 маны в секунду", effects.First(e => !e.IsTimed).description);
                 Assert.IsTrue(allyWallet.TryBuy(ring));
-                Assert.AreEqual(2f, ally.AuraManaRegen, 1e-4f, "one hero's two rings must not add up");
+                Assert.AreEqual(3f, ally.AuraManaRegen, 1e-4f, "one hero's two rings must add up too");
                 Assert.IsTrue(allyWallet.TrySell(allyWallet.SlotOf(ring)));
                 Assert.IsTrue(allyWallet.TrySell(allyWallet.SlotOf(ring)));
                 Assert.AreEqual(1f, ally.AuraManaRegen, 1e-4f);
@@ -1539,7 +1539,9 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(hook.TryCast(bot.transform.position));
                 yield return new WaitUntil(() => !bot.IsAlive);
                 Assert.AreEqual(bot.MaxMana, bot.ManaAtDeath, 1f, "the victim's mana at its death is not kept");
-                Assert.AreEqual(before + bot.ManaAtDeath * 0.075f, player.Mana, 0.2f, "the killer did not get 7.5 % of the victim's mana");
+                Assert.Greater(bot.ManaRegenAtDeath, 0f);
+                Assert.AreEqual(before + bot.ManaAtDeath * 0.075f + bot.ManaRegenAtDeath, player.Mana, 0.2f,
+                    "the killer did not get 7.5 % of the victim's mana and its mana regeneration once");
             }
             finally
             {
@@ -1584,7 +1586,7 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(0.45f, arcane.MoveSpeedBonus, 1e-4f, "Arcane Boots did not inherit the boots' speed");
                 Assert.IsTrue(arcane.IsBoots, "Arcane Boots are boots through Boots of Speed");
                 Assert.AreEqual(3f, arcane.AgilityBonus, 1e-4f, "the agility did not come down two levels");
-                Assert.AreEqual(1.5f, arcane.ManaRegenBonus, 1e-4f);
+                Assert.AreEqual(1.5f + 1.5f, arcane.ManaRegenBonus, 1e-4f, "the ring's regeneration must stack with the boots' own");
                 // without a use of its own the item takes its part's: Quelling Blade's
                 Assert.AreEqual(axe, big.Active, "the part's use was not inherited");
                 Assert.IsTrue(big.TargetsTree);
@@ -1603,7 +1605,7 @@ namespace PudgeWars.Tests
                 bot.Died += _ => before = player.Mana;
                 Assert.IsTrue(hook.TryCast(bot.transform.position));
                 yield return new WaitUntil(() => !bot.IsAlive);
-                Assert.AreEqual(before + bot.ManaAtDeath * 0.075f, player.Mana, 0.2f, "Arcane Boots give no mana for a kill");
+                Assert.AreEqual(before + bot.ManaAtDeath * 0.075f + bot.ManaRegenAtDeath, player.Mana, 0.2f, "Arcane Boots give no mana for a kill");
             }
             finally
             {
@@ -2680,6 +2682,142 @@ namespace PudgeWars.Tests
                 shopper.catalog = order;
                 shopper.checkInterval = interval;
                 foreach (var item in new[] { blade, slippers, mask, recipe, boots }) Object.Destroy(item);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator MangoGivesManaRegenAndIsEatenForManaWithItsSound()
+        {
+            var inventory = player.GetComponent<HeroInventory>();
+            var input = player.GetComponent<PlayerInputController>();
+            var mango = TestItem(ItemAction.RestoreMana, 65, 1, stacks: false, range: 0f);
+            mango.manaRegenBonus = 0.7f;
+            mango.restoreMana = 100f;
+            try
+            {
+                yield return null;
+                inventory.AddGold(mango.cost, popup: false);
+                Assert.IsTrue(inventory.TryBuy(mango));
+                Assert.AreEqual(0.8f + 0.7f, player.ManaRegen, 1e-4f, "the mango must give +0.7 mana regeneration while carried");
+                Assert.IsTrue(mango.IsInstant, "the mango is eaten at once, without a target");
+                Assert.IsTrue(player.SpendMana(150f));
+                float mana = player.Mana;
+                int sounds = WorldAudio.Played;
+                Assert.IsFalse(input.SelectItem(inventory.SlotOf(mango)), "the mango must be eaten at once");
+                Assert.AreEqual(mana + 100f, player.Mana, 0.5f, "eating the mango must give 100 mana");
+                Assert.IsFalse(inventory.Owns(mango), "the mango is used up");
+                Assert.AreEqual(0.8f, player.ManaRegen, 1e-4f, "its regeneration goes with it");
+                Assert.AreEqual(sounds + 1, WorldAudio.Played, "no mango sound (Resources/Audio/Items/mango)");
+            }
+            finally
+            {
+                Object.Destroy(mango);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator TreesFallAndGrowWithSoundsAndItemsSoundWhenUsed()
+        {
+            var trees = TerrainTrees.Instance;
+            Assert.IsNotNull(trees);
+            yield return null;
+            Assert.IsNotNull(WorldAudio.Clip("Audio/Trees/tree_fall"), "no tree falling sound");
+            Assert.IsNotNull(WorldAudio.Clip("Audio/Trees/tree_grow"), "no tree growing sound");
+            Assert.IsNotNull(WorldAudio.Clip("Audio/Trees/chop_01"), "no chopping sound");
+            Assert.IsNotNull(WorldAudio.Clip("Audio/Items/tango"), "no Tango sound");
+            int tree = trees.Nearest(player.transform.position, 100f);
+            int sounds = WorldAudio.Played;
+            Assert.IsTrue(trees.Fell(tree, player.transform.position));
+            Assert.AreEqual(sounds + 1, WorldAudio.Played, "a falling tree is silent");
+            Assert.IsTrue(trees.Regrow(tree));
+            Assert.AreEqual(sounds + 2, WorldAudio.Played, "a tree growing back is silent");
+            var spot = Enumerable.Range(0, 16)
+                .Select(i => player.transform.position + Quaternion.Euler(0f, i * 22.5f, 0f) * Vector3.forward * 2f)
+                .FirstOrDefault(trees.CanPlant);
+            int planted = trees.Plant(spot, 0f);
+            Assert.GreaterOrEqual(planted, 0);
+            Assert.AreEqual(sounds + 3, WorldAudio.Played, "a planted tree grows silently");
+            Assert.IsTrue(trees.Fell(planted, player.transform.position, animate: false));
+            Assert.AreEqual(sounds + 3, WorldAudio.Played, "a tree felled before a client joined must not sound");
+
+            // Quelling Blade chops with its own sound on top of the tree's fall
+            var inventory = player.GetComponent<HeroInventory>();
+            var blade = TestItem(ItemAction.ChopTree, 100, 0, stacks: false, range: 3.5f, cooldown: 4f);
+            try
+            {
+                inventory.AddGold(blade.cost, popup: false);
+                Assert.IsTrue(inventory.TryBuy(blade));
+                int next = trees.Nearest(player.transform.position, 100f);
+                player.transform.position = trees.Position(next) + Vector3.back * 2.5f;
+                sounds = WorldAudio.Played;
+                Assert.IsTrue(inventory.TryUse(inventory.SlotOf(blade), trees.Position(next), next));
+                Assert.AreEqual(sounds + 2, WorldAudio.Played, "chopping: the blade's sound and the tree's fall");
+            }
+            finally
+            {
+                Object.Destroy(blade);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator HardBotsShopForManaAndUseTheirItems()
+        {
+            var bot = Pudge.All.First(h => h.team == Team.Bots);
+            var wallet = bot.GetComponent<HeroInventory>();
+            var shopper = bot.GetComponent<BotShopper>();
+            var botHook = bot.GetComponent<HookAbility>();
+            var brain = bot.GetComponent<BotBrain>();
+            brain.enabled = false;
+            botHook.manaCost = 120f;
+            var mango = TestItem(ItemAction.RestoreMana, 65, 1, stacks: false, range: 0f);
+            mango.manaRegenBonus = 0.7f;
+            mango.restoreMana = 100f;
+            var cheap = TestItem(ItemAction.None, 150, 0, stacks: false, range: 0f); // gives nothing for mana
+            var stone = TestItem(ItemAction.None, 300, 0, stacks: false, range: 0f);
+            stone.manaRegenBonus = 1.75f;
+            var recipe = TestItem(ItemAction.None, 100, 0, stacks: false, range: 0f);
+            recipe.recipe = true;
+            var big = TestItem(ItemAction.None, 550, 0, stacks: false, range: 0f);
+            big.components = new[] { cheap, stone, recipe };
+            var boots = TestItem(ItemAction.RestoreAllyMana, 900, 0, stacks: false, range: 8f, cooldown: 55f);
+            boots.restoreMana = 175f;
+            var saved = (shopper.catalog, shopper.extras, shopper.emergency, shopper.checkInterval);
+            shopper.catalog = new[] { big };
+            shopper.extras = new ItemDef[0];
+            shopper.emergency = mango;
+            shopper.checkInterval = 0.1f;
+            try
+            {
+                // a part worth more mana per gold first, though dearer: the stone before the cheap part
+                wallet.AddGold(400, popup: false);
+                yield return new WaitForSeconds(0.3f);
+                Assert.IsTrue(wallet.Owns(stone), "the bot did not buy the part with mana regeneration first");
+                Assert.IsFalse(wallet.Owns(cheap));
+
+                // the hook waits long for its mana: a mango is bought and eaten once the hook is ready
+                Assert.IsTrue(bot.SpendMana(bot.Mana - 20f));
+                yield return new WaitForSeconds(0.3f);
+                Assert.IsTrue(wallet.Owns(mango) || bot.Mana > 100f, "no mango for a hook short of mana");
+                yield return new WaitUntil(() => !wallet.Owns(mango));
+                Assert.Greater(bot.Mana, 100f, "the mango was not eaten for the hook's mana");
+
+                // Arcane Boots only when their mana does not go to waste
+                wallet.ApplyRemoteState(0, System.Array.Empty<(ItemDef, int)>()); // empty hands (offline: just the slots)
+                wallet.AddGold(boots.cost, popup: false);
+                shopper.catalog = new[] { boots };
+                yield return new WaitForSeconds(0.3f);
+                Assert.IsTrue(wallet.Owns(boots));
+                bot.RestoreMana(1000f);
+                yield return null;
+                Assert.AreEqual(0f, wallet.CooldownLeft(wallet.SlotOf(boots)), "Arcane Boots used with full mana");
+                Assert.IsTrue(bot.SpendMana(200f));
+                yield return null;
+                Assert.Greater(wallet.CooldownLeft(wallet.SlotOf(boots)), 50f, "the bot did not use Arcane Boots when it missed mana");
+            }
+            finally
+            {
+                (shopper.catalog, shopper.extras, shopper.emergency, shopper.checkInterval) = saved;
+                foreach (var item in new[] { mango, cheap, stone, recipe, big, boots }) Object.Destroy(item);
             }
         }
 

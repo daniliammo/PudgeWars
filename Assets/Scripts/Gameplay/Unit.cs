@@ -86,8 +86,7 @@ namespace PudgeWars.Gameplay
 
         /// <summary>
         /// Basilius Aura on this unit: of every living ally (itself included) whose items carry it and who stands within
-        /// its radius, that ally's biggest one; the allies' auras add up (two heroes with Ring of Basilius give +2), one
-        /// hero's several do not.
+        /// its radius; all of them add up — two heroes with Ring of Basilius give +2, and so does one hero with two.
         /// </summary>
         public float AuraManaRegen
         {
@@ -239,8 +238,8 @@ namespace PudgeWars.Gameplay
             item.Abilities.FirstOrDefault(a => a.name != null && a.name.Contains("Aura"))?.name ?? item.displayName;
 
         /// <summary>
-        /// The allies (itself included) whose items give this unit an aura now, each with its item carrying the biggest
-        /// one (see <see cref="AuraManaRegen"/>).
+        /// The allies (itself included) whose items give this unit an aura now, one entry for each such item (see
+        /// <see cref="AuraManaRegen"/>).
         /// </summary>
         public void AurasFrom(List<(Unit giver, ItemDef item)> into)
         {
@@ -248,8 +247,8 @@ namespace PudgeWars.Gameplay
             foreach (var ally in allUnits)
             {
                 if (ally.team != team || !ally.IsAlive || ally.inventory == null) continue;
-                var source = ally.inventory.AuraSourceWithin((ally.transform.position - transform.position).magnitude);
-                if (source != null) into.Add((ally, source));
+                foreach (var source in ally.inventory.AuraSourcesWithin((ally.transform.position - transform.position).magnitude))
+                    into.Add((ally, source));
             }
         }
 
@@ -278,10 +277,17 @@ namespace PudgeWars.Gameplay
         /// <summary>Mana the unit had as it died (what Ring of Basilius takes a share of); 0 before any death.</summary>
         public float ManaAtDeath { get; private set; }
 
+        /// <summary>Mana per second the unit regenerated as it died (what mana vampirism adds once); 0 before any death.</summary>
+        public float ManaRegenAtDeath { get; private set; }
+
         /// <summary>Death (falling into the pit or damage): health and mana show as zero, the regeneration bonuses end.</summary>
         protected void ClearHealth()
         {
-            if (!cleared) ManaAtDeath = Mana; // a network client clears again with every state: the first one counts
+            if (!cleared) // a network client clears again with every state: the first one counts
+            {
+                ManaAtDeath = Mana;
+                ManaRegenAtDeath = ManaRegen;
+            }
             cleared = true;
             Health = 0f;
             Mana = 0f;
