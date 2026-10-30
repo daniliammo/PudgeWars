@@ -246,7 +246,7 @@ namespace PudgeWars.EditorTools
                 item.displayName = "Ring of Basilius";
                 item.description = "+2.3 к восстановлению маны (1.5 и 0.8 маски). Аура маны и вампиризм маны";
                 item.details = "";
-                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого, и сразу столько маны, сколько убитый восстанавливал в секунду. Вампиризм нескольких предметов складывается.") };
+                item.abilities = new[] { BasiliusAura(radius), Ability("Mana Leech", false, "За убийство владелец получает 13 % маны, которая была у убитого, и сверх того ровно столько маны, сколько убитый восстанавливал в секунду (весь его реген маны: свой, предметов и аур, — например, +3.8 за героя с Arcane Boots). Вампиризм нескольких предметов складывается.") };
                 item.lore = "Кольцо, служившее наградой величайшим магам.";
                 item.cost = parts.Sum(p => p.cost);
                 item.components = parts;

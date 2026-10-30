@@ -39,6 +39,9 @@ namespace PudgeWars.Gameplay
 
         static SelectionMarker instance;
 
+        /// <summary>The marker exists (reading <see cref="Instance"/> would make one).</summary>
+        public static bool HasInstance => instance != null;
+
         /// <summary>The marker of the scene, made when first needed.</summary>
         public static SelectionMarker Instance
         {

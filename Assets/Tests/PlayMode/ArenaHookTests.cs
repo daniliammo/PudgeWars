@@ -1533,13 +1533,19 @@ namespace PudgeWars.Tests
                 Assert.AreEqual(0.8f + 1.5f + 1f, player.ManaRegen, 1e-4f, "the ring's aura must work on its owner too");
                 Assert.IsTrue(player.SpendMana(150f));
                 var bot = Pudge.All.First(h => h.team == Team.Bots);
+                // the victim's own ring: its regeneration and the aura it stood in count, though death ends that aura
+                var botWallet = bot.GetComponent<HeroInventory>();
+                botWallet.AddGold(ring.cost, popup: false);
+                Assert.IsTrue(botWallet.TryBuy(ring));
                 bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+                yield return null;
+                Assert.AreEqual(0.8f + 1.5f + 1f, bot.ManaRegen, 1e-4f);
                 float before = 0f;
                 bot.Died += _ => before = player.Mana; // just before the arena counts the kill
                 Assert.IsTrue(hook.TryCast(bot.transform.position));
                 yield return new WaitUntil(() => !bot.IsAlive);
                 Assert.AreEqual(bot.MaxMana, bot.ManaAtDeath, 1f, "the victim's mana at its death is not kept");
-                Assert.Greater(bot.ManaRegenAtDeath, 0f);
+                Assert.AreEqual(0.8f + 1.5f + 1f, bot.ManaRegenAtDeath, 1e-3f, "the victim's whole mana regeneration as it died, its own aura too");
                 Assert.AreEqual(before + bot.ManaAtDeath * 0.075f + bot.ManaRegenAtDeath, player.Mana, 0.2f,
                     "the killer did not get 7.5 % of the victim's mana and its mana regeneration once");
             }
@@ -1805,6 +1811,18 @@ namespace PudgeWars.Tests
                 StringAssert.Contains("Basilius Aura", bar.TipText);
                 StringAssert.Contains("+1 маны в секунду", bar.TipText);
                 aura.OnPointerExit(new PointerEventData(EventSystem.current));
+
+                // a creature picked to look at: the row shows its effects, not the player's
+                var bot = Pudge.All.First(h => h.team == Team.Bots);
+                bot.AddRegen(7f, 16f, tango);
+                SelectionMarker.Instance.Select(bot);
+                yield return new WaitForSeconds(0.2f);
+                Assert.AreEqual(bot, bar.Shows, "the row does not follow the picked creature");
+                Assert.AreEqual(1, bar.IconCount, "the bot's own effects only: its Tango, not the player's aura");
+                Assert.AreEqual(tango, bar.Shown[0].item);
+                SelectionMarker.Instance.Select(player);
+                yield return new WaitForSeconds(0.2f);
+                Assert.AreEqual(2, bar.IconCount, "the player's effects did not come back");
             }
             finally
             {

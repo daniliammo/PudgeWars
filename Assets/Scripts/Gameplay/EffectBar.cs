@@ -6,7 +6,8 @@ using UnityEngine.UI;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// The local hero's effects (<see cref="Unit.Effects"/>) as a row of round icons over the ability bar, in the
+    /// The effects (<see cref="Unit.Effects"/>) of the picked creature (<see cref="SelectionMarker"/>: a hero clicked to
+    /// look at it, the own hero by default) as a row of round icons over the ability bar, in the
     /// bottom centre: the item's picture in a circle with a light rim, a timed effect darkening clockwise as it runs
     /// out. Hovering an icon shows the effect's name, what it does and the seconds left. Made by
     /// <see cref="AbilityBar"/> at start; follows its panel (it rises in first person).
@@ -90,9 +91,19 @@ namespace PudgeWars.Gameplay
             else if (tip.gameObject.activeSelf) tip.gameObject.SetActive(false);
         }
 
+        /// <summary>Whose effects the row shows: the picked creature, or the own hero when none is picked.</summary>
+        public Unit Shows
+        {
+            get
+            {
+                var picked = SelectionMarker.HasInstance ? SelectionMarker.Instance.SelectedUnit : null;
+                return picked != null ? picked : LocalPlayer.Hero;
+            }
+        }
+
         void Refresh()
         {
-            var hero = LocalPlayer.Hero;
+            var hero = Shows;
             if (hero != null && hero.IsAlive) hero.Effects(effects);
             else effects.Clear();
             while (icons.Count < effects.Count) icons.Add(BuildIcon(icons.Count));

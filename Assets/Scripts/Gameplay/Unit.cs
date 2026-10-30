@@ -124,6 +124,7 @@ namespace PudgeWars.Gameplay
         HeroInventory inventory;
         float lastMaxMana;
         bool cleared; // dead: health and mana cleared
+        float aliveManaRegen; // the mana regeneration of the last frame alive (the death takes the unit's own aura away)
 
         protected virtual void Awake()
         {
@@ -150,7 +151,11 @@ namespace PudgeWars.Gameplay
                 if (max > lastMaxMana) Mana += max - lastMaxMana;
                 lastMaxMana = max;
             }
-            if (IsAlive) Mana = Mathf.Clamp(Mana + ManaRegen * Time.deltaTime, 0f, max);
+            if (IsAlive)
+            {
+                aliveManaRegen = ManaRegen;
+                Mana = Mathf.Clamp(Mana + aliveManaRegen * Time.deltaTime, 0f, max);
+            }
         }
 
         /// <summary>Gives <paramref name="amount"/> of mana, up to the maximum (Arcane Boots). Server / offline only.</summary>
@@ -277,7 +282,10 @@ namespace PudgeWars.Gameplay
         /// <summary>Mana the unit had as it died (what Ring of Basilius takes a share of); 0 before any death.</summary>
         public float ManaAtDeath { get; private set; }
 
-        /// <summary>Mana per second the unit regenerated as it died (what mana vampirism adds once); 0 before any death.</summary>
+        /// <summary>
+        /// Mana per second the unit regenerated as it died, all of it (its own, its items', the auras it stood in): what
+        /// mana vampirism adds once, as a plain number of mana; 0 before any death.
+        /// </summary>
         public float ManaRegenAtDeath { get; private set; }
 
         /// <summary>Death (falling into the pit or damage): health and mana show as zero, the regeneration bonuses end.</summary>
@@ -286,7 +294,7 @@ namespace PudgeWars.Gameplay
             if (!cleared) // a network client clears again with every state: the first one counts
             {
                 ManaAtDeath = Mana;
-                ManaRegenAtDeath = ManaRegen;
+                ManaRegenAtDeath = aliveManaRegen > 0f ? aliveManaRegen : ManaRegen; // as alive, its own aura still on
             }
             cleared = true;
             Health = 0f;
