@@ -105,7 +105,9 @@ Shader "PudgeWars/ManaBurst"
                 // light flowing down into the hero, brightest at its feet as the effect ends
                 float flow = pow(saturate(1 - uv.y), 2) * smoothstep(0.3, 1, t) * 0.5;
                 float height = smoothstep(0, 0.08, uv.y) * smoothstep(1, 0.75, uv.y);
-                float shape = (strands * 0.9 + sparks + flow) * height * fade;
+                // a faint veil of light all round between the strands: the hero is seen wrapped in it
+                float veil = 0.14 * (0.6 + 0.4 * sin(uv.y * 9 - _Time.y * 3 + uv.x * 6.2832));
+                float shape = (strands * 0.9 + sparks + flow + veil) * height * fade;
                 return lerp(_Color.rgb, _Core.rgb, saturate(sparks + strands * 0.3)) * shape;
             }
 

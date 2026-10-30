@@ -23,14 +23,14 @@ namespace PudgeWars.Gameplay
         [Tooltip("Radius of the rune circle under an ally, metres.")] public float runeRadius = 1.3f;
         [Range(0f, 1f)] public float soundVolume = 0.9f;
         [Header("Enchanted Mango")]
-        [Tooltip("Seconds the mango's effect plays.")] public float mangoDuration = 1.2f;
-        [Tooltip("Radius of the petals opening under the hero, metres.")] public float mangoRadius = 1.5f;
-        public float mangoIntensity = 2.4f;
-        [Tooltip("The petals: juicy orange, their middles and the drops golden.")]
-        public Color mangoColor = new(1f, 0.5f, 0.1f);
-        public Color mangoCore = new(1f, 0.88f, 0.4f);
-        [Tooltip("The strands winding into the hero: mana blue, sparks golden — the fruit turning into mana.")]
-        public Color mangoStrands = new(0.3f, 0.65f, 1f);
+        [Tooltip("Seconds the mango's effect plays.")] public float mangoDuration = 1.8f;
+        [Tooltip("Radius of the petals opening under the hero, metres.")] public float mangoRadius = 2.3f;
+        public float mangoIntensity = 3.2f;
+        [Tooltip("The strands wrapping the hero: the radius they start at, the one they close to (round the body), their height, metres.")]
+        public Vector3 mangoWrap = new(1.4f, 0.75f, 3.6f);
+        [Tooltip("The petals and the strands: mana blue, their middles, sparks and drops pale blue.")]
+        public Color mangoColor = new(0.2f, 0.55f, 1f);
+        public Color mangoCore = new(0.75f, 0.93f, 1f);
 
         static ManaBurst instance;
         static Material material;
@@ -51,6 +51,7 @@ namespace PudgeWars.Gameplay
             public MeshRenderer renderer;
             public Shape shape;
             public Vector3 size; // the scale it was made with: the helix narrows from it, the circle springs to it
+            public float narrowTo; // the share of its radius a helix ends at
             public float start, duration;
         }
 
@@ -103,16 +104,20 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// Enchanted Mango eaten: juicy orange petals open and turn round the hero's feet with golden drops flying out,
-        /// and two strands of light wind up into it, blue with golden sparks — the fruit turning into mana. Its sound is
-        /// <see cref="ItemUseSounds"/>'.
+        /// Enchanted Mango eaten: wide blue petals open and turn round the hero's feet with pale drops flying out, and two
+        /// shells of winding light wrap the hero from the feet to over its head, closing round the body (not into a
+        /// point) so the whole figure is seen wrapped in mana. Its sound is <see cref="ItemUseSounds"/>'.
         /// </summary>
         public void PlayMango(Unit eater)
         {
             if (eater == null || !EnsureAssets()) return;
             Add(eater.transform, Vector3.up * 0.07f, Vector3.one * mangoRadius, Shape.Petals, 0f, mangoDuration, mangoIntensity, mangoColor, mangoCore);
-            Add(eater.transform, Vector3.zero, new Vector3(helixRadius.y * 1.6f, helixHeight * 0.8f, helixRadius.y * 1.6f), Shape.Helix,
-                0.1f, mangoDuration, mangoIntensity, mangoStrands, mangoCore);
+            float closeTo = mangoWrap.y / Mathf.Max(0.01f, mangoWrap.x);
+            Add(eater.transform, Vector3.zero, new Vector3(mangoWrap.x, mangoWrap.z, mangoWrap.x), Shape.Helix,
+                0.05f, mangoDuration, mangoIntensity, mangoColor, mangoCore, closeTo);
+            // a second, narrower and lower shell: its strands cross the first one's
+            Add(eater.transform, Vector3.zero, new Vector3(mangoWrap.x * 0.8f, mangoWrap.z * 0.82f, mangoWrap.x * 0.8f), Shape.Helix,
+                0.15f, mangoDuration, mangoIntensity, mangoColor, mangoCore, closeTo);
         }
 
         /// <summary>Dota's Arcane Boots sound where they were used, heard around as the heroes' sounds are.</summary>
@@ -133,7 +138,7 @@ namespace PudgeWars.Gameplay
         }
 
         void Add(Transform follow, Vector3 offset, Vector3 scale, Shape shape, float delay, float duration, float intensity,
-            Color? color = null, Color? core = null)
+            Color? color = null, Color? core = null, float narrowTo = -1f)
         {
             var go = new GameObject("Mana" + shape);
             go.transform.SetParent(follow != null ? follow : transform, false);
@@ -155,7 +160,8 @@ namespace PudgeWars.Gameplay
             block.SetFloat(ProgressId, 0f);
             renderer.SetPropertyBlock(block);
             renderer.enabled = delay <= 0f;
-            pieces.Add(new Piece { transform = go.transform, renderer = renderer, shape = shape, size = scale, start = Time.time + delay, duration = duration });
+            pieces.Add(new Piece { transform = go.transform, renderer = renderer, shape = shape, size = scale,
+                narrowTo = narrowTo >= 0f ? narrowTo : helixRadius.y / Mathf.Max(0.01f, helixRadius.x), start = Time.time + delay, duration = duration });
         }
 
         void Update()
@@ -181,7 +187,7 @@ namespace PudgeWars.Gameplay
                 if (piece.shape == Shape.Helix)
                 {
                     // the strands narrow into the hero
-                    float r = piece.size.x * Mathf.Lerp(1f, helixRadius.y / Mathf.Max(0.01f, helixRadius.x), eased);
+                    float r = piece.size.x * Mathf.Lerp(1f, piece.narrowTo, eased);
                     piece.transform.localScale = new Vector3(r, piece.size.y, r);
                 }
                 else if (piece.shape == Shape.Runes)

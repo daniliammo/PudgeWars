@@ -2777,8 +2777,8 @@ namespace PudgeWars.Tests
                 int sounds = WorldAudio.Played, bursts = ManaBurst.ActiveCount;
                 Assert.IsFalse(input.SelectItem(inventory.SlotOf(mango)), "the mango must be eaten at once");
                 Assert.AreEqual(mana + 100f, player.Mana, 0.5f, "eating the mango must give 100 mana");
-                // its effect: petals under the feet and strands winding into the hero; the mana pops up in blue
-                Assert.AreEqual(bursts + 2, ManaBurst.ActiveCount, "no mango effect (Resources/Effects/ManaBurst.shader)");
+                // its effect: blue petals under the feet and two shells of light wrapping the hero; the mana pops up in blue
+                Assert.AreEqual(bursts + 3, ManaBurst.ActiveCount, "no mango effect (Resources/Effects/ManaBurst.shader)");
                 Assert.AreEqual("+100", ManaPopups.LastText, "the mango's mana did not pop up as \"+100\"");
                 Assert.Greater(ManaPopups.ActiveCount, 0);
                 Assert.IsFalse(inventory.Owns(mango), "the mango is used up");
