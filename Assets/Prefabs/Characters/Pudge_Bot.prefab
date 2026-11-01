@@ -526,7 +526,15 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.BotShopper
   catalog:
+  - {fileID: 11400000, guid: 4f082cea2ed65956892c21210e5a44ff, type: 2}
+  - {fileID: 11400000, guid: 9d948d6174cca8449a59d71ac1886b8b, type: 2}
   - {fileID: 11400000, guid: 1f5d5956a0ef920c5b87e1a6db5c3a49, type: 2}
+  extras:
+  - {fileID: 11400000, guid: a93fde7b1fa1fed958fe2ef2d86ac2d4, type: 2}
+  - {fileID: 11400000, guid: 116883f3e89ea3de3944b703a835a2a4, type: 2}
+  emergency: {fileID: 11400000, guid: 49e4c4d59cfce86979f14ced213b88c6, type: 2}
+  manaWaitLimit: 6
+  restoreUsefulShare: 0.8
   checkInterval: 1
 --- !u!1001 &1093817154166817167
 PrefabInstance:

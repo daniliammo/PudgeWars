@@ -29,7 +29,7 @@ MonoBehaviour:
   heroDamageBonus: 0
   creepDamageBonus: 0
   manaBonus: 250
-  manaRegenBonus: 1.75
+  manaRegenBonus: 0
   moveSpeedBonus: 0
   boots: 0
   strengthBonus: 0
