@@ -2910,11 +2910,14 @@ namespace PudgeWars.Tests
 
                 // Arcane Boots only when their mana does not go to waste
                 wallet.ApplyRemoteState(0, System.Array.Empty<(ItemDef, int)>()); // empty hands (offline: just the slots)
+                // Fill mana before buying: the shopper can use the boots on the very next frame.
+                // Allies must be full too, since restoring their mana is also a valid use.
+                foreach (var ally in Unit.AllUnits.Where(unit => unit.team == bot.team))
+                    ally.RestoreMana(ally.MaxMana);
                 wallet.AddGold(boots.cost, popup: false);
                 shopper.catalog = new[] { boots };
                 yield return new WaitForSeconds(0.3f);
                 Assert.IsTrue(wallet.Owns(boots));
-                bot.RestoreMana(1000f);
                 yield return null;
                 Assert.AreEqual(0f, wallet.CooldownLeft(wallet.SlotOf(boots)), "Arcane Boots used with full mana");
                 Assert.IsTrue(bot.SpendMana(200f));
