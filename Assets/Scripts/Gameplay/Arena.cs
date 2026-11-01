@@ -104,6 +104,7 @@ namespace PudgeWars.Gameplay
             Streaks = new KillStreaks { multiKillWindow = multiKillWindow, godlikeStreak = godlikeStreak };
             nextPassiveGold = Time.time + passiveGoldInterval;
             matchStartedAt = Time.time;
+            if (GetComponent<DayNightCycle>() == null) gameObject.AddComponent<DayNightCycle>();
         }
 
         void OnDestroy()

@@ -37,6 +37,88 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator DayAndNightFollowTheMatchClock()
+        {
+            yield return null;
+            var cycle = arena.GetComponent<DayNightCycle>();
+            Assert.IsNotNull(cycle);
+            Assert.AreEqual(-1f, DayNightCycle.SolarHeight(0f), 0.0001f, "the match must start at midnight");
+            Assert.AreEqual(0f, DayNightCycle.SolarHeight(150f), 0.0001f, "first dawn must be at 2:30");
+            Assert.Less(DayNightCycle.SolarHeight(149f), 0f);
+            Assert.Greater(DayNightCycle.SolarHeight(151f), 0f);
+            Assert.AreEqual(0f, DayNightCycle.SolarHeight(450f), 0.0001f);
+            Assert.Greater(DayNightCycle.SolarHeight(300f), 0.99f);
+            Assert.Less(DayNightCycle.SolarHeight(600f), -0.99f);
+            Assert.AreEqual(DayNightCycle.SolarHeight(300f), DayNightCycle.SolarHeight(900f), 0.0001f);
+            arena.ApplyRemoteMatchTime(300f);
+            yield return null;
+            float noon = RenderSettings.sun.intensity;
+            Color noonAmbient = RenderSettings.ambientSkyColor;
+            Assert.AreEqual("PudgeWars/DayNightSky", RenderSettings.skybox.shader.name);
+            Assert.AreEqual(CameraClearFlags.Skybox, Camera.main.clearFlags);
+            arena.ApplyRemoteMatchTime(0f);
+            yield return null;
+            Assert.Less(RenderSettings.sun.intensity, noon * 0.5f);
+            Assert.Greater(RenderSettings.sun.intensity, 0.2f, "moonlight must keep the arena readable");
+            Assert.Less(RenderSettings.ambientSkyColor.grayscale, noonAmbient.grayscale);
+            Assert.Less(RenderSettings.skybox.GetFloat("_Day"), 0.01f);
+            arena.ApplyRemoteMatchTime(900f);
+            yield return null;
+            Assert.AreEqual(noon, RenderSettings.sun.intensity, 0.01f);
+            Assert.Greater(RenderSettings.skybox.GetFloat("_Day"), 0.99f);
+        }
+
+        [UnityTest]
+        public IEnumerator NightGlowFollowsQualityLifeAndLocalTeam()
+        {
+            var bot = Pudge.All.First(h => h.team != LocalPlayer.Team);
+            var glow = bot.GetComponent<NightUnitGlow>();
+            Assert.IsNotNull(glow);
+            var preset = GraphicsQuality.Current;
+            var team = bot.team;
+            try
+            {
+                arena.ApplyRemoteMatchTime(0f);
+                foreach (var quality in new[] { GraphicsPreset.High, GraphicsPreset.Ultra })
+                {
+                    GraphicsQuality.Set(quality);
+                    yield return null;
+                    yield return null;
+                    Assert.Greater(glow.Strength, 0.99f);
+                    Assert.Greater(glow.Tint.r, glow.Tint.g, "enemies must glow red");
+                    Assert.IsTrue(bot.transform.Find("NightGlow").GetComponent<Light>().enabled);
+                }
+                bot.team = LocalPlayer.Team;
+                yield return null;
+                yield return null;
+                Assert.Greater(glow.Tint.g, glow.Tint.r, "allies must glow green");
+                foreach (var quality in new[] { GraphicsPreset.Low, GraphicsPreset.Medium })
+                {
+                    GraphicsQuality.Set(quality);
+                    yield return null;
+                    yield return null;
+                    Assert.AreEqual(0f, glow.Strength);
+                    Assert.IsFalse(bot.transform.Find("NightGlow").GetComponent<Light>().enabled);
+                }
+                GraphicsQuality.Set(GraphicsPreset.High);
+                arena.ApplyRemoteMatchTime(300f);
+                yield return null;
+                yield return null;
+                Assert.AreEqual(0f, glow.Strength, "daylight must disable the glow");
+                arena.ApplyRemoteMatchTime(0f);
+                bot.Damage(bot.maxHealth * 2f, null);
+                yield return null;
+                yield return null;
+                Assert.AreEqual(0f, glow.Strength, "dead units must not glow");
+            }
+            finally
+            {
+                bot.team = team;
+                GraphicsQuality.Set(preset);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator HealthRegenerates()
         {
             var bot = Pudge.All.First(h => h.team == Team.Bots);

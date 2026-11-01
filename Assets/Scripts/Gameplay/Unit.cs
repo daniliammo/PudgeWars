@@ -129,6 +129,7 @@ namespace PudgeWars.Gameplay
 
         protected virtual void Awake()
         {
+            if (GetComponent<NightUnitGlow>() == null) gameObject.AddComponent<NightUnitGlow>();
             IsBot = GetComponent<BotBrain>() != null;
             inventory = GetComponent<HeroInventory>();
             Health = maxHealth;
