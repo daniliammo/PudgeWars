@@ -25,6 +25,7 @@ namespace PudgeWars.EditorTools
     public static class LandscapeBuilder
     {
         const string TreeDir = "Assets/Art/Landscape/Trees";
+        const string DireDetailDir = "Assets/Art/Landscape/DireDetails";
         const string GrassDir = "Assets/Art/Landscape/Grass";
         internal const string TerrainDir = "Assets/Art/Landscape/Terrain";
         const string RootName = "Landscape";
@@ -52,6 +53,13 @@ namespace PudgeWars.EditorTools
         internal static readonly string[] Grass = { "grass_clump_00a", "grass_clump_00b", "grass_clump_00d", "grass_clump_00e", "grass_clump_00f" };
         internal static readonly string[] WinterGrass =
             { "grass_clump_winter_b", "grass_clump_winter_c", "grass_clump_winter_d", "grass_clump_winter_e", "grass_clump_winter_f" };
+        internal static readonly string[] DireDetails =
+        {
+            "badside_debris_rocks001", "badside_debris_rocks002", "branches001", "branches002",
+            "badside_roots_path001", "badside_roots_path002", "badside_roots_path003",
+            "badside_bones001", "badside_bones002", "badside_bones003", "badside_bones004", "badside_bones005",
+        };
+
         static readonly string[] TwoSidedMaterials = { "dire_tree007_moss" }; // doubleSided in the glTF
         static readonly string[] OpaqueMaterials = { "tree_oak_03", "tree_desert002", "tree_gnarly001", "tree_cine_02_low" }; // the rest are masked
         // the parts of a tree that can be cut down (Tools/Landscape/build_trees.py): what stays, what falls
@@ -235,7 +243,7 @@ namespace PudgeWars.EditorTools
         static void PlaceGrass(Arena arena, TerrainData data, float[,,] alpha)
         {
             var rng = new System.Random(Seed + 1);
-            var prototypes = GrassPrototypes(Grass);
+            var prototypes = GrassPrototypes(Grass).Concat(DireDetailPrefabs().Select(TerrainPaint.Grass)).ToArray();
             data.detailPrototypes = prototypes;
             data.SetDetailScatterMode(DetailScatterMode.InstanceCountMode);
             data.SetDetailResolution(GrassResolution, 32);
@@ -253,7 +261,24 @@ namespace PudgeWars.EditorTools
                 float patch = Mathf.InverseLerp(0.4f, 0.75f, Mathf.PerlinNoise(patches.x + wx * 0.15f, patches.y + wz * 0.15f));
                 bool inArena = Mathf.Abs(wx) < arena.halfWidth && Mathf.Abs(wz) < arena.pitHalfDepth + arena.sideDepth;
                 int count = Mathf.FloorToInt(patch * radiant * GrassPerCell * (inArena ? GrassInArena : 1f) + (float)rng.NextDouble());
-                for (int i = 0; i < count; i++) layers[rng.Next(layers.Length)][z, x]++;
+                for (int i = 0; i < count; i++) layers[rng.Next(Grass.Length)][z, x]++;
+            }
+            // A separate random stream keeps Radiant grass unchanged. Ground layer 1 excludes paths, cliffs and pit.
+            var debrisRng = new System.Random(Seed + 7);
+            for (int z = 0; z < GrassResolution; z++)
+            for (int x = 0; x < GrassResolution; x++)
+            {
+                float u = (x + 0.5f) / GrassResolution, v = (z + 0.5f) / GrassResolution;
+                float dire = alpha[(int)(v * aRes), (int)(u * aRes), 1];
+                if (dire < 0.8f) continue;
+                float wx = -half + u * TerrainSize, wz = -half + v * TerrainSize;
+                if (wz < arena.pitHalfDepth + 2f || data.GetSteepness(u, v) > 28f) continue;
+                bool inArena = Mathf.Abs(wx) < arena.halfWidth && Mathf.Abs(wz) < arena.pitHalfDepth + arena.sideDepth;
+                float patch = Mathf.InverseLerp(0.4f, 0.75f, Mathf.PerlinNoise(317f + wx * 0.15f, 719f + wz * 0.15f));
+                if (debrisRng.NextDouble() >= patch * dire * (inArena ? 0.012f : 0.045f)) continue;
+                // Mostly stone and branches; roots and bones are occasional accents.
+                int kind = debrisRng.NextDouble() < 0.75 ? debrisRng.Next(4) : debrisRng.Next(4, DireDetails.Length);
+                layers[Grass.Length + kind][z, x] = 1;
             }
             for (int i = 0; i < layers.Length; i++) data.SetDetailLayer(0, 0, i, layers[i]);
         }
@@ -305,6 +330,8 @@ namespace PudgeWars.EditorTools
             }
             SetupModels(GrassDir, Grass);
             foreach (var model in Grass) GrassPrefab(model);
+            SetupModels(DireDetailDir, DireDetails);
+            foreach (var model in DireDetails) DetailPrefab(DireDetailDir, model);
             foreach (var layer in GroundLayers) PrepareLayer(layer);
             TerrainMaterial();
             AssetDatabase.SaveAssets();
@@ -499,15 +526,19 @@ namespace PudgeWars.EditorTools
             return new MenuLandscape.MenuTree { prefab = Prefab(TreeDir, model), oneSided = oneSided, frontYaw = oneSided ? FrontYaw(model) : 0f };
         }
 
-        static GameObject GrassPrefab(string model)
+        internal static GameObject[] DireDetailPrefabs() => DireDetails.Select(m => Prefab(DireDetailDir, m)).ToArray();
+
+        static GameObject GrassPrefab(string model) => DetailPrefab(GrassDir, model);
+
+        static GameObject DetailPrefab(string dir, string model)
         {
-            var (mesh, materials) = Bake(GrassDir, model);
+            var (mesh, materials) = Bake(dir, model);
             var go = new GameObject(model);
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var renderer = go.AddComponent<MeshRenderer>();
             renderer.sharedMaterials = materials;
             renderer.shadowCastingMode = ShadowCastingMode.Off;
-            return SavePrefab(go, GrassDir, model);
+            return SavePrefab(go, dir, model);
         }
 
         /// <summary>A prefab made by <see cref="PrepareAssets"/>; null if there is none (a tree without a stump).</summary>

@@ -52,18 +52,24 @@ namespace PudgeWars.Tests
             Assert.Greater(radiantGround[0], 0.5f, "Radiant's side is not grass");
             Assert.Greater(direGround[1], 0.5f, "Dire's side is not Dire's ground: " + string.Join(", ", direGround));
 
-            // grass on Radiant's side (z < 0), none on Dire's scorched ground
-            int res = data.detailResolution, radiant = 0, dire = 0;
+            // Grass stays on Radiant; ordinary ground debris belongs to Dire.
+            int res = data.detailResolution, radiant = 0, dire = 0, misplaced = 0;
             for (int i = 0; i < data.detailPrototypes.Length; i++)
             {
+                bool debris = data.detailPrototypes[i].prototype.name.StartsWith("badside_") ||
+                              data.detailPrototypes[i].prototype.name.StartsWith("branches");
                 var layer = data.GetDetailLayer(0, 0, res, res, i);
                 for (int z = 0; z < res; z++)
                 for (int x = 0; x < res; x++)
-                    if (z < res / 2) radiant += layer[z, x];
-                    else dire += layer[z, x];
+                {
+                    if (debris && z >= res / 2) dire += layer[z, x];
+                    else if (!debris && z < res / 2) radiant += layer[z, x];
+                    else misplaced += layer[z, x];
+                }
             }
-            Assert.Greater(radiant, 100, "no grass on Radiant's side: Pudge Wars → Build Test Arena");
-            Assert.Less(dire, radiant / 10, "grass on Dire's scorched ground");
+            Assert.Greater(radiant, 100, "no grass on Radiant: Pudge Wars → Build Landscape");
+            Assert.Greater(dire, 0, "no ground debris on Dire: Pudge Wars → Build Landscape");
+            Assert.Less(misplaced, radiant / 10, "ground details are on the wrong side");
         }
 
         [UnityTest]
@@ -201,7 +207,12 @@ namespace PudgeWars.Tests
                     for (int i = 0; i < data.detailPrototypes.Length; i++)
                         foreach (int n in data.GetDetailLayer(0, 0, res, res, i)) grass += n;
                     if (side == MenuSide.Radiant) Assert.Greater(grass, 100, "Radiant's ground has no grass");
-                    else Assert.AreEqual(0, grass, "grass on Dire's scorched ground");
+                    else
+                    {
+                        Assert.Greater(grass, 0, "Dire has no ground debris: Pudge Wars → Build Main Menu");
+                        foreach (var detail in data.detailPrototypes)
+                            Assert.IsFalse(detail.prototype.name.StartsWith("grass_"), "green or winter grass on Dire");
+                    }
 
                     // one-sided trees (reliefs with nothing behind) show their front to the camera
                     var cam = Camera.main.transform.position;

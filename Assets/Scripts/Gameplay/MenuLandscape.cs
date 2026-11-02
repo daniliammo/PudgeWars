@@ -32,6 +32,7 @@ namespace PudgeWars.Gameplay
             public MenuTree landmark = new();
             public MenuTree[] trees = Array.Empty<MenuTree>();
             public GameObject[] grass = Array.Empty<GameObject>();
+            [Range(0f, 1f)] public float groundDetailDensity = 1f;
             public Material sky;
             public Color sun = Color.white;
             public float sunIntensity = 1f;

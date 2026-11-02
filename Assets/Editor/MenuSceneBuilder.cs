@@ -141,6 +141,8 @@ namespace PudgeWars.EditorTools
             ground = LandscapeBuilder.Layer("Dire_Ground", 6f),
             patches = LandscapeBuilder.Layer("Dire_Patches", 6f),
             path = LandscapeBuilder.Layer("Dire_Path_Stone", 3f),
+            grass = LandscapeBuilder.DireDetailPrefabs(),
+            groundDetailDensity = 0.025f,
             landmark = LandscapeBuilder.MenuTreeOf(LandscapeBuilder.DireTrees[0]),
             trees = LandscapeBuilder.DireTrees.Select(LandscapeBuilder.MenuTreeOf).ToArray(),
             sky = sky,

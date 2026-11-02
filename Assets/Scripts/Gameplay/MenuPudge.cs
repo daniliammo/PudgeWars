@@ -3,8 +3,8 @@ using UnityEngine;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Pudge in the middle of the main menu: appears with the spawn clip over his Dota hero-pick sound
-    /// (pudge_background), then stands idle and taunts now and then, laughing.
+    /// Pudge in the middle of the main menu: appears with the spawn animation,
+    /// then stands idle and taunts now and then, laughing.
     /// Plays the imported controller's states directly, without the gameplay components.
     /// </summary>
     public class MenuPudge : MonoBehaviour
@@ -27,7 +27,6 @@ namespace PudgeWars.Gameplay
             voice.playOnAwake = false;
             voice.spatialBlend = 0f;
             Play(PudgeAnimation.Spawn, 0f);
-            Say("pudge_background");
             nextTauntAt = Time.time + Random.Range(tauntInterval.x, tauntInterval.y);
         }
 
