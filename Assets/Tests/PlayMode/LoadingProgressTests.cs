@@ -46,6 +46,37 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator StartupSceneLoadsMenuWithAVisibleProgressBar()
+        {
+            if (!Application.CanStreamedLevelBeLoaded(StartupScene.SceneName) || !Application.CanStreamedLevelBeLoaded("Menu"))
+                Assert.Ignore("Build startup and menu: Pudge Wars → Build Startup Scene / Build Main Menu.");
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("Loading UI needs a GPU.");
+            bool deferred = false, invoked = false, sawBar = false;
+            void Observe(Scene scene, LoadSceneMode mode)
+            {
+                if (scene.name == StartupScene.SceneName)
+                    deferred = StartupScene.DeferUntilSceneReady(() => invoked = true);
+            }
+            SceneManager.sceneLoaded += Observe;
+            try
+            {
+                var boot = SceneManager.LoadSceneAsync(StartupScene.SceneName);
+                float deadline = Time.realtimeSinceStartup + 30f;
+                while ((!boot.isDone || StartupScene.IsActive || SceneLoading.IsLoading) && Time.realtimeSinceStartup < deadline)
+                {
+                    sawBar |= Object.FindObjectsByType<Text>().Any(t => t.text == "Загрузка главного меню");
+                    yield return null;
+                }
+                Assert.AreEqual("Menu", SceneManager.GetActiveScene().name);
+                Assert.IsFalse(SceneLoading.IsLoading);
+                Assert.IsTrue(sawBar, "The initial menu load needs its own progress bar.");
+                Assert.IsTrue(deferred && invoked, "Heavy startup callbacks must wait until the real scene is loaded.");
+                Assert.IsNull(Object.FindAnyObjectByType<StartupScene>(), "The temporary startup scene must leave after loading the menu.");
+            }
+            finally { SceneManager.sceneLoaded -= Observe; }
+        }
+
+        [UnityTest]
         public IEnumerator LocalSceneTransitionShowsCompletionAndReleasesInput()
         {
             if (!Application.CanStreamedLevelBeLoaded("Menu"))

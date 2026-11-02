@@ -389,12 +389,18 @@ namespace PudgeWars.EditorTools
             return mat;
         }
 
-        /// <summary>The main menu opens the game (first); the arena comes right after it, or first without it.</summary>
+        /// <summary>Keep the lightweight startup first, the menu next and the arena after the menu.</summary>
         internal static void AddToBuildSettings(string path, bool first)
         {
             var scenes = EditorBuildSettings.scenes.Where(s => s.path != path).ToList();
             int index = first ? 0 : scenes.FindIndex(s => s.path == MenuSceneBuilder.ScenePath) + 1;
             scenes.Insert(index, new EditorBuildSettingsScene(path, true));
+            var startup = scenes.Find(s => s.path == StartupSceneBuilder.ScenePath);
+            if (startup != null)
+            {
+                scenes.Remove(startup);
+                scenes.Insert(0, startup);
+            }
             EditorBuildSettings.scenes = scenes.ToArray();
         }
     }

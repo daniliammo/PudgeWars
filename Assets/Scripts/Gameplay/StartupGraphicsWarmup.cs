@@ -119,6 +119,13 @@ namespace PudgeWars.Gameplay
             loading.Report(0.25f, "Подготовка текстур");
             yield return null;
 
+            // Warm against the real scene's lighting/render state, after the tiny boot scene has left.
+            while (StartupScene.IsActive || SceneLoading.IsLoading)
+            {
+                loading.Report(0.25f, "Ожидание загрузки сцены");
+                yield return null;
+            }
+
             OpenCache();
             loading.Report(0.28f, "Подготовка шейдеров");
             if (states != null && states.totalGraphicsStateCount > 0)

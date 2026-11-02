@@ -78,6 +78,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
         {
+            if (StartupScene.DeferUntilSceneReady(Spawn)) return;
             if (FindAnyObjectByType<HeroVoice>() != null) return;
             var go = new GameObject("HeroVoice");
             DontDestroyOnLoad(go);

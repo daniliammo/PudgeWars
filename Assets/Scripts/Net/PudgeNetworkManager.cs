@@ -115,6 +115,7 @@ namespace PudgeWars.Net
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void CreateOnStartup()
         {
+            if (StartupScene.DeferUntilSceneReady(CreateOnStartup)) return;
             if (singleton != null) return;
             var prefabs = NetPrefabs.Load();
             if (prefabs == null) return;

@@ -14,7 +14,7 @@ using UnityEngine.UI;
 namespace PudgeWars.EditorTools
 {
     /// <summary>
-    /// Builds Assets/Scenes/Menu.unity, the first scene of the game: Pudge in the middle of a clearing, a landscape of
+    /// Builds Assets/Scenes/Menu.unity, loaded after the lightweight startup: Pudge in a clearing, a landscape of
     /// rolling hills with Dota 2's trees behind him, sky and fog, a slowly drifting camera, and the canvas of
     /// <see cref="MainMenu"/> (it builds its widgets at runtime). The landscape is Radiant's or Dire's, drawn half and
     /// half when the game starts, and a new land each time the menu opens (<see cref="MenuLandscape"/>,

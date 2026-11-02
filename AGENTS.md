@@ -29,7 +29,8 @@
 
 ## Сцены собираются кодом — после правок сборщиков их надо пересобрать
 
-Меню редактора **Pudge Wars**: `Build Main Menu` (`Scenes/Menu.unity`, первая в Build Settings), `Build Test Arena`
+Меню редактора **Pudge Wars**: `Build Startup Scene` (`Scenes/Boot.unity`, первая в Build Settings; лёгкая сцена загрузки),
+`Build Main Menu` (`Scenes/Menu.unity`, после Boot), `Build Test Arena`
 (`Scenes/Arena.unity`, вызывает `LandscapeBuilder.Build`), `Build Landscape` (только ландшафт открытой арены, сохраняет сцену).
 Правка кода сборщика ничего не меняет в игре, пока пользователь не нажмёт пункт меню — говорить об этом явно.
 Сборщики сами спрашивают о сохранении открытой сцены.
