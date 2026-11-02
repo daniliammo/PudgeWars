@@ -53,6 +53,38 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator GraphicsSwitchRebuildsPipelineForRenderTargetChanges()
+        {
+            var before = GraphicsQuality.Current;
+            bool antialiasing = GraphicsQuality.Antialiasing;
+            try
+            {
+                GraphicsQuality.SetAntialiasing(true);
+                GraphicsQuality.Set(GraphicsPreset.Medium);
+                yield return null;
+                var medium = QualitySettings.renderPipeline;
+                GraphicsQuality.Set(GraphicsPreset.High);
+                Assert.AreNotSame(medium, QualitySettings.renderPipeline,
+                    "Medium to High changes render scale/MSAA and must invalidate old renderer buffers.");
+                yield return null;
+                var high = QualitySettings.renderPipeline;
+                GraphicsQuality.SetAntialiasing(false);
+                Assert.AreNotSame(high, QualitySettings.renderPipeline,
+                    "Turning MSAA off must also rebuild renderer buffers.");
+                yield return null;
+                GraphicsQuality.Set(GraphicsPreset.Medium);
+                yield return null;
+                Assert.AreEqual(GraphicsPreset.Medium, GraphicsQuality.Current);
+                StringAssert.EndsWith("(preset)", QualitySettings.renderPipeline.name);
+            }
+            finally
+            {
+                GraphicsQuality.SetAntialiasing(antialiasing);
+                GraphicsQuality.Set(before);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator MenuLobbyCountsPlayersAndStartsTheMatchWithItsSettings()
         {
             if (!Application.CanStreamedLevelBeLoaded(PudgeNetworkManager.MenuScene))

@@ -127,12 +127,28 @@ namespace PudgeWars.Gameplay
             var pipeline = Pipeline();
             if (pipeline != null)
             {
+                // Changing attachment layouts in place can leave Vulkan render targets/viewport state stale.
+                // A fresh asset makes Unity rebuild the pipeline and its renderer-owned buffers together.
+                UniversalRenderPipelineAsset retired = null;
+                int samples = Antialiasing ? s.msaa : 1;
+                if (pipeline.msaaSampleCount != samples || pipeline.supportsHDR != s.hdr ||
+                    !Mathf.Approximately(pipeline.renderScale, s.renderScale) ||
+                    pipeline.mainLightShadowmapResolution != s.shadowResolution || pipeline.shadowCascadeCount != s.cascades)
+                {
+                    retired = copy;
+                    copy = Object.Instantiate(source);
+                    copy.name = source.name + " (preset)";
+                    copy.hideFlags = HideFlags.DontSave;
+                    pipeline = copy;
+                }
                 pipeline.renderScale = s.renderScale;
-                pipeline.msaaSampleCount = Antialiasing ? s.msaa : 1;
+                pipeline.msaaSampleCount = samples;
                 pipeline.shadowDistance = s.shadowDistance;
                 pipeline.mainLightShadowmapResolution = s.shadowResolution;
                 pipeline.shadowCascadeCount = s.cascades;
                 pipeline.supportsHDR = s.hdr;
+                QualitySettings.renderPipeline = pipeline;
+                if (retired != null) Object.Destroy(retired);
             }
             QualitySettings.globalTextureMipmapLimit = s.textureMipLimit;
             QualitySettings.anisotropicFiltering = s.anisotropic;
