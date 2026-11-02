@@ -18,6 +18,7 @@ namespace PudgeWars.Gameplay
     {
         const string PresetKey = "graphics.preset";
         const string AntialiasingKey = "graphics.antialiasing";
+        const string FullResolutionKey = "graphics.fullResolution";
 
         public static readonly string[] Names = { "Низкая", "Средняя", "Высокая", "Ультра" };
 
@@ -25,6 +26,10 @@ namespace PudgeWars.Gameplay
 
         /// <summary>Off turns the preset's MSAA off; remembered apart from the preset.</summary>
         public static bool Antialiasing { get; private set; } = true;
+
+        /// <summary>Keep the screen render scale at 100% independently of the chosen preset.</summary>
+        public static bool FullResolution { get; private set; }
+        public static float RenderScale => FullResolution ? 1f : For(Current).renderScale;
 
         /// <summary>Phones start on Medium, computers on High.</summary>
         public static GraphicsPreset Default => Application.isMobilePlatform ? GraphicsPreset.Medium : GraphicsPreset.High;
@@ -75,7 +80,7 @@ namespace PudgeWars.Gameplay
             string shadows = !s.shadows ? "без теней" : s.softShadows ? "мягкие тени" : "жёсткие тени";
             string aa = s.msaa > 1 && Antialiasing ? $"сглаживание {s.msaa}×" : "без сглаживания";
             string textures = s.textureMipLimit > 0 ? "текстуры вполовину" : "полные текстуры";
-            return $"Разрешение {Mathf.RoundToInt(s.renderScale * 100f)} %, {shadows}, {aa}, {textures}";
+            return $"Разрешение {Mathf.RoundToInt((FullResolution ? 1f : s.renderScale) * 100f)} %, {shadows}, {aa}, {textures}";
         }
 
         static UniversalRenderPipelineAsset source, copy;
@@ -99,6 +104,7 @@ namespace PudgeWars.Gameplay
             Application.quitting += Restore;
 #endif
             Antialiasing = PlayerPrefs.GetInt(AntialiasingKey, 1) != 0;
+            FullResolution = PlayerPrefs.GetInt(FullResolutionKey, 0) != 0;
             int saved = PlayerPrefs.GetInt(PresetKey, (int)Default);
             Apply((GraphicsPreset)Mathf.Clamp(saved, 0, Names.Length - 1));
         }
@@ -120,10 +126,19 @@ namespace PudgeWars.Gameplay
             Apply(Current);
         }
 
+        public static void SetFullResolution(bool on)
+        {
+            PlayerPrefs.SetInt(FullResolutionKey, on ? 1 : 0);
+            PlayerPrefs.Save();
+            FullResolution = on;
+            Apply(Current);
+        }
+
         static void Apply(GraphicsPreset preset)
         {
             Current = preset;
             var s = For(preset);
+            if (FullResolution) s.renderScale = 1f;
             var pipeline = Pipeline();
             if (pipeline != null)
             {
@@ -157,8 +172,8 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>
-        /// The quality level's URP asset, copied once and put in its place, so the presets never change the asset
-        /// on disk.
+        /// The quality level's URP asset, copied for runtime use so presets never change the asset on disk.
+        /// Attachment layout changes replace this runtime copy to rebuild renderer resources.
         /// </summary>
         static UniversalRenderPipelineAsset Pipeline()
         {

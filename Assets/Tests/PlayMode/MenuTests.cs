@@ -85,6 +85,54 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator FullResolutionCheckboxOverridesOnlyScaleAndSurvivesPresetChanges()
+        {
+            if (!Application.CanStreamedLevelBeLoaded("Menu"))
+                Assert.Ignore("Build the menu first: Pudge Wars → Build Main Menu.");
+            var preset = GraphicsQuality.Current;
+            bool locked = GraphicsQuality.FullResolution;
+            bool hadPreference = PlayerPrefs.HasKey("graphics.fullResolution");
+            try
+            {
+                GraphicsQuality.SetFullResolution(false);
+                GraphicsQuality.Set(GraphicsPreset.Low);
+                Assert.AreEqual(0.65f, ActualRenderScale(), 0.0001f);
+                SceneLoading.Load("Menu");
+                float deadline = Time.realtimeSinceStartup + 30f;
+                while (SceneLoading.IsLoading && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.IsFalse(SceneLoading.IsLoading);
+                var caption = Object.FindObjectsByType<Text>().Single(t => t.text == "Разрешение 100 %");
+                var checkbox = caption.transform.parent.GetComponentInChildren<Button>();
+                checkbox.onClick.Invoke();
+                Assert.IsTrue(GraphicsQuality.FullResolution);
+                Assert.AreEqual(1f, ActualRenderScale(), 0.0001f);
+                Assert.AreEqual(GraphicsPreset.Low, GraphicsQuality.Current);
+                Assert.AreEqual(1, QualitySettings.globalTextureMipmapLimit, "Texture quality remains Low.");
+                Assert.AreEqual(1, PlayerPrefs.GetInt("graphics.fullResolution"));
+                StringAssert.Contains("100 %", GraphicsQuality.Describe(GraphicsPreset.Low));
+                GraphicsQuality.Set(GraphicsPreset.Medium);
+                Assert.AreEqual(1f, ActualRenderScale(), 0.0001f, "Preset changes must not cancel the independent option.");
+                checkbox.onClick.Invoke();
+                Assert.IsFalse(GraphicsQuality.FullResolution);
+                Assert.AreEqual(0.85f, ActualRenderScale(), 0.0001f);
+                GraphicsQuality.Set(GraphicsPreset.Low);
+                Assert.AreEqual(0.65f, ActualRenderScale(), 0.0001f);
+            }
+            finally
+            {
+                GraphicsQuality.SetFullResolution(locked);
+                GraphicsQuality.Set(preset);
+                if (!hadPreference) { PlayerPrefs.DeleteKey("graphics.fullResolution"); PlayerPrefs.Save(); }
+            }
+        }
+
+        static float ActualRenderScale()
+        {
+            var pipeline = QualitySettings.renderPipeline;
+            return (float)pipeline.GetType().GetProperty("renderScale").GetValue(pipeline);
+        }
+
+        [UnityTest]
         public IEnumerator MenuLobbyCountsPlayersAndStartsTheMatchWithItsSettings()
         {
             if (!Application.CanStreamedLevelBeLoaded(PudgeNetworkManager.MenuScene))

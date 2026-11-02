@@ -256,6 +256,11 @@ namespace PudgeWars.Net
                 GraphicsQuality.SetAntialiasing(on);
                 graphicsDescription.text = GraphicsQuality.Describe(GraphicsQuality.Current);
             }));
+            Row(graphics, "Разрешение 100 %", row => Checkbox(row, GraphicsQuality.FullResolution, on =>
+            {
+                GraphicsQuality.SetFullResolution(on);
+                graphicsDescription.text = GraphicsQuality.Describe(GraphicsQuality.Current);
+            }));
             graphicsDescription = Label(graphics, GraphicsQuality.Describe(GraphicsQuality.Current), 24, TextAnchor.UpperLeft, 64f);
             graphicsDescription.color = new Color(0.8f, 0.82f, 0.85f);
 
