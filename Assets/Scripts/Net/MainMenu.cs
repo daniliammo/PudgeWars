@@ -56,6 +56,7 @@ namespace PudgeWars.Net
         string joining;  // the address being joined
         bool connected;  // to it, at some point
         bool leaving;    // by this player's own choice
+        KnowledgeBase knowledge;
 
         void Start()
         {
@@ -266,6 +267,17 @@ namespace PudgeWars.Net
             Button(buttons, "В локальной сети", secondaryButtonColor, 64f, Search);
             status = Label(join, "", 24, TextAnchor.MiddleLeft, 34f);
             foundList = Vertical(join, "Found");
+
+            var definitions = NetPrefabs.Load();
+            knowledge = KnowledgeBase.Create(root, font, definitions != null ? definitions.catalog : Array.Empty<ItemDef>(),
+                definitions != null ? definitions.playerHero : null);
+            var codex = Button(root, "База знаний", new Color(0.28f, 0.23f, 0.13f), 68f, knowledge.Open);
+            codex.color = titleColor;
+            var codexRt = (RectTransform)codex.transform.parent;
+            codexRt.name = "KnowledgeButton";
+            codexRt.anchorMin = codexRt.anchorMax = codexRt.pivot = new Vector2(0.5f, 0f);
+            codexRt.anchoredPosition = new Vector2(0f, 112f);
+            codexRt.sizeDelta = new Vector2(320f, 68f);
 
 #if !UNITY_WEBGL
             var quit = Button(root, "Выход", secondaryButtonColor, 60f, Application.Quit);

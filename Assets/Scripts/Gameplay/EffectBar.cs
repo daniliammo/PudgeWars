@@ -37,6 +37,7 @@ namespace PudgeWars.Gameplay
         readonly List<Icon> icons = new();
         RectTransform rect, tip;
         Text tipName, tipText;
+        TooltipFade tipFade;
         int hovered = -1;
         float nextRefresh;
         static Sprite circle;
@@ -178,7 +179,11 @@ namespace PudgeWars.Gameplay
 
         internal void Hover(int index, bool on)
         {
-            if (on) hovered = index;
+            if (on)
+            {
+                if (hovered != index && tip != null && tip.gameObject.activeSelf) tipFade.Restart();
+                hovered = index;
+            }
             else if (hovered == index) hovered = -1;
             ShowAuraReach();
         }
@@ -196,6 +201,7 @@ namespace PudgeWars.Gameplay
         {
             tip = new GameObject("EffectTip", typeof(RectTransform)).GetComponent<RectTransform>();
             tip.SetParent(transform, false);
+            tipFade = tip.gameObject.AddComponent<TooltipFade>();
             tip.anchorMin = tip.anchorMax = new Vector2(0.5f, 0f);
             tip.pivot = new Vector2(0.5f, 0f);
             var bg = tip.gameObject.AddComponent<Image>();

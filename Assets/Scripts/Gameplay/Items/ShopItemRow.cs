@@ -88,6 +88,7 @@ namespace PudgeWars.Gameplay
             var plate = new GameObject("ShortageHint", typeof(RectTransform), typeof(Image));
             var rt = (RectTransform)plate.transform;
             rt.SetParent(transform, false);
+            plate.AddComponent<TooltipFade>();
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 0f);
             rt.anchoredPosition = new Vector2(-10f, 66f);
             rt.sizeDelta = new Vector2(330f, 42f);

@@ -87,6 +87,7 @@ namespace PudgeWars.Gameplay
         [NonSerialized] Image[] cooldownShades, slotFrames;
         Color slotFrameColor;
         RectTransform tooltip, tooltipAbilities;
+        TooltipFade tooltipFade;
         Text tooltipName, tooltipPrice, tooltipBonuses, tooltipDetails, tooltipLore, tooltipFooter;
         Font tooltipFont;
         readonly List<AbilityBox> abilityBoxes = new();
@@ -378,11 +379,14 @@ namespace PudgeWars.Gameplay
         public void ShowTooltip(ItemDef item, int slot, RectTransform over)
         {
             if (tooltip == null || item == null || over == null) return;
+            bool changed = tooltipItem != item || tooltipSlot != slot || tooltipOver != over;
             tooltipItem = item;
             tooltipSlot = slot;
             tooltipOver = over;
             Fill(item, slot >= 0 ? Shown : null, slot);
+            bool wasVisible = tooltip.gameObject.activeSelf;
             tooltip.gameObject.SetActive(true);
+            if (changed && wasVisible) tooltipFade.Restart();
             LayoutRebuilder.ForceRebuildLayoutImmediate(tooltip);
             var corners = new Vector3[4];
             over.GetWorldCorners(corners); // bottom-left, top-left, top-right, bottom-right
@@ -412,6 +416,8 @@ namespace PudgeWars.Gameplay
             float margin = 8f * tooltip.lossyScale.y;
             if (corners[1].y > area[1].y - margin) tooltip.position += Vector3.down * (corners[1].y - (area[1].y - margin));
             else if (corners[0].y < area[0].y + margin) tooltip.position += Vector3.up * (area[0].y + margin - corners[0].y);
+            if (corners[0].x < area[0].x + margin) tooltip.position += Vector3.right * (area[0].x + margin - corners[0].x);
+            else if (corners[2].x > area[2].x - margin) tooltip.position += Vector3.left * (corners[2].x - (area[2].x - margin));
         }
 
         public void HideTooltip()
@@ -421,55 +427,15 @@ namespace PudgeWars.Gameplay
             tooltipSlot = -1;
         }
 
-        /// <summary>The plain bonuses, one a line ("+250 к мане"); what an ability frame tells is left to it.</summary>
-        static string Bonuses(ItemDef item, bool hasAbilities)
-        {
-            var ci = CultureInfo.InvariantCulture;
-            var lines = new List<string>();
-            if (item.ManaBonus > 0f) lines.Add($"+{item.ManaBonus.ToString("0", ci)} к мане");
-            if (item.ManaRegenBonus > 0f) lines.Add($"+{item.ManaRegenBonus.ToString("0.##", ci)} к восстановлению маны");
-            if (item.MoveSpeedBonus > 0f) lines.Add($"+{(item.MoveSpeedBonus * 100f).ToString("0", ci)} к скорости передвижения");
-            if (item.StrengthBonus > 0f && Mathf.Approximately(item.StrengthBonus, item.AgilityBonus) && Mathf.Approximately(item.AgilityBonus, item.IntelligenceBonus))
-                lines.Add($"+{item.StrengthBonus.ToString("0", ci)} ко всем атрибутам");
-            else
-            {
-                if (item.StrengthBonus > 0f) lines.Add($"+{item.StrengthBonus.ToString("0", ci)} к силе");
-                if (item.AgilityBonus > 0f) lines.Add($"+{item.AgilityBonus.ToString("0", ci)} к ловкости");
-                if (item.IntelligenceBonus > 0f) lines.Add($"+{item.IntelligenceBonus.ToString("0", ci)} к интеллекту");
-            }
-            if (!hasAbilities) // an item without named abilities still tells what it does
-            {
-                if (item.CastRangeBonus > 0f) lines.Add($"+{(item.CastRangeBonus * 100f).ToString("0", ci)} к дальности способностей");
-                if (item.HeroDamageBonus > 0f) lines.Add($"+{item.HeroDamageBonus.ToString("0", ci)} урона по героям");
-                if (item.CreepDamageBonus > 0f) lines.Add($"+{item.CreepDamageBonus.ToString("0", ci)} урона по крипам");
-                if (item.AuraManaRegen > 0f) lines.Add($"Аура: +{item.AuraManaRegen.ToString("0.##", ci)} маны в секунду союзникам в радиусе {(item.AuraRadius * 100f).ToString("0", ci)}");
-                if (item.KillManaSteal > 0f) lines.Add($"Вампиризм маны: {(item.KillManaSteal * 100f).ToString("0.#", ci)} % маны убитого и сверх того его реген маны в секунду");
-            }
-            return string.Join("\n", lines);
-        }
-
-        /// <summary>The use's numbers under the active frame: reach, cooldown, charges.</summary>
-        static string UseNumbers(ItemDef item, HeroInventory owner, int slot)
-        {
-            var use = item.Active;
-            if (use == null) return "";
-            var ci = CultureInfo.InvariantCulture;
-            var parts = new List<string>();
-            if (!item.IsInstant && use.castRange > 0f) parts.Add($"Дальность {(use.castRange * 100f).ToString("0", ci)}");
-            if (use.cooldown > 0f) parts.Add($"Перезарядка {use.cooldown.ToString("0.#", ci)} с");
-            if (item.charges > 0) parts.Add(owner != null ? $"Зарядов осталось: {owner.ChargesAt(slot)}" : $"Зарядов: {item.charges}");
-            return string.Join("   ·   ", parts);
-        }
-
         void Fill(ItemDef item, HeroInventory owner, int slot)
         {
             tooltipName.text = item.displayName;
             tooltipPrice.text = item.cost.ToString();
             var abilities = item.Abilities.ToList();
-            SetText(tooltipBonuses, Bonuses(item, abilities.Count > 0));
+            SetText(tooltipBonuses, ItemDescription.Bonuses(item, abilities.Count > 0));
             SetText(tooltipDetails, item.details);
             // the use's numbers go under the first active frame; an item using without one gets a frame of its own
-            string numbers = UseNumbers(item, owner, slot);
+            string numbers = ItemDescription.UseNumbers(item, owner, slot);
             if (item.IsUsable && !abilities.Any(a => a.active))
                 abilities.Insert(0, new ItemAbility { name = "", active = true, description = "" });
             bool numbersShown = false;
@@ -528,19 +494,34 @@ namespace PudgeWars.Gameplay
             public bool active;
         }
 
-        /// <summary>A dark opaque plate with a bright rim, laid out top to bottom; made at start, filled on hover.</summary>
-        void BuildTooltip()
+        /// <summary>A tooltip-only presenter for menu item links; it does not bind gameplay or run the shop.</summary>
+        public static ShopUI CreateDescriptions(RectTransform parent, Font font)
+        {
+            var root = new GameObject("ItemDescriptions", typeof(RectTransform)).GetComponent<RectTransform>();
+            root.SetParent(parent, false);
+            root.anchorMin = Vector2.zero;
+            root.anchorMax = Vector2.one;
+            root.offsetMin = root.offsetMax = Vector2.zero;
+            var presenter = root.gameObject.AddComponent<ShopUI>();
+            presenter.enabled = false;
+            presenter.BuildTooltip(font, root);
+            return presenter;
+        }
+
+        /// <summary>A dark plate with a bright rim, laid out top to bottom; filled on hover.</summary>
+        void BuildTooltip(Font font = null, RectTransform parent = null)
         {
             var canvas = goldLabel != null ? goldLabel.canvas : GetComponentInParent<Canvas>();
             if (canvas == null) return;
-            var old = canvas.transform.Find("ItemTooltip");
+            var old = (parent != null ? parent : canvas.transform).Find("ItemTooltip");
             if (old != null) Destroy(old.gameObject); // left from an earlier start
-            tooltipFont = goldLabel != null ? goldLabel.font : null;
+            tooltipFont = font != null ? font : goldLabel != null ? goldLabel.font : null;
             abilityBoxes.Clear();
 
             // the rim: the plate's own image, the content on a darker one inside it
             tooltip = new GameObject("ItemTooltip", typeof(RectTransform)).GetComponent<RectTransform>();
-            tooltip.SetParent(canvas.transform, false);
+            tooltip.SetParent(parent != null ? parent : canvas.transform, false);
+            tooltipFade = tooltip.gameObject.AddComponent<TooltipFade>();
             tooltip.anchorMin = tooltip.anchorMax = new Vector2(0.5f, 0.5f);
             tooltip.sizeDelta = new Vector2(tooltipWidth, 200f);
             var rim = tooltip.gameObject.AddComponent<Image>();
