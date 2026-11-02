@@ -222,6 +222,7 @@ MonoBehaviour:
   rangeColor: {r: 0.55, g: 0.95, b: 0.45, a: 0.8}
   viewCamera: {fileID: 0}
   aimIndicator: {fileID: 5610432389755671683}
+  doubleTapTime: 0.35
 --- !u!114 &6806213470979276736
 MonoBehaviour:
   m_ObjectHideFlags: 0
