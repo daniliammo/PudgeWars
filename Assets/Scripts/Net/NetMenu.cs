@@ -8,7 +8,6 @@ using Mirror.Discovery;
 using PudgeWars.Gameplay;
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 
 namespace PudgeWars.Net
 {
@@ -121,7 +120,7 @@ namespace PudgeWars.Net
                 {
                     StopSearch();
                     SetOpen(false);
-                    SceneManager.LoadScene(PudgeNetworkManager.MenuScene);
+                    SceneLoading.Load(PudgeNetworkManager.MenuScene);
                 }
             }
         }

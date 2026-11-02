@@ -4,11 +4,9 @@ using System.Collections.Generic;
 using System.IO;
 using Unity.Jobs;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
-using UnityEngine.UI;
 
 namespace PudgeWars.Gameplay
 {
@@ -28,11 +26,10 @@ namespace PudgeWars.Gameplay
         Shader[] shaders; // Keep Resources assets resident until the application exits.
         GraphicsStateCollection states;
         JobHandle warmupJob;
-        GameObject stage, overlay, previousSelection;
-        Button blocker;
+        GameObject stage;
+        LoadingProgress.Operation loading;
         Camera sampleCamera;
         RenderTexture target;
-        Text caption;
         bool finished, tracing;
         string cachePath, cacheKey;
         int savedCount = -1;
@@ -40,6 +37,7 @@ namespace PudgeWars.Gameplay
         public static bool IsPreparing => instance != null && !instance.finished;
         public bool Succeeded { get; private set; }
         public int DrawCount { get; private set; }
+        public float Progress => loading?.Progress ?? 0f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void AutoStart()
@@ -65,11 +63,6 @@ namespace PudgeWars.Gameplay
         {
             // BeforeSceneLoad initializers have unspecified order. Wait for GraphicsQuality and the first scene.
             yield return null;
-            if (EventSystem.current != null)
-            {
-                previousSelection = EventSystem.current.currentSelectedGameObject;
-                EventSystem.current.SetSelectedGameObject(blocker.gameObject);
-            }
             var prepare = Prepare();
             try
             {
@@ -99,25 +92,35 @@ namespace PudgeWars.Gameplay
         IEnumerator Prepare()
         {
             var request = Resources.LoadAsync<Shader>("Effects/Blood");
-            yield return request;
+            while (!request.isDone)
+            {
+                loading.Report(request.progress * 0.04f, "Загрузка эффектов");
+                yield return null;
+            }
             shaders = Resources.LoadAll<Shader>("Effects");
+            loading.Report(0.06f, "Загрузка звуков эффектов");
+            int audioFoldersLoaded = 0;
             foreach (var folder in AudioFolders)
             {
                 var clips = Resources.LoadAll<AudioClip>(folder);
                 sounds.AddRange(clips);
                 foreach (var clip in clips)
                     if (clip.loadState == AudioDataLoadState.Unloaded) clip.LoadAudioData();
+                loading.Report(0.06f + 0.14f * ++audioFoldersLoaded / AudioFolders.Length, "Загрузка звуков эффектов");
                 yield return null;
             }
             // These used to be generated on the first item use or body collision (the atlas is CPU-heavy).
             ManaBurst.EnsureAssets();
             AuraRange.EnsureAssets();
             ClarityLink.PrepareMaterial();
+            loading.Report(0.22f, "Подготовка эффектов");
             yield return null;
             var blood = BloodSplatter.PrepareTextures();
+            loading.Report(0.25f, "Подготовка текстур");
             yield return null;
 
             OpenCache();
+            loading.Report(0.28f, "Подготовка шейдеров");
             if (states != null && states.totalGraphicsStateCount > 0)
             {
                 while (!states.isWarmedUp)
@@ -126,6 +129,8 @@ namespace PudgeWars.Gameplay
                     warmupJob = states.WarmUpProgressively(16);
                     while (!warmupJob.IsCompleted) yield return null;
                     warmupJob.Complete();
+                    loading.Report(0.28f + 0.37f * states.completedWarmupCount / states.totalGraphicsStateCount,
+                        $"Прогрев шейдеров: {states.completedWarmupCount} из {states.totalGraphicsStateCount}");
                     // An incompatible/unsupported collection must not trap the loading screen.
                     if (states.completedWarmupCount <= before && !states.isWarmedUp) break;
                     yield return null;
@@ -133,6 +138,7 @@ namespace PudgeWars.Gameplay
                 Debug.Log($"[GraphicsWarmup] Cached GPU states: {states.completedWarmupCount}/{states.totalGraphicsStateCount}");
             }
             StartTrace();
+            loading.Report(0.65f, "Подготовка отрисовки эффектов");
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if (pipeline != null)
@@ -146,22 +152,31 @@ namespace PudgeWars.Gameplay
                         sample.enabled = true;
                         // Both fog states are used by scene/effect cameras; restore globals before yielding.
                         Draw(render, false);
+                        ReportDrawProgress();
                         yield return null;
                         Draw(render, true);
+                        ReportDrawProgress();
                         sample.enabled = false;
                         yield return null;
                     }
                     if (SystemInfo.supportsAsyncGPUReadback)
                     {
+                        loading.Report(0.96f, "Завершение подготовки графики");
                         var fence = AsyncGPUReadback.Request(target);
                         while (!fence.done) yield return null;
                     }
                 }
             }
+            loading.Report(0.97f, "Подготовка звуков");
             foreach (var clip in sounds)
                 while (clip != null && clip.loadState == AudioDataLoadState.Loading) yield return null;
             SaveCache();
+            loading.Report(1f, "Готово");
+            yield return null;
         }
+
+        void ReportDrawProgress() => loading.Report(0.65f + 0.3f * DrawCount / (samples.Count * 2),
+            $"Прогрев эффектов: {DrawCount} из {samples.Count * 2}");
 
         void Draw(UniversalRenderPipeline.SingleCameraRequest request, bool fog)
         {
@@ -370,46 +385,9 @@ namespace PudgeWars.Gameplay
         void OnApplicationPause(bool paused) { if (paused && finished) SaveCache(); }
         void OnApplicationQuit() { if (finished) SaveCache(); }
 
-        void ShowLoading()
-        {
-            overlay = new GameObject("PreparingGame", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
-            overlay.transform.SetParent(transform, false);
-            var canvas = overlay.GetComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = short.MaxValue;
-            var background = new GameObject("Background", typeof(RectTransform), typeof(Image), typeof(Button));
-            background.transform.SetParent(overlay.transform, false);
-            var rect = background.GetComponent<RectTransform>();
-            rect.anchorMin = Vector2.zero; rect.anchorMax = Vector2.one; rect.offsetMin = rect.offsetMax = Vector2.zero;
-            background.GetComponent<Image>().color = new Color(0.025f, 0.03f, 0.04f, 1f);
-            blocker = background.GetComponent<Button>();
-            blocker.transition = Selectable.Transition.None;
-            blocker.navigation = new Navigation { mode = Navigation.Mode.None };
-            var label = new GameObject("Caption", typeof(RectTransform), typeof(Text));
-            label.transform.SetParent(background.transform, false);
-            var labelRect = label.GetComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero; labelRect.anchorMax = Vector2.one; labelRect.offsetMin = labelRect.offsetMax = Vector2.zero;
-            caption = label.GetComponent<Text>();
-            caption.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            caption.fontSize = 28;
-            caption.alignment = TextAnchor.MiddleCenter;
-            caption.color = new Color(0.9f, 0.86f, 0.72f);
-            caption.text = "Подготовка игры…";
-            caption.raycastTarget = false;
-        }
+        void ShowLoading() => loading = LoadingProgress.Begin("Прогрев шейдеров");
 
-        void Update()
-        {
-            if (!finished && caption != null)
-                caption.text = "Подготовка игры" + new string('.', 1 + (int)(Time.unscaledTime * 2f) % 3);
-        }
-
-        void CloseLoading()
-        {
-            if (EventSystem.current != null && blocker != null && EventSystem.current.currentSelectedGameObject == blocker.gameObject)
-                EventSystem.current.SetSelectedGameObject(previousSelection);
-            if (overlay != null) { overlay.SetActive(false); Destroy(overlay); }
-        }
+        void CloseLoading() => loading?.Dispose();
 
         void CleanStage()
         {

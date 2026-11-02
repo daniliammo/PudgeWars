@@ -192,14 +192,14 @@ namespace PudgeWars.Net
         public override void Update()
         {
             base.Update();
-            if (!reloadArena || NetworkServer.active || NetworkClient.active) return;
+            if (!reloadArena || NetworkServer.active || NetworkClient.active || SceneLoading.IsLoading) return;
             reloadArena = false;
             bool toMenu = returnToMenu && Application.CanStreamedLevelBeLoaded(MenuScene);
             returnToMenu = false;
             // the lobby closed in the main menu: it simply shows the new game again
             if (SceneManager.GetActiveScene().name == MenuScene) return;
-            if (toMenu) SceneManager.LoadScene(MenuScene);
-            else SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            if (toMenu) SceneLoading.Load(MenuScene);
+            else SceneLoading.Load(SceneManager.GetActiveScene().path);
         }
 
         /// <summary>A game started (or joined) in the main menu returns there when it ends.</summary>
@@ -251,6 +251,21 @@ namespace PudgeWars.Net
         {
             if (!InLobby) return;
             ServerChangeScene(ArenaScene);
+        }
+
+        public override void OnServerChangeScene(string newSceneName)
+        {
+            base.OnServerChangeScene(newSceneName);
+            SceneLoading.Observe(newSceneName, () => loadingSceneAsync,
+                () => NetworkServer.active && NetworkServer.isLoadingScene);
+        }
+
+        public override void OnClientChangeScene(string newSceneName, SceneOperation operation, bool customHandling)
+        {
+            base.OnClientChangeScene(newSceneName, operation, customHandling);
+            if (!NetworkServer.active && !customHandling)
+                SceneLoading.Observe(newSceneName, () => loadingSceneAsync,
+                    () => NetworkClient.active && NetworkClient.isLoadingScene);
         }
 
         public override void OnServerSceneChanged(string sceneName)
@@ -443,11 +458,11 @@ namespace PudgeWars.Net
             Lobby = msg;
             LobbyChanged?.Invoke();
             // joined a lobby from the arena (F2): the lobby is shown in the main menu
-            if (!NetworkServer.active && !NetworkClient.isLoadingScene && SceneManager.GetActiveScene().name != MenuScene
+            if (!NetworkServer.active && !NetworkClient.isLoadingScene && !SceneLoading.IsLoading && SceneManager.GetActiveScene().name != MenuScene
                 && Application.CanStreamedLevelBeLoaded(MenuScene))
             {
                 returnToMenu = true;
-                SceneManager.LoadScene(MenuScene);
+                SceneLoading.Load(MenuScene);
             }
         }
 

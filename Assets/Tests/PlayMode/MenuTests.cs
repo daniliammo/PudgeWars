@@ -174,13 +174,14 @@ namespace PudgeWars.Tests
             }
             // leaving goes back to the menu
             float wait = 0f;
-            while (SceneManager.GetActiveScene().name != PudgeNetworkManager.MenuScene && wait < 5f)
+            while ((SceneManager.GetActiveScene().name != PudgeNetworkManager.MenuScene || SceneLoading.IsLoading) && wait < 10f)
             {
                 wait += Time.deltaTime;
                 yield return null;
             }
             Assert.AreEqual(PudgeNetworkManager.MenuScene, SceneManager.GetActiveScene().name, "leaving the game did not return to the menu");
             Assert.IsFalse(NetworkServer.active || NetworkClient.active);
+            Assert.IsFalse(SceneLoading.IsLoading, "The scene loading overlay must finish after returning to the menu.");
         }
     }
 }

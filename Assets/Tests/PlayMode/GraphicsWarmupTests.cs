@@ -43,9 +43,17 @@ namespace PudgeWars.Tests
             {
                 Assert.IsTrue(OverlayInput.Captured, "Input must stay blocked while graphics are prepared.");
                 float deadline = Time.realtimeSinceStartup + 60f;
-                while (StartupGraphicsWarmup.IsPreparing && Time.realtimeSinceStartup < deadline) yield return null;
+                float previousProgress = 0f;
+                while (StartupGraphicsWarmup.IsPreparing && Time.realtimeSinceStartup < deadline)
+                {
+                    Assert.GreaterOrEqual(preparation.Progress, previousProgress, "Displayed warmup progress must not move backwards.");
+                    Assert.That(preparation.Progress, Is.InRange(0f, 1f));
+                    previousProgress = preparation.Progress;
+                    yield return null;
+                }
                 Assert.IsFalse(StartupGraphicsWarmup.IsPreparing, "Preparation must finish without trapping the loading screen.");
                 Assert.IsTrue(preparation.Succeeded);
+                Assert.AreEqual(1f, preparation.Progress, "Successful preparation must reach 100%.");
                 Assert.GreaterOrEqual(preparation.DrawCount, 16, "All eight effect/layout samples need real URP draws with and without fog.");
                 yield return null; // Destroy releases the temporary camera and renderers at the end of the frame.
                 Assert.IsFalse(OverlayInput.Captured);
@@ -78,7 +86,7 @@ namespace PudgeWars.Tests
             yield return null;
             Assert.IsFalse(StartupGraphicsWarmup.IsPreparing);
             Assert.IsFalse(OverlayInput.Captured);
-            Assert.IsFalse(Object.FindObjectsByType<Canvas>().Any(c => c.name == "PreparingGame"));
+            Assert.IsFalse(LoadingProgress.IsVisible);
         }
     }
 }

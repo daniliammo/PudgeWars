@@ -87,7 +87,7 @@ namespace PudgeWars.Tests
 
             // leaving reloads the arena offline
             float wait = 0f;
-            while ((LocalPlayer.Hero == null || IsNetworkHero(LocalPlayer.Hero)) && wait < 5f)
+            while ((LocalPlayer.Hero == null || IsNetworkHero(LocalPlayer.Hero) || SceneLoading.IsLoading) && wait < 10f)
             {
                 wait += Time.deltaTime;
                 yield return null;
@@ -95,6 +95,7 @@ namespace PudgeWars.Tests
             Assert.IsNotNull(LocalPlayer.Hero, "the offline player did not come back");
             Assert.IsFalse(IsNetworkHero(LocalPlayer.Hero));
             Assert.IsFalse(NetworkServer.active || NetworkClient.active);
+            Assert.IsFalse(SceneLoading.IsLoading, "Offline reload must finish and release the loading overlay.");
         }
 
         [UnityTest]
