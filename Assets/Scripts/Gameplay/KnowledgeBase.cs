@@ -113,6 +113,7 @@ namespace PudgeWars.Gameplay
             }
             else if (selected == null || !visible.Contains(selected)) Select(visible[0]);
             Highlight();
+            SmoothScrolling.Attach(indexScroll).Stop();
             indexScroll.verticalNormalizedPosition = 1f;
         }
 
@@ -216,6 +217,7 @@ namespace PudgeWars.Gameplay
             }
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(article);
+            SmoothScrolling.Attach(articleScroll).Stop();
             articleScroll.verticalNormalizedPosition = 1f;
         }
 
@@ -411,6 +413,7 @@ namespace PudgeWars.Gameplay
             scrollbar.handleRect = handle;
             scrollbar.targetGraphic = grip;
             scroll.verticalScrollbar = scrollbar;
+            SmoothScrolling.Attach(scroll);
             return scroll;
         }
 
