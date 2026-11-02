@@ -2,7 +2,7 @@
 # absolute paths and a glob for our own folders (new files Unity has not listed yet), built by dotnet into <out dir>.
 # Usage: python3 Tools/Check/compile.py <out dir>   (out dir outside the project, e.g. a scratch folder)
 # Prints only errors and the result; the Mirror weaver does not run, so this checks C# only.
-import glob, os, re, subprocess, sys
+import glob, json, os, re, subprocess, sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 OWN = {'PudgeWars.Gameplay': 'Assets/Scripts/Gameplay', 'PudgeWars.Net': 'Assets/Scripts/Net',
@@ -21,12 +21,18 @@ def main():
             d = OWN[name]
             s = re.sub(r'\s*<Compile Include="' + re.escape(d) + r'/[^"]*" />', '', s)
             s = s.replace('</Project>', f'<ItemGroup><Compile Include="{ROOT}/{d}/**/*.cs" /></ItemGroup></Project>')
+            # asmdef changes may precede Unity regenerating csproj files (e.g. adding TextMesh Pro).
+            for definition in glob.glob(os.path.join(ROOT, d, '*.asmdef')):
+                for reference in json.load(open(definition, encoding='utf-8')).get('references', []):
+                    dll = os.path.join(ROOT, 'Library', 'ScriptAssemblies', reference + '.dll')
+                    if reference not in OWN and f'<Reference Include="{reference}"' not in s and os.path.isfile(dll):
+                        s = s.replace('</Project>', f'<ItemGroup><Reference Include="{reference}"><HintPath>{dll}</HintPath></Reference></ItemGroup></Project>')
         s = s.replace('<HintPath>Library/', f'<HintPath>{ROOT}/Library/').replace('<HintPath>Assets/', f'<HintPath>{ROOT}/Assets/')
         s = re.sub(r'Include="(Assets|Packages|Library)/', lambda m: f'Include="{ROOT}/{m.group(1)}/', s)
         open(os.path.join(out, name + '.csproj'), 'w', encoding='utf-8').write(s)
     ok = True
     for project in ('Assembly-CSharp-Editor', 'PudgeWars.Tests.PlayMode'):
-        result = subprocess.run(['dotnet', 'build', os.path.join(out, project + '.csproj'), '-nologo', '-v', 'q'],
+        result = subprocess.run(['dotnet', 'build', os.path.join(out, project + '.csproj'), '-nologo', '-v', 'q', '-m:1', '-nr:false'],
                                 capture_output=True, text=True)
         errors = sorted({l.strip() for l in result.stdout.splitlines() if ' error ' in l})
         print(project, 'OK' if result.returncode == 0 else 'FAILED')

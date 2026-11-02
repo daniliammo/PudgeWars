@@ -1,13 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {
     /// <summary>
     /// Game fonts for every Text under this canvas: text with Cyrillic letters uses the Cyrillic font, other
-    /// text (numbers, Latin, symbols) the Latin one. Re-checked whenever a text changes, so labels updated at
-    /// runtime ("Куплено", gold, popups) switch fonts too. Every text also gets a solid black outline
+    /// text (numbers, Latin, symbols) the Latin one. UiText renders both as SDF through TextMesh Pro.
+    /// Re-checked as labels change. Every text also gets a solid black shader outline
     /// (<see cref="TextOutline"/>), so it reads over any background, and numbers are drawn bolder (texts made later,
     /// such as health bars and popups, get it as they appear).
     /// </summary>
@@ -51,8 +52,13 @@ namespace PudgeWars.Gameplay
             {
                 var font = FontFor(t.text);
                 if (font != null && t.font != font) t.font = font;
-                // a solid outline (uGUI's Outline leaves a gap between thin strokes and the outline); numbers drawn bolder
-                if (!t.TryGetComponent<Outline>(out _) && !t.TryGetComponent<TextOutline>(out _))
+                if (t.TryGetComponent<Outline>(out var legacy))
+                {
+                    TextOutline.Add(t.gameObject, legacy.effectDistance.magnitude, legacy.effectColor);
+                    legacy.enabled = false;
+                    Destroy(legacy);
+                }
+                if (!t.TryGetComponent<TextOutline>(out _))
                     TextOutline.Add(t.gameObject, outlineWidth, outlineColor, IsNumber(t.text) ? numberBold : 0f);
             }
         }

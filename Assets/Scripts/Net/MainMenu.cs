@@ -6,6 +6,8 @@ using Mirror.Discovery;
 using PudgeWars.Gameplay;
 using UnityEngine;
 using UnityEngine.UI;
+using InputField = TMPro.TMP_InputField;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Net
 {
@@ -501,15 +503,24 @@ namespace PudgeWars.Net
         {
             var rt = Rect(row, "Field");
             rt.gameObject.AddComponent<Image>().color = fieldColor;
-            var text = Label(rt, "", 28, TextAnchor.MiddleLeft);
+            var viewport = Rect(rt, "Viewport");
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = new Vector2(12f, 4f);
+            viewport.offsetMax = new Vector2(-12f, -4f);
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var text = Label(viewport, "", 28, TextAnchor.MiddleLeft);
             text.supportRichText = false;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
             var textRt = text.rectTransform;
             textRt.anchorMin = Vector2.zero;
             textRt.anchorMax = Vector2.one;
-            textRt.offsetMin = new Vector2(12f, 4f);
-            textRt.offsetMax = new Vector2(-12f, -4f);
+            textRt.offsetMin = textRt.offsetMax = Vector2.zero;
             var input = rt.gameObject.AddComponent<InputField>();
             input.textComponent = text;
+            input.textViewport = viewport;
+            input.richText = false;
+            input.pointSize = 28;
             input.characterLimit = limit;
             input.text = value;
             input.onValueChanged.AddListener(v => changed(v));

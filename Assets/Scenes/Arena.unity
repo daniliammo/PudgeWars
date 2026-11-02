@@ -717,9 +717,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 103228695}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -796,9 +796,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 109067836}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -1232,9 +1232,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 176353403}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -1266,12 +1266,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 176353403}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Script: {fileID: 11500000, guid: 385c86e2e6d14045b369121dfd0c60a6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
-  m_EffectDistance: {x: 2, y: -2}
-  m_UseGraphicAlpha: 1
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.TextOutline
+  color: {r: 0, g: 0, b: 0, a: 0.5}
+  width: 2.0
+  bold: 0
 --- !u!222 &176353406
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -1345,9 +1345,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 178438093}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -1424,9 +1424,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 184695684}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -1503,9 +1503,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 203674964}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -1733,9 +1733,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 287578429}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -2269,9 +2269,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 354560367}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -2757,9 +2757,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 446655691}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -2957,9 +2957,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 462591993}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -3036,9 +3036,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 475329724}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -3371,9 +3371,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 503497258}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -3511,9 +3511,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 582782605}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -3693,9 +3693,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 693634181}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -3893,9 +3893,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 703356818}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -3972,9 +3972,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 730112988}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -4127,9 +4127,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 744933791}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -4327,9 +4327,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 773101971}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -4406,9 +4406,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 774745306}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -4485,9 +4485,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 803172849}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -4564,9 +4564,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 820491541}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -4718,9 +4718,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 840265843}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -5229,9 +5229,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 927226347}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -5308,9 +5308,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 938617658}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -5463,9 +5463,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 969746408}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -5542,9 +5542,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 977399520}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -5697,9 +5697,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1002696079}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -5776,9 +5776,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1007824729}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -6097,9 +6097,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1084096387}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -6176,9 +6176,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1088992127}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -6255,9 +6255,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1102163483}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -6342,9 +6342,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1104587559}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -6558,9 +6558,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1148899221}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -7077,9 +7077,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1228526287}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -7474,9 +7474,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1262234627}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -7553,9 +7553,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1269866640}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -8218,9 +8218,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1374751563}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -8615,9 +8615,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1412957501}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -8694,9 +8694,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1453425519}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -8773,9 +8773,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1502742343}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -8852,9 +8852,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1504200388}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -9055,9 +9055,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1517577207}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -9209,9 +9209,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1533301267}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -9409,9 +9409,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1554289249}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -9488,9 +9488,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1556325775}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -9942,9 +9942,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1616326063}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -10022,12 +10022,12 @@ MonoBehaviour:
   m_GameObject: {fileID: 1620514582}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Script: {fileID: 11500000, guid: 385c86e2e6d14045b369121dfd0c60a6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Outline
-  m_EffectColor: {r: 0, g: 0, b: 0, a: 0.5}
-  m_EffectDistance: {x: 2, y: -2}
-  m_UseGraphicAlpha: 1
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.TextOutline
+  color: {r: 0, g: 0, b: 0, a: 0.5}
+  width: 2.0
+  bold: 0
 --- !u!222 &1620514585
 CanvasRenderer:
   m_ObjectHideFlags: 0
@@ -10045,9 +10045,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1620514582}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -10219,9 +10219,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1654630994}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -10298,9 +10298,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1660150505}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -10385,9 +10385,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1705674006}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -10660,9 +10660,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1759930484}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -10909,9 +10909,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1799977338}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -11229,9 +11229,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1883010651}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
@@ -11342,9 +11342,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1885885036}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -11504,9 +11504,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 1925372366}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -12299,9 +12299,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2035054866}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 0.82, b: 0.25, a: 1}
   m_RaycastTarget: 0
@@ -12529,9 +12529,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2056447681}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -12608,9 +12608,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2075950164}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -12687,9 +12687,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2077692472}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0
@@ -12766,9 +12766,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 2122094078}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f7201a12d95ffc409449d95f23cf332, type: 3}
+  m_Script: {fileID: 11500000, guid: 43dd8afb072244b8b10e23f15867daa5, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.Text
+  m_EditorClassIdentifier: PudgeWars.Gameplay::PudgeWars.Gameplay.UiText
   m_Material: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 0

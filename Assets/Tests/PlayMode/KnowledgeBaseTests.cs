@@ -7,6 +7,7 @@ using PudgeWars.Net;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Tests
 {
@@ -167,13 +168,18 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(view.IsOpen);
                 view.SetCategory(4);
                 Assert.AreEqual(view.Entries.Count(e => e.kind == KnowledgeKind.Item), view.VisibleCount);
-                view.Search("aEtHeR lEnS");
+                var input = view.GetComponentInChildren<TMPro.TMP_InputField>();
+                Assert.IsNotNull(input, "Search must use the TMP input component.");
+                Assert.IsNotNull(input.textViewport.GetComponent<RectMask2D>());
+                Assert.AreNotSame(input.textViewport, input.textComponent.rectTransform, "The viewport must not move with the edited text.");
+                Assert.IsFalse(input.richText, "Typed markup must stay literal.");
+                input.text = "aEtHeR lEnS";
                 Assert.AreEqual(1, view.VisibleCount);
                 Assert.AreEqual("Aether Lens", view.Selected.title);
                 var part = view.Selected.related.First(e => e.kind == KnowledgeKind.Item);
                 view.Select(part);
                 Assert.AreEqual(part, view.Selected);
-                view.Search("no such item 987654");
+                input.text = "нет такого предмета 987654";
                 Assert.AreEqual(0, view.VisibleCount);
                 Assert.IsTrue(view.GetComponentsInChildren<Text>().Any(t => t.text == "Ничего не найдено"));
                 view.Close();

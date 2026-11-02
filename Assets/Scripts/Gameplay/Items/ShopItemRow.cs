@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {
@@ -137,7 +138,7 @@ namespace PudgeWars.Gameplay
             popup.label.color = textColor;
             popup.label.raycastTarget = false;
             popup.label.text = LastText = string.Format(format, amount);
-            labelRt.gameObject.AddComponent<Outline>().effectDistance = new Vector2(2f, -2f);
+            TextOutline.Add(labelRt.gameObject, 2f);
 
             popups.Add(popup);
             Place(popup);

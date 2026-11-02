@@ -4,6 +4,8 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using InputField = TMPro.TMP_InputField;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {
@@ -319,14 +321,21 @@ namespace PudgeWars.Gameplay
             box.pivot = new Vector2(0.5f, 1f);
             box.sizeDelta = new Vector2(0f, 60f);
             box.gameObject.AddComponent<Image>().color = new Color(0.11f, 0.14f, 0.17f);
-            var text = Label(box, "", 24, Color.white);
-            Fill(text.rectTransform, new Vector2(16f, 6f), new Vector2(16f, 6f));
+            var viewport = Rect(box, "Viewport");
+            Fill(viewport, new Vector2(16f, 6f), new Vector2(16f, 6f));
+            viewport.gameObject.AddComponent<RectMask2D>();
+            var text = Label(viewport, "", 24, Color.white);
+            Fill(text.rectTransform, Vector2.zero, Vector2.zero);
             text.supportRichText = false;
-            var hint = Label(box, "Поиск по разделу…", 24, Muted);
-            Fill(hint.rectTransform, new Vector2(16f, 6f), new Vector2(16f, 6f));
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            var hint = Label(viewport, "Поиск по разделу…", 24, Muted);
+            Fill(hint.rectTransform, Vector2.zero, Vector2.zero);
             search = box.gameObject.AddComponent<InputField>();
             search.textComponent = text;
+            search.textViewport = viewport;
+            search.richText = false;
             search.placeholder = hint;
+            search.pointSize = 24;
             search.characterLimit = 100;
             search.onValueChanged.AddListener(_ => RebuildIndex());
         }

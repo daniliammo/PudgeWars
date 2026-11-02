@@ -113,6 +113,7 @@ namespace PudgeWars.Gameplay
             ManaBurst.EnsureAssets();
             AuraRange.EnsureAssets();
             ClarityLink.PrepareMaterial();
+            UiFonts.PrepareCommonGlyphs();
             loading.Report(0.22f, "Подготовка эффектов");
             yield return null;
             var blood = BloodSplatter.PrepareTextures();

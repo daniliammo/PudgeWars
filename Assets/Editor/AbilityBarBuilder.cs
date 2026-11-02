@@ -46,11 +46,11 @@ namespace PudgeWars.EditorTools
 
                 view.cooldownLabel = ShopUiBuilder.Txt(slotRt, "CooldownTime", font, 30, "", TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), Vector2.zero, inner);
                 view.cooldownLabel.fontStyle = FontStyle.Bold;
-                view.cooldownLabel.gameObject.AddComponent<Outline>().effectDistance = new Vector2(2f, -2f);
+                TextOutline.Add(view.cooldownLabel.gameObject, 2f);
 
                 view.keyLabel = ShopUiBuilder.Txt(slotRt, "Key", font, 26, key, TextAnchor.UpperLeft, new Vector2(0f, 1f), new Vector2(8f, -4f), new Vector2(40f, 34f));
                 view.keyLabel.fontStyle = FontStyle.Bold;
-                view.keyLabel.gameObject.AddComponent<Outline>().effectDistance = new Vector2(2f, -2f);
+                TextOutline.Add(view.keyLabel.gameObject, 2f);
 
                 view.button = slotRt.gameObject.AddComponent<Button>();
                 view.button.targetGraphic = view.icon;

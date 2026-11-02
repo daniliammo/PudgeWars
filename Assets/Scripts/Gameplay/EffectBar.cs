@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {

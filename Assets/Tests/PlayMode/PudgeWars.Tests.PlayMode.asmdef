@@ -2,6 +2,7 @@
     "name": "PudgeWars.Tests.PlayMode",
     "rootNamespace": "PudgeWars.Tests",
     "references": [
+        "Unity.TextMeshPro",
         "PudgeWars.Gameplay",
         "PudgeWars.Net",
         "Mirror",

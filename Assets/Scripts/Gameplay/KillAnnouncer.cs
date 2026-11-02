@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {
@@ -205,9 +206,7 @@ namespace PudgeWars.Gameplay
             text.fontStyle = FontStyle.Bold;
             text.alignment = TextAnchor.MiddleCenter;
             text.raycastTarget = false;
-            var outline = rt.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(0f, 0f, 0f, 0.85f);
-            outline.effectDistance = new Vector2(3f, -3f);
+            TextOutline.Add(rt.gameObject, 3f, new Color(0f, 0f, 0f, 0.85f));
             return text;
         }
     }

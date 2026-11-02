@@ -2,6 +2,7 @@
     "name": "PudgeWars.Gameplay",
     "rootNamespace": "PudgeWars.Gameplay",
     "references": [
+        "Unity.TextMeshPro",
         "Unity.InputSystem",
         "UnityEngine.UI",
         "Unity.RenderPipelines.Core.Runtime",

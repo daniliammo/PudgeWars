@@ -2,6 +2,7 @@
     "name": "PudgeWars.Net",
     "rootNamespace": "PudgeWars.Net",
     "references": [
+        "Unity.TextMeshPro",
         "PudgeWars.Gameplay",
         "UnityEngine.UI",
         "Mirror",

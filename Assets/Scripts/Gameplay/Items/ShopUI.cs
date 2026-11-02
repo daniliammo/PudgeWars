@@ -5,6 +5,7 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
+using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {
@@ -790,9 +791,7 @@ namespace PudgeWars.Gameplay
             text.alignment = TextAnchor.MiddleLeft;
             text.raycastTarget = false;
             text.horizontalOverflow = HorizontalWrapMode.Overflow;
-            var outline = rt.gameObject.AddComponent<Outline>();
-            outline.effectColor = Color.black;
-            outline.effectDistance = new Vector2(2f, -2f);
+            TextOutline.Add(rt.gameObject, 2f);
             inspectTab = tab.gameObject;
             inspectTab.SetActive(false);
             return text;
