@@ -159,6 +159,30 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator TopScoreFitsThreeAndMoreDigitsWithoutOverlappingTeamNames()
+        {
+            yield return null;
+            var hud = Object.FindAnyObjectByType<ScoreHud>();
+            foreach (int kills in new[] { 99, 100, 1234, 99999 })
+            {
+                arena.ApplyRemoteScore(kills, kills + 1, 0, 0);
+                Canvas.ForceUpdateCanvases();
+                foreach (var text in new[] { hud.RadiantKills, hud.DireKills })
+                {
+                    Assert.GreaterOrEqual(text.rectTransform.rect.width, text.preferredWidth);
+                    Assert.AreEqual(HorizontalWrapMode.Overflow, text.horizontalOverflow);
+                }
+                var bar = hud.RadiantKills.transform.parent;
+                var leftName = bar.Find("RadiantName").GetComponent<RectTransform>();
+                var rightName = bar.Find("DireName").GetComponent<RectTransform>();
+                Assert.Less(leftName.anchoredPosition.x + leftName.rect.width * 0.5f,
+                    hud.RadiantKills.rectTransform.anchoredPosition.x - hud.RadiantKills.rectTransform.rect.width * 0.5f);
+                Assert.Greater(rightName.anchoredPosition.x - rightName.rect.width * 0.5f,
+                    hud.DireKills.rectTransform.anchoredPosition.x + hud.DireKills.rectTransform.rect.width * 0.5f);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator HealthRegenerates()
         {
             var bot = Pudge.All.First(h => h.team == Team.Bots);
@@ -714,7 +738,7 @@ namespace PudgeWars.Tests
 
             var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
             Assert.AreEqual("СПАСЁН", announcer.LastText);
-            Assert.AreEqual($"Тебя спас {ally.Nickname}", announcer.LastSubtitle);
+            Assert.AreEqual($"Тебя спас {ally.DisplayName}", announcer.LastSubtitle);
             Assert.AreEqual(1, arena.RescuesOf(Team.Player));
             Assert.AreEqual(1, arena.ScoreOf(ally).rescues, "the rescue is the ally's own");
             Assert.AreEqual(1, arena.ScoreOf(player).rescued, "the player was rescued once");
@@ -3289,7 +3313,7 @@ namespace PudgeWars.Tests
             arena.ReportDeath(bots[0], player);
             yield return null;
             CollectionAssert.AreEqual(new[] { KillAnnouncement.FirstBlood }, announced);
-            Assert.AreEqual("FIRST BLOOD", announcer.LastText);
+            Assert.AreEqual("ПЕРВАЯ КРОВЬ", announcer.LastText);
             yield return new WaitForSeconds(announcer.duration + 0.1f);
             Assert.IsFalse(announcer.IsShowing, "a single kill is not a multi-kill");
 
@@ -3298,12 +3322,12 @@ namespace PudgeWars.Tests
             yield return null;
             CollectionAssert.AreEqual(new[] { KillAnnouncement.FirstBlood, KillAnnouncement.DoubleKill, KillAnnouncement.TripleKill }, announced);
             Assert.IsTrue(announcer.IsShowing);
-            Assert.AreEqual("DOUBLE KILL", announcer.LastText);
+            Assert.AreEqual("ДВОЙНОЕ УБИЙСТВО", announcer.LastText);
             Assert.AreEqual(1, announcer.Queued, "Triple Kill must wait for Double Kill to finish");
             CaptureScreen("double_kill");
 
             yield return new WaitForSeconds(announcer.duration + 0.1f);
-            Assert.AreEqual("TRIPLE KILL", announcer.LastText);
+            Assert.AreEqual("ТРОЙНОЕ УБИЙСТВО", announcer.LastText);
             yield return new WaitForSeconds(announcer.duration + 0.1f);
             Assert.IsFalse(announcer.IsShowing);
 
@@ -3318,12 +3342,46 @@ namespace PudgeWars.Tests
             Assert.AreEqual(1, ended.Count);
             Assert.AreEqual((player, SeriesEnd.Killed, bots[0]), ended[0]);
             Assert.AreEqual("СЕРИЯ ПРЕРВАНА", announcer.LastText);
-            Assert.AreEqual($"Тебя сбил {bots[0].Nickname}", announcer.LastSubtitle);
+            Assert.AreEqual($"Тебя сбил {bots[0].DisplayName}", announcer.LastSubtitle);
             CaptureScreen("series_ended_killed");
             yield return new WaitForSeconds(announcer.duration + 0.1f);
-            Assert.AreEqual("DOUBLE KILL", announcer.LastText);
-            Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].Nickname));
+            Assert.AreEqual("ДВОЙНОЕ УБИЙСТВО", announcer.LastText);
+            Assert.That(announcer.GetComponentsInChildren<Text>().Select(t => t.text), Has.Member(bots[0].DisplayName));
             CaptureScreen("enemy_double_kill");
+        }
+
+        [UnityTest]
+        public IEnumerator BotAnnouncementsAreHalfSizeExceptFirstBloodAndAlwaysNameTheBot()
+        {
+            var announcer = Object.FindAnyObjectByType<KillAnnouncer>();
+            announcer.duration = 0.1f;
+            var bot = Pudge.All.First(hero => hero.IsBot);
+            var originalTeam = bot.team;
+            try
+            {
+                // Both allied and enemy bots must be named and use the same smaller announcement.
+                foreach (var team in new[] { LocalPlayer.Team, LocalPlayer.Team == Team.Player ? Team.Bots : Team.Player })
+                {
+                    bot.team = team;
+                    announcer.Enqueue(bot, KillAnnouncement.FirstBlood);
+                    Assert.AreEqual("ПЕРВАЯ КРОВЬ", announcer.LastText);
+                    Assert.AreEqual(bot.DisplayName, announcer.LastSubtitle);
+                    Assert.AreEqual(1f, announcer.MessageScale);
+                    announcer.Enqueue(bot, KillAnnouncement.DoubleKill);
+                    yield return new WaitUntil(() => announcer.LastText == "ДВОЙНОЕ УБИЙСТВО");
+                    Assert.AreEqual(bot.DisplayName, announcer.LastSubtitle);
+                    Assert.AreEqual(0.5f, announcer.MessageScale);
+                    yield return new WaitUntil(() => !announcer.IsShowing);
+                }
+                announcer.Enqueue(player, KillAnnouncement.DoubleKill);
+                Assert.AreEqual(1f, announcer.MessageScale, "a player's announcement must keep its normal size");
+                yield return new WaitUntil(() => !announcer.IsShowing);
+                announcer.Enqueue(bot, KillAnnouncement.Godlike);
+                Assert.AreEqual("БОГОПОДОБИЕ", announcer.LastText);
+                Assert.AreEqual(0.5f, announcer.MessageScale);
+                Assert.AreEqual(bot.DisplayName, announcer.LastSubtitle);
+            }
+            finally { bot.team = originalTeam; }
         }
 
         [UnityTest]
@@ -3339,11 +3397,11 @@ namespace PudgeWars.Tests
                 if (shown.Count == 0 || shown[^1] != announcer.LastText)
                 {
                     shown.Add(announcer.LastText);
-                    if (announcer.LastText == "RAMPAGE ×3") CaptureScreen("rampage_x3");
+                    if (announcer.LastText == "БУЙСТВО ×3") CaptureScreen("rampage_x3");
                 }
                 yield return new WaitForSeconds(0.05f);
             }
-            CollectionAssert.AreEqual(new[] { "FIRST BLOOD", "DOUBLE KILL", "TRIPLE KILL", "ULTRA KILL", "RAMPAGE", "RAMPAGE ×2", "RAMPAGE ×3" }, shown);
+            CollectionAssert.AreEqual(new[] { "ПЕРВАЯ КРОВЬ", "ДВОЙНОЕ УБИЙСТВО", "ТРОЙНОЕ УБИЙСТВО", "ЧЕТВЕРНОЕ УБИЙСТВО", "БУЙСТВО", "БУЙСТВО ×2", "БУЙСТВО ×3" }, shown);
         }
 
         [UnityTest]
@@ -3374,7 +3432,7 @@ namespace PudgeWars.Tests
             yield return new WaitUntil(() => ended.Count == 2);
             Assert.AreEqual((bots[2], SeriesEnd.Time, (Pudge)null), ended[1]);
             yield return new WaitUntil(() => announcer.Queued == 0 && announcer.LastText == "СЕРИЯ ПРЕРВАНА");
-            Assert.AreEqual($"{bots[2].Nickname}: время вышло", announcer.LastSubtitle);
+            Assert.AreEqual($"{bots[2].DisplayName}: время вышло", announcer.LastSubtitle);
         }
 
         static void CaptureScreen(string name)

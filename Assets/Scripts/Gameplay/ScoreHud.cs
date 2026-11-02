@@ -40,6 +40,7 @@ namespace PudgeWars.Gameplay
 
         Arena arena;
         Text radiantTitle, direTitle;
+        RectTransform scoreBar;
         float worthAt;
         int shownSeconds = -1;
 
@@ -120,6 +121,21 @@ namespace PudgeWars.Gameplay
             direTitle.text = direName;
             MarkOwn(radiantTitle, team == Team.Player);
             MarkOwn(direTitle, team == Team.Bots);
+            FitKillCounts();
+        }
+
+        /// <summary>Keep multi-digit scores on one line, with team names outside their actual text width.</summary>
+        void FitKillCounts()
+        {
+            float leftWidth = Mathf.Max(90f, RadiantKills.preferredWidth + 12f);
+            float rightWidth = Mathf.Max(90f, DireKills.preferredWidth + 12f);
+            RadiantKills.rectTransform.sizeDelta = new Vector2(leftWidth, 70f);
+            DireKills.rectTransform.sizeDelta = new Vector2(rightWidth, 70f);
+            RadiantKills.rectTransform.anchoredPosition = new Vector2(-16f - leftWidth * 0.5f, 0f);
+            DireKills.rectTransform.anchoredPosition = new Vector2(16f + rightWidth * 0.5f, 0f);
+            radiantTitle.rectTransform.anchoredPosition = new Vector2(-16f - leftWidth - 95f, 0f);
+            direTitle.rectTransform.anchoredPosition = new Vector2(16f + rightWidth + 95f, 0f);
+            scoreBar.sizeDelta = new Vector2(2f * (16f + Mathf.Max(leftWidth, rightWidth) + 190f), scoreBar.sizeDelta.y);
         }
 
         /// <summary>The own team's name is bold and larger.</summary>
@@ -154,6 +170,7 @@ namespace PudgeWars.Gameplay
         {
             var font = label != null ? label.font : null;
             var bar = new GameObject("TeamScore", typeof(RectTransform)).GetComponent<RectTransform>();
+            scoreBar = bar;
             bar.SetParent(label != null ? label.canvas.transform : transform, false);
             bar.anchorMin = bar.anchorMax = bar.pivot = new Vector2(0.5f, 1f);
             bar.anchoredPosition = new Vector2(0f, -46f); // under the clock
@@ -178,6 +195,8 @@ namespace PudgeWars.Gameplay
             RadiantKills = Make(bar, "RadiantKills", font, 52, new Vector2(-50f, 0f), new Vector2(90f, 70f), TextAnchor.MiddleRight, radiantColor);
             Make(bar, "Colon", font, 44, Vector2.zero, new Vector2(20f, 70f), TextAnchor.MiddleCenter, Color.white).text = ":";
             DireKills = Make(bar, "DireKills", font, 52, new Vector2(50f, 0f), new Vector2(90f, 70f), TextAnchor.MiddleLeft, direColor);
+            RadiantKills.horizontalOverflow = DireKills.horizontalOverflow = HorizontalWrapMode.Overflow;
+            RadiantKills.verticalOverflow = DireKills.verticalOverflow = VerticalWrapMode.Overflow;
             direTitle = Make(bar, "DireName", font, 24, new Vector2(170f, 0f), new Vector2(170f, 40f), TextAnchor.MiddleCenter, direColor);
 
             // the net worth strip right under the score
