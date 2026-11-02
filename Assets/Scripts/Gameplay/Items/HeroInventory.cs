@@ -455,6 +455,9 @@ namespace PudgeWars.Gameplay
                 case ItemAction.PlantTree:
                     if (trees.Plant(point, use.treeLifetime) < 0) return false;
                     break;
+                case ItemAction.Replenish:
+                    target.AddManaRegen(use.regenBonus, use.regenDuration, use);
+                    break;
                 case ItemAction.RestoreMana:
                     target.RestoreMana(use.restoreMana, shown: true);
                     break;
@@ -558,7 +561,7 @@ namespace PudgeWars.Gameplay
         /// </summary>
         public bool CanTarget(Unit target, ItemDef item)
         {
-            if (target == null || !target.IsAlive) return false;
+            if (target == null || !target.IsAlive || (item.Active?.action == ItemAction.Replenish && !target.IsHero)) return false;
             if (target == self) return true;
             return self != null && target.team == self.team && InReach(target.transform.position, target.radius, item);
         }

@@ -83,7 +83,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Mana regenerated per second: the unit's own and what its items add.</summary>
         public float ManaRegen => Simulation.IsProxy && remoteManaRegen >= 0f
             ? remoteManaRegen
-            : manaRegen + (inventory != null ? inventory.ManaRegenBonus : 0f) + AuraManaRegen;
+            : manaRegen + (inventory != null ? inventory.ManaRegenBonus : 0f) + AuraManaRegen + manaRegenBonuses.Where(b => b.until > Time.time).Sum(b => b.perSecond);
 
         /// <summary>
         /// Basilius Aura on this unit: of every living ally (itself included) whose items carry it and who stands within
@@ -116,6 +116,7 @@ namespace PudgeWars.Gameplay
             }
         }
 
+        readonly List<(float perSecond, float until, float duration, ItemDef source)> manaRegenBonuses = new();
         readonly List<(float perSecond, float until, float duration, ItemDef source)> regenBonuses = new();
         // network client: the timed effects the server keeps (item, Time.time it ends at, its whole duration)
         readonly List<(ItemDef item, float until, float duration)> remoteTimed = new();
@@ -142,6 +143,7 @@ namespace PudgeWars.Gameplay
         protected virtual void Update()
         {
             if (regenBonuses.RemoveAll(b => b.until <= Time.time) > 0) EffectsVersion++;
+            if (manaRegenBonuses.RemoveAll(b => b.until <= Time.time) > 0) EffectsVersion++;
             float regen = HealthRegen;
             if (IsAlive && !Simulation.IsProxy && regen > 0f)
                 Health = Mathf.Min(maxHealth, Health + regen * Time.deltaTime);
@@ -200,6 +202,15 @@ namespace PudgeWars.Gameplay
             EffectsVersion++;
         }
 
+        /// <summary>Clarity: refreshes the regeneration instead of stacking; enemy damage and death end it.</summary>
+        public void AddManaRegen(float perSecond, float duration, ItemDef source)
+        {
+            if (!IsAlive || Simulation.IsProxy || perSecond <= 0f || duration <= 0f || source == null) return;
+            manaRegenBonuses.Clear();
+            manaRegenBonuses.Add((perSecond, Time.time + duration, duration, source));
+            EffectsVersion++;
+        }
+
         /// <summary>The timed effects from items now: item, Time.time each ends at, its whole duration (one per use).</summary>
         public IEnumerable<(ItemDef item, float until, float duration)> TimedEffects()
         {
@@ -209,7 +220,7 @@ namespace PudgeWars.Gameplay
                     if (e.until > Time.time) yield return e;
                 yield break;
             }
-            foreach (var b in regenBonuses)
+            foreach (var b in regenBonuses.Concat(manaRegenBonuses))
                 if (b.source != null && b.until > Time.time) yield return (b.source, b.until, b.duration);
         }
 
@@ -239,7 +250,10 @@ namespace PudgeWars.Gameplay
                 var use = item.Active;
                 string name = use != null ? item.Abilities.FirstOrDefault(a => a.active)?.name : null;
                 float perSecond = use != null ? use.regenBonus * t.count : 0f;
-                string text = perSecond > 0f ? $"+{perSecond.ToString("0.#", ci)} здоровья в секунду" : "";
+                bool clarity = use != null && use.action == ItemAction.Replenish;
+                string stat = clarity ? "маны" : "здоровья";
+                string text = perSecond > 0f ? $"+{perSecond.ToString("0.#", ci)} {stat} в секунду" : "";
+                if (clarity) text += "\nПрекращается при получении урона от вражеского существа.";
                 if (t.count > 1) text += $" ({t.count} одновременно)";
                 into.Add(new UnitEffect(item, string.IsNullOrEmpty(name) ? item.displayName : name, text, t.until, t.duration, null));
             }
@@ -282,6 +296,11 @@ namespace PudgeWars.Gameplay
         public void Damage(float amount, Unit source)
         {
             if (!IsAlive || amount <= 0f || Simulation.IsProxy) return;
+            if (source != null && source.team != team && manaRegenBonuses.Count > 0)
+            {
+                manaRegenBonuses.Clear();
+                EffectsVersion++;
+            }
             Health = Mathf.Max(0f, Health - amount);
             if (Health <= 0f) OnHealthDepleted(source);
         }
@@ -317,7 +336,8 @@ namespace PudgeWars.Gameplay
             cleared = true;
             Health = 0f;
             Mana = 0f;
-            if (regenBonuses.Count > 0) EffectsVersion++;
+            if (regenBonuses.Count > 0 || manaRegenBonuses.Count > 0) EffectsVersion++;
+            manaRegenBonuses.Clear();
             regenBonuses.Clear();
         }
 

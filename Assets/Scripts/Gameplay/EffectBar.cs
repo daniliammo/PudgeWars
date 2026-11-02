@@ -119,7 +119,7 @@ namespace PudgeWars.Gameplay
                 var e = effects[i];
                 icons[i].root.anchoredPosition = new Vector2(i * (size + gap) + size / 2f, size / 2f);
                 icons[i].picture.sprite = e.item != null ? e.item.icon : null;
-                icons[i].rim.color = e.IsTimed ? rimColor : auraRimColor;
+                icons[i].rim.color = !e.IsTimed || e.item.Active?.action == ItemAction.Replenish ? auraRimColor : rimColor;
             }
             if (hovered >= effects.Count) hovered = -1;
             ShowAuraReach(); // the givers may come and go while it is hovered

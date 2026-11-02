@@ -70,7 +70,7 @@ namespace PudgeWars.EditorTools
             var lens = AetherLens();
             var catalog = new[]
             {
-                Tango(), EnchantedMango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), SlippersOfAgility(),
+                Tango(), Clarity(), EnchantedMango(), IronBranch(), QuellingBlade(), SagesMask(), RingOfBasiliusRecipe(), RingOfBasilius(), SlippersOfAgility(),
                 BootsOfSpeedRecipe(), BootsOfSpeed(),
                 ArcaneBoots(), EnergyBooster(), VoidStone(), AetherLensRecipe(), lens,
             };
@@ -124,6 +124,25 @@ namespace PudgeWars.EditorTools
             item.stacks = false;
             item.castRange = 4f; // 400, as in Dota
             item.cooldown = 0f;
+        });
+
+        /// <summary>Clarity: consumable regeneration for an allied hero, interrupted by enemy damage.</summary>
+        public static ItemDef Clarity() => Item("Clarity", "clarity", item =>
+        {
+            item.displayName = "Clarity";
+            item.description = "+6 к восстановлению маны на 25 секунд";
+            item.details = "Повторная покупка добавляет заряд в тот же слот. Повторное применение обновляет длительность.";
+            item.abilities = new[] { Ability("Replenish", true, "Способность: направленная на существо. Действует на союзных героев. Увеличивает восстановление маны выбранного существа на 6. Действует 25 сек. Восстановление прекращается, если получить урон от вражеского существа. Двойное нажатие — применить на себя.") };
+            item.lore = "Чистая вода, повышающая способность к медитации.";
+            item.cost = 50;
+            item.unique = false;
+            item.action = ItemAction.Replenish;
+            item.charges = 1;
+            item.stacks = true;
+            item.castRange = 2.5f;
+            item.cooldown = 0f;
+            item.regenBonus = 6f;
+            item.regenDuration = 25f;
         });
 
         /// <summary>Iron Branch: 50 gold, plants a tree for good (by request; Dota 2's Happy Little Tree stands 20 s) within 200 units, used up.</summary>

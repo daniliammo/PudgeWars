@@ -19,6 +19,8 @@ namespace PudgeWars.Gameplay
         RestoreAllyMana,
         /// <summary>Enchanted Mango: fed to an allied hero within reach (its owner too), gives it mana (used up).</summary>
         RestoreMana,
+        /// <summary>Clarity: timed mana regeneration, interrupted by enemy damage.</summary>
+        Replenish,
     }
 
     /// <summary>A named ability of an item, shown in its own frame in the description: blue for an active one, grey for a passive one.</summary>
@@ -191,7 +193,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Used at once on a key or a click, with no target (Arcane Boots).</summary>
         public bool IsInstant => Active is { action: ItemAction.RestoreAllyMana };
         /// <summary>Used on an allied unit picked with a click, or on the owner itself (Enchanted Mango).</summary>
-        public bool TargetsUnit => Active is { action: ItemAction.RestoreMana };
+        public bool TargetsUnit => Active is { action: ItemAction.RestoreMana or ItemAction.Replenish };
         /// <summary>Used on a tree (Tango, Quelling Blade) rather than on a point of the ground (Iron Branch).</summary>
         public bool TargetsTree => Active is { action: ItemAction.EatTree or ItemAction.ChopTree };
     }

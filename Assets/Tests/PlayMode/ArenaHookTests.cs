@@ -2904,6 +2904,65 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ClarityTargetsAlliedHeroesAndEnemyDamageInterruptsItsManaRegen()
+        {
+            var item = TestItem(ItemAction.Replenish, 50, 1, stacks: true, range: 2.5f);
+            item.regenBonus = 6f;
+            item.regenDuration = 25f;
+            item.abilities = new[] { new ItemAbility { name = "Replenish", active = true } };
+            var inventory = player.GetComponent<HeroInventory>();
+            var enemy = Pudge.All.First(h => h.team != player.team);
+            var ally = Pudge.All.First(h => h != player && h != enemy);
+            ally.team = player.team;
+            try
+            {
+                inventory.AddGold(150, popup: false);
+                Assert.IsTrue(inventory.TryBuy(item));
+                Assert.IsTrue(inventory.TryBuy(item));
+                int slot = inventory.SlotOf(item);
+                Assert.AreEqual(2, inventory.ChargesAt(slot));
+                Assert.IsTrue(item.TargetsUnit);
+                enemy.transform.position = player.transform.position + Vector3.right;
+                Assert.IsFalse(inventory.TryUse(slot, enemy.transform.position, HeroInventory.NoTree, enemy));
+                ally.transform.position = player.transform.position + Vector3.right * 20f;
+                Assert.IsFalse(inventory.TryUse(slot, ally.transform.position, HeroInventory.NoTree, ally));
+                ally.transform.position = player.transform.position + Vector3.right;
+                float baseline = ally.ManaRegen;
+                ally.SpendMana(200f);
+                Assert.IsTrue(inventory.TryUse(slot, ally.transform.position, HeroInventory.NoTree, ally));
+                Assert.AreEqual(baseline + 6f, ally.ManaRegen, 0.001f);
+                Assert.AreEqual(1, inventory.ChargesAt(inventory.SlotOf(item)));
+                float mana = ally.Mana;
+                yield return new WaitForSeconds(0.2f);
+                Assert.Greater(ally.Mana, mana + 0.8f, "Clarity must actually regenerate mana");
+                var effects = new List<UnitEffect>();
+                ally.Effects(effects);
+                var effect = effects.Single(e => e.item == item);
+                Assert.AreEqual("Replenish", effect.name);
+                StringAssert.Contains("маны", effect.description);
+                Assert.AreEqual(25f, effect.duration);
+                Assert.IsTrue(inventory.TryUse(inventory.SlotOf(item), ally.transform.position, HeroInventory.NoTree, ally));
+                Assert.IsFalse(inventory.Owns(item));
+                Assert.AreEqual(baseline + 6f, ally.ManaRegen, 0.001f, "reapplication must refresh, not stack");
+                ally.Damage(1f, player);
+                ally.Damage(1f, null);
+                Assert.AreEqual(baseline + 6f, ally.ManaRegen, 0.001f, "allied/environment damage must preserve Clarity");
+                int version = ally.EffectsVersion;
+                ally.Damage(1f, enemy);
+                Assert.AreEqual(baseline, ally.ManaRegen, 0.001f);
+                Assert.Greater(ally.EffectsVersion, version, "clients must be notified when damage removes Clarity");
+                Assert.IsFalse(ally.TimedEffects().Any(e => e.item == item));
+                ally.AddManaRegen(6f, 0.05f, item);
+                yield return new WaitForSeconds(0.1f);
+                Assert.AreEqual(baseline, ally.ManaRegen, 0.001f, "expired Clarity still regenerates mana");
+                ally.AddManaRegen(6f, 25f, item);
+                ally.Damage(ally.maxHealth * 2f, player);
+                Assert.IsFalse(ally.TimedEffects().Any(e => e.item == item), "death must remove Clarity even from allied damage");
+            }
+            finally { Object.Destroy(item); }
+        }
+
+        [UnityTest]
         public IEnumerator MangoGivesManaRegenAndIsFedToAnAllyOrEatenOnADoubleClick()
         {
             var inventory = player.GetComponent<HeroInventory>();
