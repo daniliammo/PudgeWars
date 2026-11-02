@@ -2904,6 +2904,49 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ClarityPlaysSoundAndLinksOnlyAnAlliedRecipientThenFades()
+        {
+            var item = TestItem(ItemAction.Replenish, 50, 1, stacks: true, range: 2.5f);
+            item.regenBonus = 6f;
+            item.regenDuration = 25f;
+            var inventory = player.GetComponent<HeroInventory>();
+            var ally = Pudge.All.First(h => h != player);
+            ally.team = player.team;
+            ally.transform.position = player.transform.position + Vector3.right * 2f;
+            try
+            {
+                yield return null;
+                Assert.IsNotNull(Resources.Load<AudioClip>("Audio/Items/clarity"));
+                var shader = Resources.Load<Shader>("Effects/ClarityLink");
+                Assert.IsNotNull(shader);
+                Assert.IsTrue(shader.isSupported, "ClarityLink shader is not supported");
+                inventory.AddGold(150, popup: false);
+                Assert.IsTrue(inventory.TryBuy(item));
+                Assert.IsTrue(inventory.TryBuy(item));
+                int sounds = WorldAudio.Played, links = ClarityLink.ActiveCount;
+                Assert.IsTrue(inventory.TryUse(inventory.SlotOf(item), player.transform.position, HeroInventory.NoTree, player));
+                Assert.AreEqual(sounds + 1, WorldAudio.Played, "self use must play Clarity sound");
+                Assert.AreEqual(links, ClarityLink.ActiveCount, "self use must not draw a link");
+                Assert.IsTrue(inventory.TryUse(inventory.SlotOf(item), ally.transform.position, HeroInventory.NoTree, ally));
+                Assert.AreEqual(sounds + 2, WorldAudio.Played);
+                Assert.AreEqual(links + 1, ClarityLink.ActiveCount);
+                Assert.AreEqual(player.transform, ClarityLink.LastGiver);
+                Assert.AreEqual(ally.transform, ClarityLink.LastRecipient);
+                var line = Object.FindObjectsByType<LineRenderer>().Single(l => l.name == "ClarityLink");
+                Assert.AreEqual("PudgeWars/ClarityLink", line.sharedMaterial.shader.name);
+                Assert.IsTrue(line.useWorldSpace);
+                player.transform.position += Vector3.back;
+                ally.transform.position += Vector3.right;
+                yield return null;
+                Assert.Less(Vector3.Distance(line.GetPosition(0), player.transform.position + Vector3.up * 1.1f), 0.05f);
+                Assert.Less(Vector3.Distance(line.GetPosition(line.positionCount - 1), ally.transform.position + Vector3.up * 1.1f), 0.05f);
+                yield return new WaitForSeconds(1f);
+                Assert.AreEqual(links, ClarityLink.ActiveCount, "finished ribbons must be destroyed");
+            }
+            finally { Object.Destroy(item); }
+        }
+
+        [UnityTest]
         public IEnumerator ClarityTargetsAlliedHeroesAndEnemyDamageInterruptsItsManaRegen()
         {
             var item = TestItem(ItemAction.Replenish, 50, 1, stacks: true, range: 2.5f);

@@ -32,6 +32,9 @@ namespace PudgeWars.Gameplay
             var at = owner.transform.position + Vector3.up;
             switch (use.action)
             {
+                case ItemAction.Replenish:
+                    WorldAudio.PlayAt("Audio/Items/clarity", target != null ? target.transform.position + Vector3.up : at);
+                    break;
                 case ItemAction.EatTree:
                     WorldAudio.PlayAt("Audio/Items/tango", at);
                     break;
