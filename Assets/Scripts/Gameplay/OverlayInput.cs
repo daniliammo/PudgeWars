@@ -6,6 +6,11 @@ namespace PudgeWars.Gameplay
     /// </summary>
     public static class OverlayInput
     {
-        public static bool Captured { get; set; }
+        static bool captured;
+        public static bool Captured
+        {
+            get => captured || StartupGraphicsWarmup.IsPreparing;
+            set => captured = value;
+        }
     }
 }

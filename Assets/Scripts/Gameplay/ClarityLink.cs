@@ -36,17 +36,21 @@ namespace PudgeWars.Gameplay
         }
         void OnDisable() => HeroInventory.AnyUsed -= OnUsed;
 
+        internal static Material PrepareMaterial()
+        {
+            if (material != null) return material;
+            var shader = Resources.Load<Shader>("Effects/ClarityLink");
+            if (shader != null)
+                material = new Material(shader) { name = "ClarityLink", hideFlags = HideFlags.HideAndDontSave };
+            return material;
+        }
+
         void OnUsed(HeroInventory owner, ItemDef item, Unit target)
         {
             // Only the listener subscribes in practice; individual ribbons ignore all use events.
             if (this != listener || owner == null || target == null || item == null ||
                 item.Active?.action != ItemAction.Replenish) return;
-            if (material == null)
-            {
-                var shader = Resources.Load<Shader>("Effects/ClarityLink");
-                if (shader == null) return;
-                material = new Material(shader) { name = "ClarityLink", hideFlags = HideFlags.HideAndDontSave };
-            }
+            if (PrepareMaterial() == null) return;
             bool selfUse = target.gameObject == owner.gameObject;
             var go = new GameObject(selfUse ? "ClaritySelf" : "ClarityLink");
             var link = go.AddComponent<ClarityLink>();

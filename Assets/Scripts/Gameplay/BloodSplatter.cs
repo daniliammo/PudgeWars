@@ -34,6 +34,7 @@ namespace PudgeWars.Gameplay
         const float FadeStep = 0.1f;         // seconds between updates of the fading stains' alpha
 
         static BloodSplatter instance;
+        static Texture2D stainAtlas, dropAtlas;
 
         struct Drop
         {
@@ -74,7 +75,6 @@ namespace PudgeWars.Gameplay
         float nextFade;
         Mesh groundMesh, dropMesh;
         Material stainMaterial, dropMaterial;
-        Texture2D stainTexture, dropTexture;
         readonly List<Vector3> dropVerts = new();
         readonly List<Vector2> dropUvs = new();
         readonly List<int> dropTris = new();
@@ -139,8 +139,7 @@ namespace PudgeWars.Gameplay
                 Debug.LogWarning("[BloodSplatter] Resources/Effects/Blood shader is missing or unsupported: no blood");
                 return;
             }
-            stainTexture = StainAtlas();
-            dropTexture = DropTexture();
+            var (stainTexture, dropTexture) = PrepareTextures();
             stainMaterial = new Material(shader) { name = "BloodStain", mainTexture = stainTexture };
             stainMaterial.SetColor("_BaseColor", stainColor);
             dropMaterial = new Material(shader) { name = "BloodDrop", mainTexture = dropTexture };
@@ -197,8 +196,6 @@ namespace PudgeWars.Gameplay
             Destroy(dropMesh);
             Destroy(stainMaterial);
             Destroy(dropMaterial);
-            Destroy(stainTexture);
-            Destroy(dropTexture);
         }
 
         void LateUpdate()
@@ -509,6 +506,14 @@ namespace PudgeWars.Gameplay
         }
 
         // textures ////////////////////////////////////////////////////////////
+
+        /// <summary>Build the deterministic atlases once, before the first collision and across arena reloads.</summary>
+        internal static (Texture2D stain, Texture2D drop) PrepareTextures()
+        {
+            if (stainAtlas == null) stainAtlas = StainAtlas();
+            if (dropAtlas == null) dropAtlas = DropTexture();
+            return (stainAtlas, dropAtlas);
+        }
 
         /// <summary>
         /// Four stains in a 2 × 2 atlas: a blob with a ragged edge, spikes thrown out of it and drops around; white

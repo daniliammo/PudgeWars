@@ -132,7 +132,7 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        static bool EnsureAssets()
+        internal static bool EnsureAssets()
         {
             if (material == null)
             {
