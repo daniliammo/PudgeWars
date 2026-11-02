@@ -248,7 +248,7 @@ namespace PudgeWars.Gameplay
             foreach (var group in auras.GroupBy(a => AuraName(a.item)))
             {
                 var givers = group.OrderBy(a => a.giver == this ? 0 : 1).ToList();
-                float perSecond = givers.Sum(a => a.item.AuraManaRegen);
+                float perSecond = givers.Sum(a => a.item.auraManaRegen);
                 string from = string.Join(", ", givers.Select(a =>
                     a.giver == this ? $"от своего {a.item.displayName}" : $"от {a.item.displayName} героя {a.giver.DisplayName}"));
                 into.Add(new UnitEffect(givers[0].item, group.Key, $"+{perSecond.ToString("0.##", ci)} маны в секунду — {from}", 0f, 0f, givers[0].giver));
@@ -258,7 +258,7 @@ namespace PudgeWars.Gameplay
         readonly List<(Unit giver, ItemDef item)> auras = new();
 
         static string AuraName(ItemDef item) =>
-            item.Abilities.FirstOrDefault(a => a.name != null && a.name.Contains("Aura"))?.name ?? item.displayName;
+            item.abilities?.FirstOrDefault(a => a != null && a.name != null && a.name.Contains("Aura"))?.name ?? item.displayName;
 
         /// <summary>
         /// The allies (itself included) whose items give this unit an aura now, one entry for each such item (see

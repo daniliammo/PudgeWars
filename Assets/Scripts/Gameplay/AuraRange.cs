@@ -60,8 +60,8 @@ namespace PudgeWars.Gameplay
             foreach (var (giver, item) in auras)
             {
                 int i = self.wanted.FindIndex(w => w.giver == giver);
-                if (i < 0) self.wanted.Add((giver, item.AuraRadius));
-                else if (item.AuraRadius > self.wanted[i].radius) self.wanted[i] = (giver, item.AuraRadius);
+                if (i < 0) self.wanted.Add((giver, item.auraRadius));
+                else if (item.auraRadius > self.wanted[i].radius) self.wanted[i] = (giver, item.auraRadius);
             }
             self.shown = self.wanted.Count > 0;
             self.Apply();

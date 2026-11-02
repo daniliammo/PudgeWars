@@ -84,7 +84,7 @@ namespace PudgeWars.Gameplay
         public float intelligenceBonus;
         [Tooltip("Ring of Basilius: the share of a killed unit's mana (as it had at its death) its killer gets, 0.075 = 7.5 %.")]
         [Range(0f, 1f)] public float killManaSteal;
-        [Tooltip("Basilius Aura: mana regenerated per second by every ally within auraRadius, the owner too. Several heroes' auras add up; one hero's several count once (the biggest).")]
+        [Tooltip("Own aura: mana regenerated per second by every ally within auraRadius, the owner too. Auras stack across items, heroes and crafting ancestors; each source keeps its own radius.")]
         public float auraManaRegen;
         [Tooltip("Radius of the aura, metres from the owner's centre to the ally's.")]
         public float auraRadius;
@@ -131,6 +131,18 @@ namespace PudgeWars.Gameplay
         /// <summary>The widest radius of the item's and its parts' auras.</summary>
         public float AuraRadius => Parts.Select(p => p.AuraRadius).DefaultIfEmpty(0f).Prepend(auraManaRegen > 0f ? auraRadius : 0f).Max();
 
+        /// <summary>Definitions that own an aura, including crafting ancestors. Each occurrence contributes once.</summary>
+        public IEnumerable<ItemDef> AuraSources
+        {
+            get
+            {
+                if (auraManaRegen > 0f) yield return this;
+                foreach (var part in Parts)
+                foreach (var source in part.AuraSources)
+                    yield return source;
+            }
+        }
+
         /// <summary>
         /// What the item does when used: its own action, or the first part's (down the tree) that has one; null for a
         /// passive item. Its fields (castRange, cooldown, restoreMana…) are the use's numbers.
@@ -153,19 +165,22 @@ namespace PudgeWars.Gameplay
         public static IEnumerable<ItemDef> Assembled() => Resources.FindObjectsOfTypeAll<ItemDef>().Where(i => i.IsAssembled);
 
         /// <summary>The item's abilities and those inherited from its parts (one per name, the item's own first).</summary>
-        public IEnumerable<ItemAbility> Abilities
+        public IEnumerable<ItemAbility> Abilities => AbilitySources.Select(a => a.ability);
+
+        /// <summary>Effective abilities paired with their defining ancestor, never re-owned by a crafted item.</summary>
+        public IEnumerable<(ItemDef source, ItemAbility ability)> AbilitySources
         {
             get
             {
                 var seen = new HashSet<string>();
-                foreach (var a in AllAbilities())
-                    if (a != null && seen.Add(a.name ?? "")) yield return a;
+                foreach (var entry in AllAbilities())
+                    if (entry.ability != null && seen.Add(entry.ability.name ?? "")) yield return entry;
             }
         }
 
-        IEnumerable<ItemAbility> AllAbilities()
+        IEnumerable<(ItemDef source, ItemAbility ability)> AllAbilities()
         {
-            foreach (var a in abilities ?? Array.Empty<ItemAbility>()) yield return a;
+            foreach (var a in abilities ?? Array.Empty<ItemAbility>()) yield return (this, a);
             foreach (var part in Parts)
             foreach (var a in part.AllAbilities())
                 yield return a;

@@ -431,13 +431,17 @@ namespace PudgeWars.Gameplay
         {
             tooltipName.text = item.displayName;
             tooltipPrice.text = item.cost.ToString();
-            var abilities = item.Abilities.ToList();
+            var sources = item.AbilitySources.ToList();
+            var abilities = sources.Select(a => a.ability).ToList();
             SetText(tooltipBonuses, ItemDescription.Bonuses(item, abilities.Count > 0));
             SetText(tooltipDetails, item.details);
             // the use's numbers go under the first active frame; an item using without one gets a frame of its own
             string numbers = ItemDescription.UseNumbers(item, owner, slot);
             if (item.IsUsable && !abilities.Any(a => a.active))
+            {
                 abilities.Insert(0, new ItemAbility { name = "", active = true, description = "" });
+                sources.Insert(0, (item.Active, abilities[0]));
+            }
             bool numbersShown = false;
             for (int i = 0; i < Mathf.Max(abilities.Count, abilityBoxes.Count); i++)
             {
@@ -457,6 +461,8 @@ namespace PudgeWars.Gameplay
                 box.title.text = string.IsNullOrEmpty(ability.name) ? kind : $"{kind}: {ability.name}";
                 box.title.color = ability.active ? activeTitleColor : passiveTitleColor;
                 string text = ability.description ?? "";
+                if (sources[i].source != item)
+                    text = $"<color=#B8C4D0>Унаследовано от: {sources[i].source.displayName}</color>\n{text}";
                 if (ability.active && !numbersShown && numbers.Length > 0)
                 {
                     text = text.Length > 0 ? $"{text}\n<color=#9FC4FF>{numbers}</color>" : $"<color=#9FC4FF>{numbers}</color>";

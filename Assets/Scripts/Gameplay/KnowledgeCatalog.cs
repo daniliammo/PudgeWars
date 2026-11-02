@@ -16,10 +16,12 @@ namespace PudgeWars.Gameplay
         public Sprite icon;
         public ItemDef item;
         public readonly List<KnowledgeEntry> related = new();
+        public readonly List<KnowledgeEntry> inheritors = new();
 
         public bool Matches(string query) => string.IsNullOrWhiteSpace(query) ||
             new[] { title, subtitle, description, numbers, item != null ? item.description : null,
-                item != null ? item.details : null }.Any(s => s != null && s.IndexOf(query.Trim(), StringComparison.OrdinalIgnoreCase) >= 0);
+                item != null ? item.details : null }.Any(s => s != null && s.IndexOf(query.Trim(), StringComparison.OrdinalIgnoreCase) >= 0) ||
+            inheritors.Any(e => e.title.IndexOf(query.Trim(), StringComparison.OrdinalIgnoreCase) >= 0);
     }
 
     public static class KnowledgeCatalog
@@ -86,32 +88,36 @@ namespace PudgeWars.Gameplay
                 };
                 articles.Add(item, article);
                 entries.Add(article);
-                foreach (var ability in item.Abilities)
+            }
+            // One article per original definition; crafted items link to that same article.
+            var skills = new Dictionary<(ItemDef source, ItemAbility ability), KnowledgeEntry>();
+            KnowledgeEntry Skill(ItemDef source, ItemAbility ability)
+            {
+                var key = (source, ability);
+                if (skills.TryGetValue(key, out var existing)) return existing;
+                bool active = ability == null || ability.active;
+                var skill = new KnowledgeEntry
                 {
-                    var skill = new KnowledgeEntry
-                    {
-                        title = string.IsNullOrWhiteSpace(ability.name) ? item.displayName : ability.name,
-                        subtitle = item.displayName, icon = item.icon, item = item,
-                        kind = ability.active ? KnowledgeKind.Active : KnowledgeKind.Passive,
-                        description = ability.description,
-                        numbers = ability.active ? ItemDescription.UseNumbers(item) : ""
-                    };
-                    skill.related.Add(article);
-                    article.related.Add(skill);
-                    entries.Add(skill);
-                }
-                if (item.IsUsable && !item.Abilities.Any(a => a.active))
+                    title = string.IsNullOrWhiteSpace(ability?.name) ? source.displayName : ability.name,
+                    subtitle = source.displayName, icon = source.icon, item = source,
+                    kind = active ? KnowledgeKind.Active : KnowledgeKind.Passive,
+                    description = ability != null ? ability.description : string.IsNullOrWhiteSpace(source.details) ? source.description : source.details,
+                    numbers = active ? ItemDescription.UseNumbers(source) : ""
+                };
+                skill.related.Add(articles[source]);
+                skills.Add(key, skill);
+                entries.Add(skill);
+                return skill;
+            }
+            foreach (var pair in articles)
+            {
+                void Link(KnowledgeEntry skill)
                 {
-                    var skill = new KnowledgeEntry
-                    {
-                        title = item.displayName, subtitle = "Применение предмета", icon = item.icon, item = item,
-                        kind = KnowledgeKind.Active, description = string.IsNullOrWhiteSpace(item.details) ? item.description : item.details,
-                        numbers = ItemDescription.UseNumbers(item)
-                    };
-                    skill.related.Add(article);
-                    article.related.Add(skill);
-                    entries.Add(skill);
+                    pair.Value.related.Add(skill);
+                    if (skill.item != pair.Key && !skill.inheritors.Contains(pair.Value)) skill.inheritors.Add(pair.Value);
                 }
+                foreach (var (source, ability) in pair.Key.AbilitySources) Link(Skill(source, ability));
+                if (pair.Key.IsUsable && !pair.Key.Abilities.Any(a => a.active)) Link(Skill(pair.Key.Active, null));
             }
             foreach (var pair in articles)
             foreach (var part in pair.Key.components ?? Array.Empty<ItemDef>())

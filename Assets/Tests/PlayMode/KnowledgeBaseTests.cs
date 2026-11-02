@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using PudgeWars.Gameplay;
@@ -20,11 +21,12 @@ namespace PudgeWars.Tests
             foreach (var item in assets.catalog)
             {
                 var article = catalog.Single(e => e.kind == KnowledgeKind.Item && e.item == item);
-                foreach (var ability in item.Abilities)
+                foreach (var (source, ability) in item.AbilitySources)
                 {
                     var skill = article.related.Single(e => e.title == ability.name && e.kind == (ability.active ? KnowledgeKind.Active : KnowledgeKind.Passive));
-                    Assert.Contains(article, skill.related);
-                    Assert.AreEqual(item, skill.item);
+                    Assert.AreEqual(source, skill.item);
+                    Assert.Contains(catalog.Single(e => e.kind == KnowledgeKind.Item && e.item == source), skill.related);
+                    if (source != item) Assert.Contains(article, skill.inheritors);
                 }
                 foreach (var part in item.components)
                 {
@@ -37,6 +39,115 @@ namespace PudgeWars.Tests
             var hook = pudge.related.Single(e => e.kind == KnowledgeKind.Active);
             Assert.Contains(pudge, hook.related);
             StringAssert.Contains(KnowledgeCatalog.Number(assets.playerHero.GetComponent<HookAbility>().manaCost), hook.numbers);
+            var aura = catalog.Single(e => e.kind == KnowledgeKind.Passive && e.title == "Basilius Aura");
+            Assert.AreEqual("Ring of Basilius", aura.item.displayName);
+            Assert.IsTrue(aura.inheritors.Any(e => e.title == "Arcane Boots"));
+            Assert.IsTrue(aura.Matches("Arcane Boots"), "searching a crafted item must find its inherited abilities too");
+        }
+
+        [Test]
+        public void CraftingAncestorsKeepTheirStatsAbilitiesAndIndividualAuraRadii()
+        {
+            var ancestor = ScriptableObject.CreateInstance<ItemDef>();
+            var middle = ScriptableObject.CreateInstance<ItemDef>();
+            var crafted = ScriptableObject.CreateInstance<ItemDef>();
+            var go = new GameObject("InheritanceInventory");
+            try
+            {
+                ancestor.displayName = "Ancestor";
+                ancestor.manaBonus = 250f;
+                ancestor.manaRegenBonus = 0.8f;
+                ancestor.moveSpeedBonus = 0.1f;
+                ancestor.strengthBonus = 1f;
+                ancestor.agilityBonus = 3f;
+                ancestor.intelligenceBonus = 2f;
+                ancestor.castRangeBonus = 2.75f;
+                ancestor.heroDamageBonus = 16f;
+                ancestor.creepDamageBonus = 4f;
+                ancestor.killManaSteal = 0.13f;
+                ancestor.auraManaRegen = 1f;
+                ancestor.auraRadius = 3f;
+                ancestor.action = ItemAction.ChopTree;
+                ancestor.cooldown = 4f;
+                ancestor.abilities = new[] { new ItemAbility { name = "Ancestor Ability", active = true } };
+                middle.components = new[] { ancestor };
+                middle.manaRegenBonus = 1.5f;
+                middle.moveSpeedBonus = 0.45f;
+                middle.auraManaRegen = 2f;
+                middle.auraRadius = 8f;
+                crafted.components = new[] { middle };
+                crafted.manaRegenBonus = 1.5f;
+                var wallet = go.AddComponent<HeroInventory>();
+                wallet.ApplyRemoteState(0, new[] { (crafted, 0) });
+
+                Assert.AreEqual(250f, wallet.ManaBonus);
+                Assert.AreEqual(3.8f, wallet.ManaRegenBonus, 0.001f);
+                Assert.AreEqual(0.45f, crafted.MoveSpeedBonus);
+                Assert.AreEqual(1f, crafted.StrengthBonus);
+                Assert.AreEqual(3f, crafted.AgilityBonus);
+                Assert.AreEqual(2f, crafted.IntelligenceBonus);
+                Assert.AreEqual(2.75f, wallet.CastRangeBonus);
+                Assert.AreEqual(16f, crafted.HeroDamageBonus);
+                Assert.AreEqual(4f, crafted.CreepDamageBonus);
+                Assert.AreEqual(0.13f, wallet.KillManaSteal);
+                Assert.AreSame(ancestor, crafted.Active);
+                Assert.AreSame(ancestor, crafted.AbilitySources.Single().source);
+                Assert.AreEqual(4f, wallet.CooldownOf(wallet.SlotOf(crafted)));
+                CollectionAssert.AreEquivalent(new[] { middle, ancestor }, wallet.AuraSourcesWithin(2f));
+                CollectionAssert.AreEqual(new[] { middle }, wallet.AuraSourcesWithin(5f));
+                Assert.AreEqual(3f, wallet.AuraManaRegenWithin(2f));
+                Assert.AreEqual(2f, wallet.AuraManaRegenWithin(5f), "a narrow ancestor aura must not acquire a wider descendant radius");
+                Assert.AreEqual(0f, wallet.AuraManaRegenWithin(9f));
+
+                ancestor.manaBonus = 300f;
+                ancestor.manaRegenBonus = 1f;
+                Assert.AreEqual(300f, wallet.ManaBonus, "ancestor changes must propagate without copying stats to descendants");
+                Assert.AreEqual(4f, wallet.ManaRegenBonus);
+                StringAssert.Contains("+300 к мане", ItemDescription.Bonuses(crafted, false));
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(crafted);
+                Object.DestroyImmediate(middle);
+                Object.DestroyImmediate(ancestor);
+            }
+        }
+
+        [Test]
+        public void ArcaneBootsUseTheRingsAuraSourceInGameplayAndDescriptions()
+        {
+            var items = NetPrefabs.Load().catalog;
+            var boots = items.Single(i => i.displayName == "Arcane Boots");
+            var ring = items.Single(i => i.displayName == "Ring of Basilius");
+            var go = new GameObject("AuraSourceHero");
+            go.SetActive(false);
+            go.transform.position = new Vector3(10000f, 0f, 10000f);
+            var wallet = go.AddComponent<HeroInventory>();
+            var hero = go.AddComponent<Pudge>();
+            var canvas = new GameObject("AuraSourceTooltip", typeof(RectTransform), typeof(Canvas));
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            try
+            {
+                go.SetActive(true);
+                wallet.ApplyRemoteState(0, new[] { (boots, 0) });
+                Assert.AreSame(ring, wallet.AuraSourcesWithin(0f).Single());
+                Assert.AreEqual(ring.auraManaRegen, hero.AuraManaRegen);
+                Assert.AreEqual(hero.manaRegen + boots.ManaRegenBonus + ring.auraManaRegen, hero.ManaRegen, 0.001f);
+                var effects = new List<UnitEffect>();
+                hero.Effects(effects);
+                Assert.AreSame(ring, effects.Single().item, "the aura icon and effect must refer to Ring of Basilius");
+                Assert.AreEqual("Basilius Aura", effects.Single().name);
+
+                var presenter = ShopUI.CreateDescriptions((RectTransform)canvas.transform, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
+                presenter.ShowTooltip(boots, -1, (RectTransform)canvas.transform);
+                StringAssert.Contains("Унаследовано от: Ring of Basilius", presenter.TooltipText);
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+                Object.DestroyImmediate(go);
+            }
         }
 
         [UnityTest]

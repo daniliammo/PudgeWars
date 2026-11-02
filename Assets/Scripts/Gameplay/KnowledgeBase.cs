@@ -165,6 +165,12 @@ namespace PudgeWars.Gameplay
                         var link = Button(box, $"{Kind(skill)}: {skill.title}  →", 48f, () => Select(skill));
                         link.GetComponent<Image>().color = Color.clear;
                         link.GetComponentInChildren<Text>().color = skill.kind == KnowledgeKind.Active ? Blue : Gold;
+                        if (skill.item != entry.item)
+                        {
+                            var source = entries.First(e => e.kind == KnowledgeKind.Item && e.item == skill.item);
+                            var origin = Button(box, $"Унаследовано от: {source.title}  →", 42f, () => Select(source));
+                            origin.GetComponentInChildren<Text>().color = Muted;
+                        }
                         Paragraph(box, skill.description, 22, Ink);
                         if (!string.IsNullOrEmpty(skill.numbers)) Paragraph(box, skill.numbers, 21, Blue);
                     }
@@ -175,8 +181,12 @@ namespace PudgeWars.Gameplay
                 if (components.Count > 0)
                 {
                     Section(article, "СОСТАВ ПРЕДМЕТА");
+                    Paragraph(article, "Характеристики и способности компонентов наследуются по всей цепочке сборки. В итоговых характеристиках выше они уже учтены.", 22, Muted);
                     foreach (var component in components)
+                    {
                         EntryButton(article, component, 76f, () => Select(component), parts.Count(p => p == component.item));
+                        if (!string.IsNullOrWhiteSpace(component.numbers)) Paragraph(article, component.numbers, 21, Muted);
+                    }
                 }
                 var upgrades = entry.related.Where(e => e.kind == KnowledgeKind.Item && !parts.Contains(e.item)).ToList();
                 if (upgrades.Count > 0)
@@ -198,6 +208,11 @@ namespace PudgeWars.Gameplay
             {
                 Section(article, entry.kind == KnowledgeKind.Hero ? "СПОСОБНОСТИ ГЕРОЯ" : "ИСТОЧНИК СПОСОБНОСТИ");
                 foreach (var link in entry.related) EntryButton(article, link, 84f, () => Select(link));
+            }
+            if (entry.inheritors.Count > 0)
+            {
+                Section(article, "НАСЛЕДУЕТСЯ ПРЕДМЕТАМИ");
+                foreach (var inheritor in entry.inheritors) EntryButton(article, inheritor, 84f, () => Select(inheritor));
             }
             Canvas.ForceUpdateCanvases();
             LayoutRebuilder.ForceRebuildLayoutImmediate(article);

@@ -138,19 +138,19 @@ namespace PudgeWars.Gameplay
             }
         }
 
-        /// <summary>The items whose Basilius Aura reaches <paramref name="distance"/> metres.</summary>
+        /// <summary>The original aura definitions reaching this distance, including ancestors of equipped items.</summary>
         public IEnumerable<ItemDef> AuraSourcesWithin(float distance)
         {
             foreach (var item in owned)
-                if (item.AuraManaRegen > 0f && distance <= item.AuraRadius) yield return item;
+            foreach (var source in item.AuraSources)
+                if (distance <= source.auraRadius) yield return source;
         }
 
         /// <summary>The Basilius Auras of the items reaching <paramref name="distance"/> metres, all together (0 if none does).</summary>
         public float AuraManaRegenWithin(float distance)
         {
             float sum = 0f;
-            foreach (var item in owned)
-                if (item.AuraManaRegen > 0f && distance <= item.AuraRadius) sum += item.AuraManaRegen;
+            foreach (var source in AuraSourcesWithin(distance)) sum += source.auraManaRegen;
             return sum;
         }
 
@@ -447,7 +447,7 @@ namespace PudgeWars.Gameplay
                 case ItemAction.EatTree:
                     bool planted = TerrainTrees.IsPlanted(tree);
                     trees.Fell(tree, transform.position);
-                    if (self != null) self.AddRegen(use.regenBonus * (planted ? use.plantedTreeBonus : 1f), use.regenDuration, item);
+                    if (self != null) self.AddRegen(use.regenBonus * (planted ? use.plantedTreeBonus : 1f), use.regenDuration, use);
                     break;
                 case ItemAction.ChopTree:
                     trees.Fell(tree, transform.position);

@@ -28,7 +28,8 @@ namespace PudgeWars.Gameplay
                 if (item.CastRangeBonus > 0f) lines.Add($"+{(item.CastRangeBonus * 100f).ToString("0", ci)} к дальности способностей");
                 if (item.HeroDamageBonus > 0f) lines.Add($"+{item.HeroDamageBonus.ToString("0", ci)} урона по героям");
                 if (item.CreepDamageBonus > 0f) lines.Add($"+{item.CreepDamageBonus.ToString("0", ci)} урона по крипам");
-                if (item.AuraManaRegen > 0f) lines.Add($"Аура: +{item.AuraManaRegen.ToString("0.##", ci)} маны в секунду союзникам в радиусе {(item.AuraRadius * 100f).ToString("0", ci)}");
+                foreach (var source in item.AuraSources)
+                    lines.Add($"Аура ({source.displayName}): +{source.auraManaRegen.ToString("0.##", ci)} маны в секунду союзникам в радиусе {(source.auraRadius * 100f).ToString("0", ci)}");
                 if (item.KillManaSteal > 0f) lines.Add($"Вампиризм маны: {(item.KillManaSteal * 100f).ToString("0.#", ci)} % маны убитого и сверх того его реген маны в секунду");
             }
             return string.Join("\n", lines);
