@@ -86,7 +86,11 @@ namespace PudgeWars.Tests
                     yield return null;
                     Assert.Greater(glow.Strength, 0.99f);
                     Assert.Greater(glow.Tint.r, glow.Tint.g, "enemies must glow red");
-                    Assert.IsTrue(bot.transform.Find("NightGlow").GetComponent<Light>().enabled);
+                    Assert.IsEmpty(bot.transform.Find("NightGlow").GetComponentsInChildren<SkinnedMeshRenderer>(),
+                        "night glow must stay under the feet, without a shell over the model");
+                    Assert.IsEmpty(bot.transform.Find("NightGlow").GetComponentsInChildren<Light>(),
+                        "the team ring must not flood the model with coloured light");
+                    Assert.IsTrue(bot.transform.Find("NightGlow").GetComponent<MeshRenderer>().enabled);
                 }
                 bot.team = LocalPlayer.Team;
                 yield return null;
@@ -98,7 +102,7 @@ namespace PudgeWars.Tests
                     yield return null;
                     yield return null;
                     Assert.AreEqual(0f, glow.Strength);
-                    Assert.IsFalse(bot.transform.Find("NightGlow").GetComponent<Light>().enabled);
+                    Assert.IsFalse(bot.transform.Find("NightGlow").GetComponent<MeshRenderer>().enabled);
                 }
                 GraphicsQuality.Set(GraphicsPreset.High);
                 arena.ApplyRemoteMatchTime(300f);
@@ -116,6 +120,42 @@ namespace PudgeWars.Tests
                 bot.team = team;
                 GraphicsQuality.Set(preset);
             }
+        }
+
+        [UnityTest]
+        public IEnumerator ManaEffectsLightTheirRecipientAndAimLightsOnlyAtNight()
+        {
+            var burst = Object.FindAnyObjectByType<ManaBurst>();
+            Assert.IsNotNull(burst);
+            burst.PlayMango(player);
+            yield return new WaitForSeconds(0.2f);
+            var mangoLight = player.GetComponentsInChildren<Light>().First(light => light.name == "ManaLight");
+            Assert.IsTrue(mangoLight.enabled);
+            Assert.Greater(mangoLight.intensity, 10f, "the mango flash must visibly illuminate the ground");
+            Assert.AreEqual(player.transform.position.y + 0.72f, mangoLight.transform.position.y, 0.1f);
+            Assert.Greater(mangoLight.color.b, mangoLight.color.r);
+            yield return new WaitForSeconds(burst.mangoDuration + 0.1f);
+            Assert.IsTrue(mangoLight == null, "mango light must disappear with the effect");
+            burst.Play(player, 8f);
+            yield return new WaitForSeconds(0.2f);
+            Assert.IsTrue(player.GetComponentsInChildren<Light>().Any(light => light.name == "ManaLight" && light.enabled && light.intensity > 0f),
+                "restoring mana must illuminate its recipient");
+
+            var aim = player.GetComponent<PlayerInputController>().aimIndicator;
+            arena.ApplyRemoteMatchTime(0f);
+            aim.Show(hook.AimStart, Vector3.forward, hook.AimLength, hook.HitWidth);
+            Assert.IsTrue(aim.GetComponentsInChildren<Light>().Any(light => light.enabled), "night aim must illuminate the ground");
+            foreach (var halo in aim.GetComponentsInChildren<LineRenderer>().Where(line => line.name == "AimHalo"))
+                Assert.LessOrEqual(halo.startWidth, aim.left.startWidth * 2f, "night halo must keep the aim thin");
+            arena.ApplyRemoteMatchTime(300f);
+            yield return null;
+            yield return null;
+            Assert.IsFalse(aim.GetComponentsInChildren<Light>().Any(light => light.enabled), "day aim must not emit light");
+            Assert.IsTrue(aim.left.enabled && aim.right.enabled, "daylight must keep the normal aim lines");
+            arena.ApplyRemoteMatchTime(0f);
+            aim.Show(hook.AimStart, Vector3.forward, hook.AimLength, hook.HitWidth);
+            aim.Hide();
+            Assert.IsFalse(aim.GetComponentsInChildren<Light>().Any(light => light.enabled), "hiding the aim must turn its lights off immediately");
         }
 
         [UnityTest]

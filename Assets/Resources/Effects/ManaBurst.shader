@@ -131,7 +131,10 @@ Shader "PudgeWars/ManaBurst"
                 float2 cell = float2(angle * 40, d * 10 - t * 9);
                 float drop = step(0.9, Hash(floor(cell))) * smoothstep(0.45, 0, length(frac(cell) - 0.5)) * step(d, reach + 0.1);
                 float core = exp(-pow(d / 0.22, 2)) * 0.8;
-                float shape = (petal * 0.55 + vein * 0.9 + edge + drop * 1.4 + core) * fade;
+                // A broad, soft pool of blue light makes the flash readable on the ground.
+                float groundGlow = exp(-d * d * 4.5) * 0.65 * smoothstep(0, 0.06, t)
+                                   * (1 - smoothstep(0.18, 1, t)) * (1 - smoothstep(0.75, 1, d));
+                float shape = (petal * 0.55 + vein * 0.9 + edge + drop * 1.4 + core) * fade + groundGlow;
                 return lerp(_Color.rgb, _Core.rgb, saturate(vein + drop + core)) * shape;
             }
 
@@ -149,7 +152,9 @@ Shader "PudgeWars/ManaBurst"
                 float marks = smoothstep(0.03, 0, abs(frac(angle * 6 - _Time.y * 0.35) - 0.5) - 0.01)
                               * smoothstep(0.56, 0.5, d) * smoothstep(0.3, 0.36, d);
                 float core = exp(-pow(d / 0.32, 2)) * 0.6;
-                float shape = (outer + inner * 0.8 + dashes * 0.8 + marks * 0.9 + core) * fade;
+                float groundGlow = exp(-d * d * 4.5) * 0.35 * smoothstep(0, 0.06, t)
+                                   * (1 - smoothstep(0.18, 1, t)) * (1 - smoothstep(0.75, 1, d));
+                float shape = (outer + inner * 0.8 + dashes * 0.8 + marks * 0.9 + core) * fade + groundGlow;
                 return lerp(_Color.rgb, _Core.rgb, saturate(outer + core)) * shape;
             }
 

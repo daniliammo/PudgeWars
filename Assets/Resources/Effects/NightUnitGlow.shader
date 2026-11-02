@@ -10,7 +10,8 @@ Shader "PudgeWars/NightUnitGlow"
             Blend One One
             ZWrite Off
             ZTest LEqual
-            Cull Back
+            Cull Off
+            Offset -1, -1
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -19,28 +20,25 @@ Shader "PudgeWars/NightUnitGlow"
             CBUFFER_START(UnityPerMaterial)
                 half4 _GlowColor;
             CBUFFER_END
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; };
-            struct Varyings
-            {
-                float4 positionCS : SV_POSITION;
-                float3 positionWS : TEXCOORD0;
-                half3 normalWS : TEXCOORD1;
-                half fog : TEXCOORD2;
-            };
+            struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; };
+            struct Varyings { float4 positionCS : SV_POSITION; float2 uv : TEXCOORD0; half fog : TEXCOORD1; };
             Varyings vert(Attributes input)
             {
                 Varyings output;
-                output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
-                output.positionCS = TransformWorldToHClip(output.positionWS);
-                output.normalWS = TransformObjectToWorldNormal(input.normalOS);
+                output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
+                output.uv = input.uv;
                 output.fog = ComputeFogFactor(output.positionCS.z);
                 return output;
             }
             half4 frag(Varyings input) : SV_Target
             {
-                half facing = saturate(dot(normalize(input.normalWS), GetWorldSpaceNormalizeViewDir(input.positionWS)));
-                half rim = (1.0h - facing) * (1.0h - facing);
-                half3 glow = _GlowColor.rgb * (0.12h + rim * 0.88h);
+                float radius = length(input.uv);
+                float edge = 1.0 - smoothstep(0.82, 1.0, radius);
+                float ringDistance = (radius - 0.65) / 0.055;
+                float haloDistance = (radius - 0.65) / 0.19;
+                float ring = exp(-ringDistance * ringDistance) * 0.65;
+                float halo = exp(-haloDistance * haloDistance) * 0.22;
+                half3 glow = _GlowColor.rgb * (ring + halo) * edge;
                 return half4(MixFogColor(glow, half3(0, 0, 0), input.fog), 1);
             }
             ENDHLSL

@@ -50,6 +50,8 @@ namespace PudgeWars.Gameplay
             public Transform transform;
             public MeshRenderer renderer;
             public Shape shape;
+            public Light light;
+            public float lightIntensity;
             public Vector3 size; // the scale it was made with: the helix narrows from it, the circle springs to it
             public float narrowTo; // the share of its radius a helix ends at
             public float start, duration;
@@ -76,7 +78,16 @@ namespace PudgeWars.Gameplay
 
         void OnEnable() => HeroInventory.AnyUsed += OnUsed;
 
-        void OnDisable() => HeroInventory.AnyUsed -= OnUsed;
+        void OnDisable()
+        {
+            HeroInventory.AnyUsed -= OnUsed;
+            foreach (var piece in pieces)
+            {
+                if (piece.light != null) piece.light.enabled = false;
+                if (piece.transform != null) Destroy(piece.transform.gameObject);
+            }
+            pieces.Clear();
+        }
 
         void OnUsed(HeroInventory owner, ItemDef item, Unit target)
         {
@@ -163,7 +174,21 @@ namespace PudgeWars.Gameplay
             block.SetFloat(ProgressId, 0f);
             renderer.SetPropertyBlock(block);
             renderer.enabled = delay <= 0f;
+            // One light per recipient, rather than one for every overlapping strand.
+            Light light = null;
+            if (shape == Shape.Runes || shape == Shape.Petals)
+            {
+                var lamp = new GameObject("ManaLight");
+                lamp.transform.SetParent(go.transform, false);
+                light = lamp.AddComponent<Light>();
+                light.type = LightType.Point;
+                light.color = color ?? new Color(0.25f, 0.65f, 1f);
+                light.range = shape == Shape.Petals ? 6f : 5f;
+                light.shadows = LightShadows.None;
+                light.enabled = false;
+            }
             pieces.Add(new Piece { transform = go.transform, renderer = renderer, shape = shape, size = scale,
+                light = light, lightIntensity = intensity * (shape == Shape.Petals ? 6f : 4f),
                 narrowTo = narrowTo >= 0f ? narrowTo : helixRadius.y / Mathf.Max(0.01f, helixRadius.x), start = Time.time + delay, duration = duration });
         }
 
@@ -185,6 +210,13 @@ namespace PudgeWars.Gameplay
                     continue;
                 }
                 piece.renderer.enabled = t >= 0f;
+                if (piece.light != null)
+                {
+                    piece.light.enabled = t >= 0f;
+                    piece.light.transform.position = piece.transform.position + Vector3.up * 0.65f;
+                    float pulse = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / 0.08f)) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.18f, 1f, t)));
+                    piece.light.intensity = piece.lightIntensity * pulse;
+                }
                 if (t < 0f) continue;
                 float eased = 1f - (1f - t) * (1f - t);
                 if (piece.shape == Shape.Helix)
