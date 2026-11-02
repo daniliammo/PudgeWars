@@ -3,7 +3,7 @@ using UnityEngine.Rendering;
 
 namespace PudgeWars.Gameplay
 {
-    /// <summary>A short translucent mana ribbon from Clarity's giver to its recipient, including network item events.</summary>
+    /// <summary>Clarity's translucent mana ribbon: a link to an ally or a rising spiral on self use, including network events.</summary>
     public class ClarityLink : MonoBehaviour
     {
         const float Duration = 0.85f;
@@ -14,7 +14,8 @@ namespace PudgeWars.Gameplay
         Transform giver, recipient;
         MaterialPropertyBlock properties;
         float started;
-        bool counted;
+        bool counted, selfUse;
+        float Lifetime => selfUse ? 1.2f : Duration;
 
         public static int ActiveCount { get; private set; }
         public static Transform LastGiver { get; private set; }
@@ -39,15 +40,17 @@ namespace PudgeWars.Gameplay
         {
             // Only the listener subscribes in practice; individual ribbons ignore all use events.
             if (this != listener || owner == null || target == null || item == null ||
-                item.Active?.action != ItemAction.Replenish || target.gameObject == owner.gameObject) return;
+                item.Active?.action != ItemAction.Replenish) return;
             if (material == null)
             {
                 var shader = Resources.Load<Shader>("Effects/ClarityLink");
                 if (shader == null) return;
                 material = new Material(shader) { name = "ClarityLink", hideFlags = HideFlags.HideAndDontSave };
             }
-            var go = new GameObject("ClarityLink");
+            bool selfUse = target.gameObject == owner.gameObject;
+            var go = new GameObject(selfUse ? "ClaritySelf" : "ClarityLink");
             var link = go.AddComponent<ClarityLink>();
+            link.selfUse = selfUse;
             link.giver = owner.transform;
             link.recipient = target.transform;
             link.started = Time.time;
@@ -56,7 +59,7 @@ namespace PudgeWars.Gameplay
             link.ribbon.sharedMaterial = material;
             link.ribbon.useWorldSpace = true;
             link.ribbon.positionCount = Segments + 1;
-            link.ribbon.widthMultiplier = 0.28f;
+            link.ribbon.widthMultiplier = selfUse ? 0.38f : 0.28f;
             link.ribbon.alignment = LineAlignment.View;
             link.ribbon.textureMode = LineTextureMode.Stretch;
             link.ribbon.shadowCastingMode = ShadowCastingMode.Off;
@@ -73,7 +76,7 @@ namespace PudgeWars.Gameplay
         void Update()
         {
             if (this == listener) return;
-            if (giver == null || recipient == null || Time.time - started >= Duration)
+            if (giver == null || recipient == null || Time.time - started >= Lifetime)
             {
                 Destroy(gameObject);
                 return;
@@ -83,13 +86,23 @@ namespace PudgeWars.Gameplay
 
         void UpdateRibbon()
         {
-            float progress = Mathf.Clamp01((Time.time - started) / Duration);
+            float progress = Mathf.Clamp01((Time.time - started) / Lifetime);
             var from = giver.position + Vector3.up * 1.1f;
             var to = recipient.position + Vector3.up * 1.1f;
             var across = Vector3.Cross((to - from).normalized, Vector3.up);
             for (int i = 0; i <= Segments; i++)
             {
                 float t = (float)i / Segments;
+                if (selfUse)
+                {
+                    // Two turns rise from the feet, closing gently towards the body as the magic fades.
+                    float angle = t * Mathf.PI * 4f - progress * Mathf.PI * 2f;
+                    float radius = Mathf.Lerp(0.85f, 0.55f, t) * Mathf.Lerp(1f, 0.8f, progress);
+                    var spiral = new Vector3(Mathf.Cos(angle) * radius, 0.12f + t * 2.1f + progress * 0.3f,
+                        Mathf.Sin(angle) * radius);
+                    ribbon.SetPosition(i, recipient.position + spiral);
+                    continue;
+                }
                 float envelope = Mathf.Sin(t * Mathf.PI);
                 var at = Vector3.Lerp(from, to, t) + Vector3.up * (envelope * 0.35f);
                 at += across * (Mathf.Sin(t * 15f - progress * 9f) * envelope * 0.045f);

@@ -2904,7 +2904,7 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
-        public IEnumerator ClarityPlaysSoundAndLinksOnlyAnAlliedRecipientThenFades()
+        public IEnumerator ClarityPlaysSoundSpiralsOnSelfAndLinksAnAlliedRecipientThenFades()
         {
             var item = TestItem(ItemAction.Replenish, 50, 1, stacks: true, range: 2.5f);
             item.regenBonus = 6f;
@@ -2926,10 +2926,13 @@ namespace PudgeWars.Tests
                 int sounds = WorldAudio.Played, links = ClarityLink.ActiveCount;
                 Assert.IsTrue(inventory.TryUse(inventory.SlotOf(item), player.transform.position, HeroInventory.NoTree, player));
                 Assert.AreEqual(sounds + 1, WorldAudio.Played, "self use must play Clarity sound");
-                Assert.AreEqual(links, ClarityLink.ActiveCount, "self use must not draw a link");
+                Assert.AreEqual(links + 1, ClarityLink.ActiveCount, "self use must create a magic spiral");
+                var spiral = Object.FindObjectsByType<LineRenderer>().Single(l => l.name == "ClaritySelf");
+                Assert.AreEqual("PudgeWars/ClarityLink", spiral.sharedMaterial.shader.name);
+                Assert.Greater(spiral.bounds.size.y, 2f, "the spiral must wrap the hero, not collapse to a point");
                 Assert.IsTrue(inventory.TryUse(inventory.SlotOf(item), ally.transform.position, HeroInventory.NoTree, ally));
                 Assert.AreEqual(sounds + 2, WorldAudio.Played);
-                Assert.AreEqual(links + 1, ClarityLink.ActiveCount);
+                Assert.AreEqual(links + 2, ClarityLink.ActiveCount);
                 Assert.AreEqual(player.transform, ClarityLink.LastGiver);
                 Assert.AreEqual(ally.transform, ClarityLink.LastRecipient);
                 var line = Object.FindObjectsByType<LineRenderer>().Single(l => l.name == "ClarityLink");
@@ -2940,7 +2943,9 @@ namespace PudgeWars.Tests
                 yield return null;
                 Assert.Less(Vector3.Distance(line.GetPosition(0), player.transform.position + Vector3.up * 1.1f), 0.05f);
                 Assert.Less(Vector3.Distance(line.GetPosition(line.positionCount - 1), ally.transform.position + Vector3.up * 1.1f), 0.05f);
-                yield return new WaitForSeconds(1f);
+                Assert.Less(Vector3.Distance(spiral.GetPosition(0), player.transform.position), 1.2f,
+                    "the self spiral must follow the moving hero");
+                yield return new WaitForSeconds(1.3f);
                 Assert.AreEqual(links, ClarityLink.ActiveCount, "finished ribbons must be destroyed");
             }
             finally { Object.Destroy(item); }
