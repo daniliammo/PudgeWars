@@ -6,6 +6,7 @@
 
 | | |
 |---|---|
+| 🛠 GitHub CI подготовлен | `.github/workflows/unity-ci.yml`: PlayMode с графикой, строгая проверка NUnit XML без пропусков, затем Android APK, Linux x86_64 и macOS .app; артефакты и кэш Library. Unity 6000.6.0f1 берётся из ProjectVersion, Mono/архитектуры проекта сохранены. Собираются сохранённые сцены, без генераторов и внешних исходников. Для Unity Personal нужно добавить `UNITY_LICENSE`, `UNITY_EMAIL`, `UNITY_PASSWORD` в GitHub Secrets и отправить workflow в репозиторий. C# компилируется, YAML/shell/проверка XML проверены локально; реальные тесты/сборки Actions не запускались, push не выполнялся. Инструкция — Tools/CI/README.md, подробности — раздел 22 |
 | ✅ Пелена вокруг чисел HP/маны | Для runtime-шрифтов подключён мобильный `Resources/Text/UiSdf.shader`: пустые texels атласа сохраняют нулевую alpha даже у мелких жирных цифр с толстой обводкой. Исчезает причина белёсого/серого прямоугольника поверх полос; без новых текстурных выборок и копий геометрии. GPU-тест расширен на размеры 11/13/16 и масштаб HUD ⅔ с проверкой пустых участков вокруг цифры. C# и структура шейдера проверены, сам GPU-тест пока не запускался — Unity открыт. Для телефона новый APK, сцены пересобирать не нужно. Подробности — раздел 19 |
 | ✅ Build Main Menu без повторного сжатия | `LandscapeBuilder` переимпортирует текстуры земли, деревьев, травы и Dire-декора только при изменении нужных настроек. Для моделей также сравниваются настройки и material remaps. У всех 45 текстур ландшафта сохранённые настройки уже совпадают: при следующем Build Main Menu принудительное сжатие для них пропускается; форматы и Android overrides прежние. C# компилируется; сам сборщик не запускался — Unity открыт. Подробности — раздел 18 |
 | ✅ Исправление почернения TMP | Пользователь сообщил о чёрном интерфейсе и в редакторе, и на Android после перехода на TMP. В `UiFonts.Style` обводка вынесена наружу компенсацией Face Dilate, цвет материала белый; оригинальные цвета 60 надписей арены перенесены в TMP-поле, инспектор редактирует его же. В логе найден уничтоженный атлас при быстром входе в Play: добавлены сброс/перепривязка живых надписей, защита атласа и владение ресурсами через TMP_FontAsset. C# компилируется; GPU/PlayMode пока не прогонялись — Unity открыт. Запустить `SdfTextTests`; затем проверить новый APK. Сцены пересобирать не нужно. Подробности — раздел 17 |
@@ -834,3 +835,48 @@ LoadingProgressTests, GraphicsWarmupTests, MenuTests. Для проверки п
 
 Основание: [Unity — порядок runtime initialization](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/RuntimeInitializeOnLoadMethodAttribute.html)
 и [параметры системной заставки](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/PlayerSettings.SplashScreen.html).
+
+## 22. GitHub Actions: PlayMode и Android/Linux/macOS (2026-11-03)
+
+Для публичного daniliammo/PudgeWars подготовлен workflow unity-ci.yml с GameCI v4.
+Push в main и ручной workflow_dispatch запускают тесты, затем сборки; PR из своей ветки
+запускает тесты. Fork PR пропускает Unity job, поскольку секреты туда не выдаются.
+Токен workflow имеет только contents: read; результаты загружаются как artifacts без
+создания check-run сторонним action. Обычные jobs имеют лимиты времени и отменяются
+при новом запуске на той же ветке. Build matrix последовательная, чтобы не активировать
+одну Personal лицензию параллельно внутри сборок.
+
+Тестовый job использует OpenGL (-force-glcore), без -nographics, и отключает coverage,
+который проект не настраивал. Tools/CI/check_test_results.py требует реальный непустой
+NUnit XML, все test-case Passed и наличие тестов начальной загрузки, GPU warmup и SDF.
+Failed/Skipped/отсутствующий графический контекст не считаются успешным прогоном.
+Программная графика hosted runner не измеряет FPS телефона и не проверяет запуск
+скомпилированных игроков на Android/macOS. XML и логи сохраняются при ошибке тоже.
+
+CiBuild.Build берёт enabled сцены EditorBuildSettings, проверяет Boot первой и наличие
+Menu/Arena, запускает BuildPipeline как обычный Player и проверяет BuildReport.
+Сцены/ландшафт не пересобираются. Mono и архитектуры сохранены; для Android выбирается APK.
+Ubuntu 24.04 собирает Android и StandaloneLinux64; macos-15-intel — StandaloneOSX.
+Кэш Library разделён по тестам/OS/платформе и хэшу Assets/Packages/ProjectSettings.
+Перед Linux jobs удаляются ненужные host SDK, а не SDK внутри Unity Docker-образа.
+Linux упаковывается tar.gz для сохранения executable bits, .app — ditto ZIP.
+Сборки и тестовые артефакты хранятся 7 дней. Это проверочные клиенты: Android с обычной
+подписью проекта/debug keystore, macOS без Apple notarization. Release/магазины не настраивались.
+
+Unity Personal подтверждена пользователем. По актуальной инструкции GameCI нужно добавить
+Repository Secrets UNITY_LICENSE (содержимое .ulf), UNITY_EMAIL и UNITY_PASSWORD.
+Локальный стандартный файл .ulf существует; его содержимое не читалось/не печаталось и
+в GitHub автоматически не отправлялось. Tools/CI/README.md содержит настройку, ограничения
+активации Personal, результаты, триггеры и диагностику. Секреты не входят в workflow/коммит.
+
+Проверено: Tools/Check/compile.py — Editor/игра/PlayMode C# собирается; YAML структуры,
+матрица и зависимость needs: tests, shell-блоки bash -n; валидатор XML на Passed, Failed,
+Skipped, отсутствующих обязательных тестах и пустом отчёте. Реальный запуск Actions,
+активация лицензии, загрузка образов и три платформенные сборки пока не проверены:
+секреты не настраивались, git push не выполнялся. Unity локально не запускался — редактор открыт.
+Пользовательские изменения пакетов, Build Profiles и других ассетов не включены в эту работу.
+
+Источники: [GameCI activation](https://game.ci/docs/github/activation/),
+[GameCI test runner](https://game.ci/docs/github/test-runner/),
+[GameCI builder](https://game.ci/docs/github/builder/),
+[GitHub hosted runners](https://docs.github.com/en/actions/reference/runners/github-hosted-runners).

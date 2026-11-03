@@ -1,0 +1,167 @@
+name: Unity tests and builds
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unity-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: PlayMode tests (with graphics)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # Fork PRs have no repository secrets. Run their Unity checks after reviewing and copying the branch.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Unity Personal activation secrets
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          for name in UNITY_LICENSE UNITY_EMAIL UNITY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository secret: $name. See Tools/CI/README.md."
+              exit 1
+            fi
+          done
+      - name: Make room for the Unity container
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-tests-${{ runner.os }}-${{ hashFiles('ProjectSettings/**', 'Packages/**', 'Assets/**') }}
+          restore-keys: |
+            Library-tests-${{ runner.os }}-
+      - name: Run all PlayMode tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: auto
+          testMode: playmode
+          coverageEnabled: false
+          artifactsPath: artifacts/tests
+          customParameters: -force-glcore
+          # Results are uploaded below; the workflow does not need checks:write permission.
+          githubToken: ''
+      - name: Require real test execution, including graphics tests
+        if: always()
+        run: python3 Tools/CI/check_test_results.py artifacts/tests
+      - name: Upload test results and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playmode-results
+          path: artifacts/tests
+          if-no-files-found: warn
+          retention-days: 7
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: tests
+    if: github.event_name != 'pull_request'
+    strategy:
+      fail-fast: false
+      # Avoid simultaneous activations of the same Personal license in build jobs.
+      max-parallel: 1
+      matrix:
+        include:
+          - platform: Android
+            runner: ubuntu-24.04
+            output: build/Android/PudgeWars.apk
+            artifact: android-apk
+          - platform: StandaloneLinux64
+            runner: ubuntu-24.04
+            output: build/StandaloneLinux64/PudgeWars.x86_64
+            artifact: linux-x86_64
+          - platform: StandaloneOSX
+            runner: macos-15-intel
+            output: build/StandaloneOSX/PudgeWars.app
+            artifact: macos
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room for the Unity container
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: false
+          swap-storage: false
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-build-${{ runner.os }}-${{ matrix.platform }}-${{ hashFiles('ProjectSettings/**', 'Packages/**', 'Assets/**') }}
+          restore-keys: |
+            Library-build-${{ runner.os }}-${{ matrix.platform }}-
+      - name: Build saved scenes
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          unityVersion: auto
+          targetPlatform: ${{ matrix.platform }}
+          buildMethod: PudgeWars.EditorTools.CiBuild.Build
+          buildName: PudgeWars
+          buildsPath: build
+          versioning: None
+          customParameters: -ciOutputPath ${{ matrix.output }}
+          androidExportType: androidPackage
+      - name: Package Android APK
+        if: matrix.platform == 'Android'
+        run: |
+          mkdir -p artifacts/build
+          cp build/Android/PudgeWars.apk artifacts/build/PudgeWars.apk
+      - name: Package Linux player with executable permissions
+        if: matrix.platform == 'StandaloneLinux64'
+        run: |
+          mkdir -p artifacts/build
+          tar -czf artifacts/build/PudgeWars-linux-x86_64.tar.gz -C build/StandaloneLinux64 .
+      - name: Package macOS app with its bundle metadata
+        if: matrix.platform == 'StandaloneOSX'
+        run: |
+          mkdir -p artifacts/build
+          ditto -c -k --sequesterRsrc --keepParent build/StandaloneOSX/PudgeWars.app artifacts/build/PudgeWars-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: artifacts/build
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload build logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.artifact }}
+          path: |
+            build/**/*.log
+            Logs/Editor.log
+          if-no-files-found: ignore
+          retention-days: 7

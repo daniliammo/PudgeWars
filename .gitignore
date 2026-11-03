@@ -37,3 +37,6 @@ Tools/**/bin/
 Tools/**/obj/
 __pycache__/
 /.utmp
+
+# CI output
+/artifacts/
