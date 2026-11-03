@@ -79,6 +79,58 @@ namespace PudgeWars.Tests
                         "The surrounding panel must retain its color.");
                 }
 
+                // Actual HP/mana sizes use bold Latin digits. Empty glyph padding must show the original bar,
+                // including when the 1920x1080 HUD is scaled down on a smaller screen.
+                label.font = Resources.Load<UiFontLibrary>("Text/UiFonts").latin;
+                label.text = "8";
+                label.color = Color.white;
+                label.fontStyle = FontStyle.Bold;
+                label.enabled = false;
+                var panelOnly = Draw();
+                label.enabled = true;
+                int transparentSamples = 0;
+                foreach (float scale in new[] { 1f, 2f / 3f })
+                foreach (int size in new[] { 11, 13, 16 })
+                {
+                    label.rectTransform.localScale = Vector3.one * scale;
+                    label.fontSize = size;
+                    TextOutline.Add(labelGo, size == 16 ? 1.6f : 1.2f, Color.black, size == 16 ? 0.6f : 0.5f);
+                    var pixels = Draw();
+                    transparentSamples += AssertTransparentPadding(pixels, panelOnly, size, scale);
+                }
+                Assert.Greater(transparentSamples, 10, "The test must sample transparent atlas padding.");
+
+                int AssertTransparentPadding(Color32[] pixels, Color32[] background, int size, float scale)
+                {
+                    var character = label.textInfo.characterInfo[0];
+                    var mesh = label.textInfo.meshInfo[character.materialReferenceIndex];
+                    int index = character.vertexIndex;
+                    var bottom = camera.WorldToScreenPoint(label.transform.TransformPoint(mesh.vertices[index]));
+                    var top = camera.WorldToScreenPoint(label.transform.TransformPoint(mesh.vertices[index + 2]));
+                    var uvBottom = mesh.uvs0[index];
+                    var uvTop = mesh.uvs0[index + 2];
+                    var atlas = (Texture2D)label.fontSharedMaterial.mainTexture;
+                    int sampled = 0, biggestDifference = 0;
+                    for (int y = Mathf.Max(0, Mathf.FloorToInt(bottom.y)); y < Mathf.Min(target.height, Mathf.CeilToInt(top.y)); y++)
+                    for (int x = Mathf.Max(0, Mathf.FloorToInt(bottom.x)); x < Mathf.Min(target.width, Mathf.CeilToInt(top.x)); x++)
+                    {
+                        float fx = (x + 0.5f - bottom.x) / (top.x - bottom.x);
+                        float fy = (y + 0.5f - bottom.y) / (top.y - bottom.y);
+                        if (fx < 0f || fx > 1f || fy < 0f || fy > 1f) continue;
+                        float alpha = atlas.GetPixelBilinear(Mathf.Lerp(uvBottom.x, uvTop.x, fx), Mathf.Lerp(uvBottom.y, uvTop.y, fy)).a;
+                        if (alpha > 0.00001f) continue;
+                        int pixel = y * target.width + x;
+                        var actual = pixels[pixel];
+                        var expected = background[pixel];
+                        biggestDifference = Mathf.Max(biggestDifference, Mathf.Abs(actual.r - expected.r),
+                            Mathf.Abs(actual.g - expected.g), Mathf.Abs(actual.b - expected.b));
+                        sampled++;
+                    }
+                    Assert.LessOrEqual(biggestDifference, 4,
+                        $"Empty glyph quads must not put a white/gray veil over the bar (size {size}, scale {scale}).");
+                    return sampled;
+                }
+
                 Color32[] Draw()
                 {
                     Canvas.ForceUpdateCanvases();

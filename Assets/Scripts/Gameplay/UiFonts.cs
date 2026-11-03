@@ -49,6 +49,8 @@ namespace PudgeWars.Gameplay
             if (asset == null) return TMP_Settings.defaultFontAsset;
             asset.name = source.name + " SDF (runtime)";
             asset.hideFlags = HideFlags.HideAndDontSave;
+            // Same mobile SDF layout, with transparent empty texels even on small, thickly outlined labels.
+            if (settings.plain != null) asset.material.shader = settings.plain.shader;
             asset.material.hideFlags = HideFlags.HideAndDontSave;
             foreach (var atlas in asset.atlasTextures) atlas.hideFlags = HideFlags.HideAndDontSave;
             fonts[source] = asset;
