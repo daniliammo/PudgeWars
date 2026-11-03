@@ -345,17 +345,24 @@ namespace PudgeWars.EditorTools
         {
             var texturePath = $"{TerrainDir}/{name}.png";
             var ti = (TextureImporter)AssetImporter.GetAtPath(texturePath);
-            ti.textureType = TextureImporterType.Default;
-            ti.textureShape = TextureImporterShape.Texture2D; // a new image may come in as a cubemap
-            ti.wrapMode = TextureWrapMode.Repeat;
-            ti.mipmapEnabled = true;
-            ti.sRGBTexture = true;
-            ti.SaveAndReimport();
+            if (ti.textureType != TextureImporterType.Default || ti.textureShape != TextureImporterShape.Texture2D
+                || !Repeats(ti) || !ti.mipmapEnabled || !ti.sRGBTexture)
+            {
+                ti.textureType = TextureImporterType.Default;
+                ti.textureShape = TextureImporterShape.Texture2D; // a new image may come in as a cubemap
+                ti.wrapMode = TextureWrapMode.Repeat;
+                ti.mipmapEnabled = true;
+                ti.sRGBTexture = true;
+                ti.SaveAndReimport();
+            }
             if (AssetImporter.GetAtPath($"{TerrainDir}/{name}_normal.png") is TextureImporter normal)
             {
-                normal.textureType = TextureImporterType.NormalMap;
-                normal.wrapMode = TextureWrapMode.Repeat;
-                normal.SaveAndReimport();
+                if (normal.textureType != TextureImporterType.NormalMap || !Repeats(normal))
+                {
+                    normal.textureType = TextureImporterType.NormalMap;
+                    normal.wrapMode = TextureWrapMode.Repeat;
+                    normal.SaveAndReimport();
+                }
             }
             var path = $"{TerrainDir}/{name}.terrainlayer";
             if (AssetDatabase.LoadAssetAtPath<TerrainLayer>(path) == null) AssetDatabase.CreateAsset(new TerrainLayer(), path);
@@ -639,27 +646,43 @@ namespace PudgeWars.EditorTools
                 var path = $"{dir}/{model}.fbx";
                 if (!File.Exists(path)) continue; // a tree Dota cannot cut down has no stump or falling top
                 var mi = (ModelImporter)AssetImporter.GetAtPath(path);
-                mi.globalScale = 1f;
-                mi.useFileScale = true;
-                mi.bakeAxisConversion = true;
-                // as the other models (PudgeAssetImporter): the file's root stays a plain root and the mesh node
-                // keeps its own rotation, which placing the tree must not overwrite
-                mi.preserveHierarchy = true;
-                mi.importNormals = ModelImporterNormals.Import;
-                mi.importTangents = ModelImporterTangents.CalculateMikk;
-                mi.importAnimation = false;
-                mi.importBlendShapes = false;
-                mi.importCameras = false;
-                mi.importLights = false;
-                mi.animationType = ModelImporterAnimationType.None;
-                mi.addCollider = false;
-                mi.isReadable = true; // baked into the terrain's prefabs (Bake); the FBX itself is not in the build
-                mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+                bool changed = mi.globalScale != 1f || !mi.useFileScale || !mi.bakeAxisConversion
+                    || !mi.preserveHierarchy || mi.importNormals != ModelImporterNormals.Import
+                    || mi.importTangents != ModelImporterTangents.CalculateMikk || mi.importAnimation
+                    || mi.importBlendShapes || mi.importCameras || mi.importLights
+                    || mi.animationType != ModelImporterAnimationType.None || mi.addCollider || !mi.isReadable
+                    || mi.materialImportMode != ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+                if (changed)
+                {
+                    mi.globalScale = 1f;
+                    mi.useFileScale = true;
+                    mi.bakeAxisConversion = true;
+                    // Keep the imported mesh node's rotation when placing the file's plain root.
+                    mi.preserveHierarchy = true;
+                    mi.importNormals = ModelImporterNormals.Import;
+                    mi.importTangents = ModelImporterTangents.CalculateMikk;
+                    mi.importAnimation = false;
+                    mi.importBlendShapes = false;
+                    mi.importCameras = false;
+                    mi.importLights = false;
+                    mi.animationType = ModelImporterAnimationType.None;
+                    mi.addCollider = false;
+                    mi.isReadable = true; // baked into terrain prefabs; the FBX itself is not in the build
+                    mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+                }
                 // the FBX material slots are named after the Dota materials, as the textures are
+                var remaps = mi.GetExternalObjectMap();
                 foreach (var slot in AssetDatabase.LoadAllAssetsAtPath(path).OfType<Material>().Select(m => m.name).ToList())
                     if (materials.TryGetValue(slot, out var mat))
-                        mi.AddRemap(new AssetImporter.SourceAssetIdentifier(typeof(Material), slot), mat);
-                mi.SaveAndReimport();
+                    {
+                        var identifier = new AssetImporter.SourceAssetIdentifier(typeof(Material), slot);
+                        if (!remaps.TryGetValue(identifier, out var current) || current != mat)
+                        {
+                            mi.AddRemap(identifier, mat);
+                            changed = true;
+                        }
+                    }
+                if (changed) mi.SaveAndReimport();
             }
         }
 
@@ -667,19 +690,28 @@ namespace PudgeWars.EditorTools
         {
             var ti = (TextureImporter)AssetImporter.GetAtPath(path);
             if (ti == null) return null;
-            ti.textureType = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
-            ti.textureShape = TextureImporterShape.Texture2D; // a new image may come in as a cubemap
-            ti.sRGBTexture = !normal;
-            ti.alphaIsTransparency = false;
-            ti.mipmapEnabled = true;
-            // masked leaves keep their coverage in the smaller mips instead of thinning out with distance
-            ti.mipMapsPreserveCoverage = !normal;
-            ti.alphaTestReferenceValue = LeafCutoff;
-            ti.SaveAndReimport();
+            var type = normal ? TextureImporterType.NormalMap : TextureImporterType.Default;
+            if (ti.textureType != type || ti.textureShape != TextureImporterShape.Texture2D
+                || ti.sRGBTexture != !normal || ti.alphaIsTransparency || !ti.mipmapEnabled
+                || ti.mipMapsPreserveCoverage != !normal || ti.alphaTestReferenceValue != LeafCutoff)
+            {
+                ti.textureType = type;
+                ti.textureShape = TextureImporterShape.Texture2D; // a new image may come in as a cubemap
+                ti.sRGBTexture = !normal;
+                ti.alphaIsTransparency = false;
+                ti.mipmapEnabled = true;
+                // Masked leaves keep their coverage in smaller mips instead of thinning out with distance.
+                ti.mipMapsPreserveCoverage = !normal;
+                ti.alphaTestReferenceValue = LeafCutoff;
+                ti.SaveAndReimport();
+            }
             var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
             if (texture == null) Debug.LogError("[LandscapeBuilder] no 2D texture in " + path);
             return texture;
         }
+
+        static bool Repeats(TextureImporter texture) => texture.wrapModeU == TextureWrapMode.Repeat
+            && texture.wrapModeV == TextureWrapMode.Repeat && texture.wrapModeW == TextureWrapMode.Repeat;
 
         static Material TreeMaterial(string dir, string name, Texture2D color, Texture2D normal, bool twoSided)
         {

@@ -42,7 +42,7 @@ namespace PudgeWars.EditorTools
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
             // every asset first: an import while a terrain data is filled loses what it holds (LandscapeBuilder.PrepareAssets)
-            LandscapeBuilder.PrepareAssets();
+            LandscapeBuilder.PrepareAssets(); // unchanged import settings reuse Unity's compressed artifacts
             var radiantSky = Sky("Sky_Radiant", tint: new Color(0.5f, 0.5f, 0.5f), ground: new Color(0.37f, 0.35f, 0.35f), atmosphere: 1f, exposure: 1.3f);
             var direSky = Sky("Sky_Dire", tint: new Color(0.62f, 0.32f, 0.28f), ground: new Color(0.25f, 0.16f, 0.14f), atmosphere: 1.7f, exposure: 1.1f);
             foreach (var old in new[] { "MenuTerrain_Radiant", "MenuTerrain_Dire" }) // the lands saved before they were drawn at runtime
