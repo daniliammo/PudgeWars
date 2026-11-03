@@ -116,6 +116,10 @@ GameCI-образы именно для версии из ProjectVersion.txt и 
 - Docker manifest not found: проверить, опубликован ли GameCI образ для точной версии Unity.
 - `No space left on device`: проверить место на runner и размер кэшей Library.
 - NUnit XML содержит Failed/Skipped: смотреть `playmode-results`; сборки в этом случае не запускаются.
+  `Unknown error occurred while loading ...Terrain...` сначала проверять через
+  `python3 Tools/CI/check_unity_assets.py`: исправление `.gitattributes` должно быть в checkout,
+  а бинарный TerrainData — пересохранён в Git без нормализации. Повторное создание секрета
+  лицензии уже не поможет, если NUnit действительно исполнил игровые тесты.
 - Ошибка компиляции/модуля платформы: смотреть лог Unity; не менять версию редактора автоматически.
 
 Локальная проверка кода сборщика без закрытия редактора:

@@ -174,7 +174,8 @@ namespace PudgeWars.Tests
                 Assert.AreNotSame(input.textViewport, input.textComponent.rectTransform, "The viewport must not move with the edited text.");
                 Assert.IsFalse(input.richText, "Typed markup must stay literal.");
                 input.text = "aEtHeR lEnS";
-                Assert.AreEqual(1, view.VisibleCount);
+                Assert.AreEqual(2, view.VisibleCount, "Search finds both Aether Lens and its recipe.");
+                view.Select(view.Entries.Single(e => e.kind == KnowledgeKind.Item && e.title == "Aether Lens"));
                 Assert.AreEqual("Aether Lens", view.Selected.title);
                 var part = view.Selected.related.First(e => e.kind == KnowledgeKind.Item);
                 view.Select(part);

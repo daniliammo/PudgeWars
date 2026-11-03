@@ -110,6 +110,7 @@ namespace PudgeWars.Tests
                     var uvBottom = mesh.uvs0[index];
                     var uvTop = mesh.uvs0[index + 2];
                     var atlas = (Texture2D)label.fontSharedMaterial.mainTexture;
+                    var atlasPixels = atlas.GetPixels32();
                     int sampled = 0, biggestDifference = 0;
                     for (int y = Mathf.Max(0, Mathf.FloorToInt(bottom.y)); y < Mathf.Min(target.height, Mathf.CeilToInt(top.y)); y++)
                     for (int x = Mathf.Max(0, Mathf.FloorToInt(bottom.x)); x < Mathf.Min(target.width, Mathf.CeilToInt(top.x)); x++)
@@ -117,8 +118,21 @@ namespace PudgeWars.Tests
                         float fx = (x + 0.5f - bottom.x) / (top.x - bottom.x);
                         float fy = (y + 0.5f - bottom.y) / (top.y - bottom.y);
                         if (fx < 0f || fx > 1f || fy < 0f || fy > 1f) continue;
-                        float alpha = atlas.GetPixelBilinear(Mathf.Lerp(uvBottom.x, uvTop.x, fx), Mathf.Lerp(uvBottom.y, uvTop.y, fy)).a;
-                        if (alpha > 0.00001f) continue;
+                        // A pixel with an empty centre can still cover glyph texels at its MSAA samples.
+                        // Only compare padding when the whole pixel footprint and bilinear filter taps are empty.
+                        float u0 = Mathf.LerpUnclamped(uvBottom.x, uvTop.x, (x - bottom.x) / (top.x - bottom.x));
+                        float u1 = Mathf.LerpUnclamped(uvBottom.x, uvTop.x, (x + 1f - bottom.x) / (top.x - bottom.x));
+                        float v0 = Mathf.LerpUnclamped(uvBottom.y, uvTop.y, (y - bottom.y) / (top.y - bottom.y));
+                        float v1 = Mathf.LerpUnclamped(uvBottom.y, uvTop.y, (y + 1f - bottom.y) / (top.y - bottom.y));
+                        int ax0 = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(u0, u1) * atlas.width - 0.5f), 0, atlas.width - 1);
+                        int ax1 = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(u0, u1) * atlas.width - 0.5f), 0, atlas.width - 1);
+                        int ay0 = Mathf.Clamp(Mathf.FloorToInt(Mathf.Min(v0, v1) * atlas.height - 0.5f), 0, atlas.height - 1);
+                        int ay1 = Mathf.Clamp(Mathf.CeilToInt(Mathf.Max(v0, v1) * atlas.height - 0.5f), 0, atlas.height - 1);
+                        bool empty = true;
+                        for (int ay = ay0; ay <= ay1 && empty; ay++)
+                        for (int ax = ax0; ax <= ax1; ax++)
+                            if (atlasPixels[ay * atlas.width + ax].a != 0) { empty = false; break; }
+                        if (!empty) continue;
                         int pixel = y * target.width + x;
                         var actual = pixels[pixel];
                         var expected = background[pixel];

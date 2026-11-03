@@ -2248,7 +2248,9 @@ namespace PudgeWars.Tests
             Assert.IsNotNull(body, "no body was left by the fall");
             var parts = body.GetComponentsInChildren<Rigidbody>();
             Assert.GreaterOrEqual(parts.Length, 11, "the body is not a ragdoll (belly, chest, head, arms, legs)");
-            Assert.IsTrue(bot.GetComponentsInChildren<Renderer>().All(r => !r.enabled), "the hero is still shown over its body");
+            var model = bot.GetComponentsInChildren<SkinnedMeshRenderer>();
+            Assert.IsNotEmpty(model, "the test must check the character's model");
+            Assert.IsTrue(model.All(r => !r.enabled), "the hero is still shown over its body");
 
             yield return new WaitUntil(() => !bot.IsAlive);
             for (int shot = 0; shot < 6; shot++)
@@ -2262,7 +2264,7 @@ namespace PudgeWars.Tests
 
             yield return new WaitUntil(() => bot.IsAlive);
             Assert.IsNull(bot.Body, "the respawned hero still has a body");
-            Assert.IsTrue(bot.GetComponentsInChildren<Renderer>().All(r => r.enabled), "the respawned hero is not shown");
+            Assert.IsTrue(model.All(r => r.enabled), "the respawned hero is not shown");
             yield return new WaitForSeconds(body.sinkTime + 0.2f);
             Assert.IsTrue(body == null, "the body did not go after the respawn");
             Assert.Greater(BloodSplatter.GroundStainCount, 0, "the blood went with the body");
@@ -2578,6 +2580,8 @@ namespace PudgeWars.Tests
             Assert.Greater(follow.Trauma, 0.5f, "no shake on death");
             Assert.IsNotNull(feedback.reviveSound, "no revive sound (Resources/Audio/revive)");
             Assert.IsTrue(follow.TryGetComponent<AudioSource>(out var revive) && revive.isPlaying, "the revive sound did not start at the death");
+            double reviveDspStarted = AudioSettings.dspTime;
+            float revivePosition = revive.time;
             yield return new WaitForSeconds(feedback.greyIn + 0.2f);
             Assert.Greater(feedback.BloodAlpha, 0.3f, "no red at the sides after death");
             Assert.AreEqual(1f, feedback.GreyWeight, 0.01f, "the picture did not lose its colour");
@@ -2589,8 +2593,15 @@ namespace PudgeWars.Tests
             while (!player.IsAlive && t < arena.respawnDelay + 2f) { t += Time.deltaTime; yield return null; }
             Assert.IsTrue(player.IsAlive, "the player did not respawn");
             Assert.AreEqual(arena.respawnDelay, Time.time - diedAt, 0.2f, "the respawn delay");
-            Assert.IsTrue(revive.isPlaying, "the revive sound stopped before the respawn");
-            Assert.AreEqual(feedback.reviveLead, revive.time, 0.25f, "the hero is not back on the revive sound's 3rd second");
+            // Audio follows the DSP clock; slow rendered frames can make more audio time pass than game time.
+            float audioPosition = revivePosition + (float)(AudioSettings.dspTime - reviveDspStarted);
+            if (revive.isPlaying)
+            {
+                Assert.Less(audioPosition, revive.clip.length + 0.25f, "the revive sound must not loop after its end");
+                Assert.AreEqual(audioPosition, revive.time, 0.25f, "the revive sound did not follow its audio clock");
+            }
+            else Assert.GreaterOrEqual(audioPosition, revive.clip.length - 0.25f,
+                "the revive sound stopped before reaching the end of its clip");
             yield return new WaitForSeconds(feedback.recover + 0.2f);
             Assert.AreEqual(0f, feedback.BloodAlpha, "the red stayed after the respawn");
             Assert.AreEqual(0f, feedback.GreyWeight, "the colour did not come back");
@@ -3243,30 +3254,42 @@ namespace PudgeWars.Tests
             var voice = Object.FindAnyObjectByType<HeroVoice>();
             Assert.IsNotNull(voice, "the hero's voice is not created at start");
 
-            var bot = Pudge.All.First(h => h.team == Team.Bots);
-            bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
-            yield return new WaitForSeconds(0.5f); // the spawn line may go on: the hit cuts it off
-            Assert.IsTrue(hook.TryCast(bot.transform.position));
-            yield return new WaitUntil(() => bot.IsHooked);
-            yield return null;
-            Assert.AreEqual("pud_ability_hook", voice.LastTopic, "Pudge says nothing when the hook hits an enemy");
-            yield return new WaitUntil(() => arena.ScoreOf(player).kills == 1);
-            yield return new WaitForSeconds(0.5f);
-            StringAssert.StartsWith("pud_", voice.LastTopic);
-            Assert.AreNotEqual("pud_ability_hook", voice.LastTopic, "no kill line (first blood) after the kill");
+            var voiceSource = voice.GetComponent<AudioSource>();
+            bool loop = voiceSource.loop;
+            // Keep the selected line active while testing interruption, independently of its random duration.
+            voiceSource.loop = true;
+            try
+            {
+                var bot = Pudge.All.First(h => h.team == Team.Bots);
+                bot.transform.position = new Vector3(player.transform.position.x, 0f, arena.pitHalfDepth + 1.5f);
+                yield return new WaitForSeconds(0.5f); // the spawn line may go on: the hit cuts it off
+                Assert.IsTrue(hook.TryCast(bot.transform.position));
+                yield return new WaitUntil(() => bot.IsHooked);
+                yield return null;
+                Assert.AreEqual("pud_ability_hook", voice.LastTopic, "Pudge says nothing when the hook hits an enemy");
+                yield return new WaitUntil(() => arena.ScoreOf(player).kills == 1);
+                yield return new WaitForSeconds(0.5f);
+                StringAssert.StartsWith("pud_", voice.LastTopic);
+                Assert.AreNotEqual("pud_ability_hook", voice.LastTopic, "no kill line (first blood) after the kill");
 
-            // a falling hero cuts its line off for the death line and says nothing else until it is back
-            Assert.IsTrue(voice.IsSpeaking, "the kill line is already over: nothing to cut off");
-            player.StartFalling(Vector3.zero);
-            yield return null;
-            Assert.AreEqual("pud_death", voice.LastTopic, "the kill line goes on instead of the death line");
-            Assert.IsTrue(voice.IsSpeaking);
-            yield return new WaitUntil(() => !player.IsAlive);
-            yield return new WaitForSeconds(1f);
-            Assert.AreEqual("pud_death", voice.LastTopic, "another line came after the death line");
-            yield return new WaitUntil(() => player.IsAlive && !player.IsFalling);
-            yield return null;
-            Assert.AreEqual("pud_respawn", voice.LastTopic, "no respawn line");
+                // a falling hero cuts its line off for the death line and says nothing else until it is back
+                Assert.IsTrue(voice.IsSpeaking, "the kill line is already over: nothing to cut off");
+                player.StartFalling(Vector3.zero);
+                yield return null;
+                Assert.AreEqual("pud_death", voice.LastTopic, "the kill line goes on instead of the death line");
+                Assert.IsTrue(voice.IsSpeaking);
+                yield return new WaitUntil(() => !player.IsAlive);
+                yield return new WaitForSeconds(1f);
+                Assert.AreEqual("pud_death", voice.LastTopic, "another line came after the death line");
+                yield return new WaitUntil(() => player.IsAlive && !player.IsFalling);
+                yield return null;
+                Assert.AreEqual("pud_respawn", voice.LastTopic, "no respawn line");
+            }
+            finally
+            {
+                voiceSource.Stop();
+                voiceSource.loop = loop;
+            }
         }
 
         [UnityTest]

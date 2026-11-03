@@ -12,6 +12,7 @@ namespace PudgeWars.Gameplay
     {
         static SceneLoading instance;
         int active;
+        readonly List<Stack<IEnumerator>> routines = new();
         readonly Queue<(string title, Func<Action<float, string>, IEnumerator> run, float weight)> preparations = new();
         public static bool IsLoading => instance != null && instance.active > 0;
 
@@ -41,6 +42,7 @@ namespace PudgeWars.Gameplay
         {
             var stack = new Stack<IEnumerator>();
             stack.Push(routine);
+            routines.Add(stack);
             try
             {
                 while (stack.Count > 0)
@@ -57,7 +59,8 @@ namespace PudgeWars.Gameplay
             }
             finally
             {
-                while (stack.Count > 0) (stack.Pop() as IDisposable)?.Dispose();
+                routines.Remove(stack);
+                Dispose(stack);
             }
         }
 
@@ -156,6 +159,19 @@ namespace PudgeWars.Gameplay
             finally { preparations.Clear(); active--; }
         }
 
-        void OnDestroy() { if (instance == this) instance = null; }
+        static void Dispose(Stack<IEnumerator> stack)
+        {
+            while (stack.Count > 0) (stack.Pop() as IDisposable)?.Dispose();
+        }
+
+        void OnDestroy()
+        {
+            if (instance == this) instance = null;
+            StopAllCoroutines();
+            // Unity can stop a coroutine on destruction without disposing its nested iterators.
+            // Release scene activation and every progress operation even in that case.
+            foreach (var stack in routines.ToArray()) Dispose(stack);
+            routines.Clear();
+        }
     }
 }

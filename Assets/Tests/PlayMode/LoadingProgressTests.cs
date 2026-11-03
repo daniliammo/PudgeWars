@@ -15,6 +15,47 @@ namespace PudgeWars.Tests
 {
     public class LoadingProgressTests
     {
+        [UnitySetUp]
+        public IEnumerator PrepareScene()
+        {
+            ClearLoading();
+            SceneManager.LoadScene("Arena");
+            yield return null;
+            yield return null;
+        }
+
+        [UnityTearDown]
+        public IEnumerator ReleaseLoading()
+        {
+            ClearLoading();
+            yield return null;
+        }
+
+        static void ClearLoading()
+        {
+            foreach (var boot in Object.FindObjectsByType<StartupScene>()) Object.DestroyImmediate(boot.gameObject);
+            foreach (var loader in Object.FindObjectsByType<SceneLoading>()) Object.DestroyImmediate(loader.gameObject);
+            foreach (var progress in Object.FindObjectsByType<LoadingProgress>()) Object.DestroyImmediate(progress.gameObject);
+            Time.timeScale = 1f;
+            OverlayInput.Captured = false;
+        }
+
+        [UnityTest]
+        public IEnumerator DestroyedLoaderClosesItsProgressAndDiscardsQueuedWork()
+        {
+            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("UI needs a GPU.");
+            bool invoked = false;
+            SceneLoading.Load("Menu");
+            Assert.IsTrue(SceneLoading.DeferPreparation("Cancelled work", () => invoked = true));
+            Assert.IsTrue(LoadingProgress.IsVisible);
+            Object.DestroyImmediate(Object.FindAnyObjectByType<SceneLoading>().gameObject);
+            yield return null;
+            Assert.IsFalse(SceneLoading.IsLoading);
+            Assert.IsFalse(LoadingProgress.IsVisible, "Cancelling a loader must release its progress operation.");
+            Assert.IsFalse(OverlayInput.Captured);
+            Assert.IsFalse(invoked, "A cancelled loader must not run its old callbacks in a later test/scene.");
+        }
+
         [UnityTest]
         public IEnumerator ProgressBarsAreIndependentMonotonicAndBlockInput()
         {
@@ -108,7 +149,7 @@ namespace PudgeWars.Tests
                 Assert.Ignore("Build startup and menu: Pudge Wars → Build Startup Scene / Build Main Menu.");
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("Loading UI needs a GPU.");
             bool deferred = false, invoked = false, sawBar = false;
-            bool earlyDeferred = false, earlyInvoked = false, sawEarlyStage = false;
+            bool earlyDeferred = false, earlyInvoked = false, sawEarlyStage = false, earlyWasPresented = false;
             void Observe(Scene scene, LoadSceneMode mode)
             {
                 if (scene.name == StartupScene.SceneName)
@@ -116,10 +157,8 @@ namespace PudgeWars.Tests
                     deferred = StartupScene.DeferUntilSceneReady(() => invoked = true);
                     earlyDeferred = StartupScene.DeferUntilVisible(() =>
                     {
-                        Assert.IsTrue(sawEarlyStage, "Present Boot's lightweight screen before initial setup.");
-                        Assert.IsTrue(StartupLoadingScreen.IsVisible);
-                        Assert.IsTrue(OverlayInput.Captured);
-                        Assert.IsFalse(SceneLoading.IsLoading, "Initial setup must run before loading Menu.");
+                        earlyWasPresented = sawEarlyStage && StartupLoadingScreen.IsVisible &&
+                            OverlayInput.Captured && !SceneLoading.IsLoading;
                         earlyInvoked = true;
                     }, "Проверка раннего запуска");
                 }
@@ -141,6 +180,7 @@ namespace PudgeWars.Tests
                 Assert.IsTrue(sawBar, "The initial menu load needs its own progress bar.");
                 Assert.IsTrue(deferred && invoked, "Heavy startup callbacks must wait until the real scene is loaded.");
                 Assert.IsTrue(earlyDeferred && earlyInvoked);
+                Assert.IsTrue(earlyWasPresented, "Present Boot's lightweight screen before initial setup and Menu loading.");
                 Assert.IsFalse(StartupLoadingScreen.IsVisible, "The first UI must hand over to scene progress.");
                 Assert.IsNull(Object.FindAnyObjectByType<StartupScene>(), "The temporary startup scene must leave after loading the menu.");
             }
@@ -154,17 +194,16 @@ namespace PudgeWars.Tests
                 Assert.Ignore("Build the menu first: Pudge Wars → Build Main Menu.");
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("Menu rendering needs a GPU.");
             var stages = new HashSet<string>();
-            bool prepared = false, queued = false;
+            bool prepared = false, queued = false, workWasPresented = false, queuedBeforeWork = false;
             void Observe(Scene scene, LoadSceneMode mode)
             {
                 if (scene.name != "Menu") return;
                 queued = SceneLoading.DeferPreparation("Проверка подготовки", () =>
                 {
-                    Assert.IsTrue(stages.Contains("Проверка подготовки"), "Present a stage before starting its work.");
-                    Assert.IsTrue(OverlayInput.Captured);
+                    workWasPresented = stages.Contains("Проверка подготовки") && OverlayInput.Captured;
                     prepared = true;
                 });
-                Assert.IsFalse(prepared, "Scene callbacks must queue heavy work instead of doing it during activation.");
+                queuedBeforeWork = !prepared;
             }
             SceneManager.sceneLoaded += Observe;
             try
@@ -185,6 +224,8 @@ namespace PudgeWars.Tests
                 Assert.AreEqual("Menu", SceneManager.GetActiveScene().name);
                 Assert.IsTrue(sawComplete, "100% must be displayed before the overlay disappears.");
                 Assert.IsTrue(queued && prepared);
+                Assert.IsTrue(queuedBeforeWork, "Scene callbacks must queue heavy work instead of doing it during activation.");
+                Assert.IsTrue(workWasPresented, "Present a stage and block input before starting its work.");
                 Assert.IsTrue(stages.Contains("Создание рельефа меню"), "Rebuild the menu: Pudge Wars → Build Main Menu.");
                 Assert.IsTrue(stages.Contains("Смешивание слоёв земли"));
                 Assert.IsTrue(stages.Contains("Посадка деревьев"));
