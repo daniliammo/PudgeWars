@@ -16,3 +16,6 @@
 *.ogg binary
 *.binka binary
 *.ttf binary
+
+# TerrainData is binary even though Unity uses the .asset extension.
+Assets/Art/Landscape/Terrain/*.asset binary
