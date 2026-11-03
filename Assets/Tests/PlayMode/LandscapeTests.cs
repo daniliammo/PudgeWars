@@ -271,5 +271,31 @@ namespace PudgeWars.Tests
             int x = (int)(local.x / data.size.x * data.alphamapWidth), z = (int)(local.z / data.size.z * data.alphamapHeight);
             return Enumerable.Range(0, data.alphamapLayers).Select(i => weights[z, x, i]).ToArray();
         }
+        [UnityTest]
+        public IEnumerator ProgressiveMenuGenerationKeepsTheSameLandscape()
+        {
+            yield return Load(PudgeNetworkManager.MenuScene);
+            var landscape = Object.FindAnyObjectByType<MenuLandscape>();
+            Assert.IsNotNull(landscape, "Build the menu: Pudge Wars → Build Main Menu.");
+            landscape.Show(MenuSide.Radiant, 37);
+            var expected = landscape.terrain.terrainData;
+            var actual = new TerrainData();
+            try
+            {
+                var camera = Camera.main.transform.position;
+                foreach (var step in MenuTerrain.FillProgressively(actual, landscape.radiant, landscape.cliff, 37, camera))
+                    yield return step;
+                CollectionAssert.AreEqual(expected.GetHeights(0, 0, expected.heightmapResolution, expected.heightmapResolution),
+                    actual.GetHeights(0, 0, actual.heightmapResolution, actual.heightmapResolution));
+                CollectionAssert.AreEqual(expected.GetAlphamaps(0, 0, expected.alphamapResolution, expected.alphamapResolution),
+                    actual.GetAlphamaps(0, 0, actual.alphamapResolution, actual.alphamapResolution));
+                CollectionAssert.AreEqual(expected.treeInstances, actual.treeInstances);
+                for (int layer = 0; layer < expected.detailPrototypes.Length; layer++)
+                    CollectionAssert.AreEqual(expected.GetDetailLayer(0, 0, expected.detailWidth, expected.detailHeight, layer),
+                        actual.GetDetailLayer(0, 0, actual.detailWidth, actual.detailHeight, layer));
+            }
+            finally { Object.Destroy(actual); }
+        }
+
     }
 }

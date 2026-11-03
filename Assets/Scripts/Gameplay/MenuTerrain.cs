@@ -1,3 +1,5 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -43,6 +45,13 @@ namespace PudgeWars.Gameplay
         /// <summary>Fills <paramref name="data"/> (new, or a saved asset) with the side's landscape for <paramref name="seed"/>.</summary>
         public static void Fill(TerrainData data, MenuLandscape.Look look, TerrainLayer cliff, int seed, Vector3 camera)
         {
+            foreach (var step in FillProgressively(data, look, cliff, seed, camera)) { }
+        }
+
+        /// <summary>The same deterministic generation, yielding between small batches for the loading UI.</summary>
+        public static IEnumerable FillProgressively(TerrainData data, MenuLandscape.Look look, TerrainLayer cliff,
+            int seed, Vector3 camera, Action<float, string> report = null)
+        {
             var rng = new System.Random(seed);
             var shape = new Shape
             {
@@ -63,25 +72,55 @@ namespace PudgeWars.Gameplay
             data.size = new Vector3(Width, Height, Length);
             data.alphamapResolution = AlphamapResolution;
             data.baseMapResolution = 512;
-            data.SetHeights(0, 0, Heights(shape));
+            report?.Invoke(0f, "Создание рельефа меню");
+            yield return null;
+            yield return null;
+            var heights = new float[HeightmapResolution, HeightmapResolution];
+            foreach (var step in Heights(shape, heights, report)) yield return step;
+            data.SetHeights(0, 0, heights);
             data.terrainLayers = new[] { look.ground, look.patches, cliff, look.path };
-            TerrainPaint.WriteAlphamaps(data, Alphamaps(data, shape));
-            PlantTrees(data, look, shape, rng, camera);
-            PlantGrass(data, look.grass, shape, rng, look.groundDetailDensity);
+            report?.Invoke(0.15f, "Смешивание слоёв земли");
+            yield return null;
+            yield return null;
+            var alpha = new float[AlphamapResolution, AlphamapResolution, 4];
+            foreach (var step in Alphamaps(data, shape, alpha, report)) yield return step;
+            report?.Invoke(0.58f, "Применение текстур земли");
+            yield return null;
+            yield return null;
+            TerrainPaint.WriteAlphamaps(data, alpha);
+            report?.Invoke(0.62f, "Посадка деревьев");
+            yield return null;
+            yield return null;
+            foreach (var step in PlantTrees(data, look, shape, rng, camera, report)) yield return step;
+            report?.Invoke(0.82f, "Посадка травы");
+            yield return null;
+            yield return null;
+            foreach (var step in PlantGrass(data, look.grass, shape, rng, look.groundDetailDensity, report)) yield return step;
+            report?.Invoke(1f, "Ландшафт меню готов");
         }
 
-        static float[,] Heights(Shape shape)
+        static IEnumerable Heights(Shape shape, float[,] heights, Action<float, string> report)
         {
+            double slice = Time.realtimeSinceStartupAsDouble;
             var origin = Origin;
-            var heights = new float[HeightmapResolution, HeightmapResolution];
             for (int z = 0; z < HeightmapResolution; z++)
-            for (int x = 0; x < HeightmapResolution; x++)
             {
-                float wx = origin.x + x * Width / (HeightmapResolution - 1);
-                float wz = origin.z + z * Length / (HeightmapResolution - 1);
-                heights[z, x] = (GroundHeight(wx, wz, shape) - Bottom) / Height;
+                if (z % 8 == 0)
+                {
+                    report?.Invoke(0.15f * z / HeightmapResolution, "Создание рельефа меню");
+                    if (Time.realtimeSinceStartupAsDouble - slice >= 0.004)
+                    {
+                        yield return null;
+                        slice = Time.realtimeSinceStartupAsDouble;
+                    }
+                }
+                for (int x = 0; x < HeightmapResolution; x++)
+                {
+                    float wx = origin.x + x * Width / (HeightmapResolution - 1);
+                    float wz = origin.z + z * Length / (HeightmapResolution - 1);
+                    heights[z, x] = (GroundHeight(wx, wz, shape) - Bottom) / Height;
+                }
             }
-            return heights;
         }
 
         /// <summary>Flat around Pudge, then rolling hills that rise toward the horizon and toward the sides.</summary>
@@ -98,26 +137,36 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>Layers: 0 the side's ground, 1 its patches, 2 rock on the slopes, 3 the path.</summary>
-        static float[,,] Alphamaps(TerrainData data, Shape shape)
+        static IEnumerable Alphamaps(TerrainData data, Shape shape, float[,,] alpha, Action<float, string> report)
         {
+            double slice = Time.realtimeSinceStartupAsDouble;
             var origin = Origin;
-            var alpha = new float[AlphamapResolution, AlphamapResolution, 4];
             for (int z = 0; z < AlphamapResolution; z++)
-            for (int x = 0; x < AlphamapResolution; x++)
             {
-                float u = (x + 0.5f) / AlphamapResolution, v = (z + 0.5f) / AlphamapResolution;
-                float wx = origin.x + u * Width, wz = origin.z + v * Length;
-                float rock = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(30f, 45f, data.GetSteepness(u, v)));
-                float path = PathShare(wx, wz, shape);
-                float patch = 0.8f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.75f,
-                    Mathf.PerlinNoise(shape.patches.x + wx * 0.06f, shape.patches.y + wz * 0.06f)));
-                float ground = (1f - rock) * (1f - path);
-                alpha[z, x, 0] = ground * (1f - patch);
-                alpha[z, x, 1] = ground * patch;
-                alpha[z, x, 2] = rock;
-                alpha[z, x, 3] = (1f - rock) * path;
+                if (z % 4 == 0)
+                {
+                    report?.Invoke(0.15f + 0.43f * z / AlphamapResolution, "Смешивание слоёв земли");
+                    if (Time.realtimeSinceStartupAsDouble - slice >= 0.004)
+                    {
+                        yield return null;
+                        slice = Time.realtimeSinceStartupAsDouble;
+                    }
+                }
+                for (int x = 0; x < AlphamapResolution; x++)
+                {
+                    float u = (x + 0.5f) / AlphamapResolution, v = (z + 0.5f) / AlphamapResolution;
+                    float wx = origin.x + u * Width, wz = origin.z + v * Length;
+                    float rock = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(30f, 45f, data.GetSteepness(u, v)));
+                    float path = PathShare(wx, wz, shape);
+                    float patch = 0.8f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.5f, 0.75f,
+                        Mathf.PerlinNoise(shape.patches.x + wx * 0.06f, shape.patches.y + wz * 0.06f)));
+                    float ground = (1f - rock) * (1f - path);
+                    alpha[z, x, 0] = ground * (1f - patch);
+                    alpha[z, x, 1] = ground * patch;
+                    alpha[z, x, 2] = rock;
+                    alpha[z, x, 3] = (1f - rock) * path;
+                }
             }
-            return alpha;
         }
 
         static float MainPathX(float z, Shape shape) => z > 0f ? 0f
@@ -181,8 +230,10 @@ namespace PudgeWars.Gameplay
         /// reads against the sky); its landmark tree (Radiant's mango) near Pudge on the left. A one-sided tree (a relief
         /// with nothing behind it) is turned to the <paramref name="camera"/>, which does not move: it always shows its front.
         /// </summary>
-        static void PlantTrees(TerrainData data, MenuLandscape.Look look, Shape shape, System.Random rng, Vector3 camera)
+        static IEnumerable PlantTrees(TerrainData data, MenuLandscape.Look look, Shape shape, System.Random rng, Vector3 camera,
+            Action<float, string> report)
         {
+            double slice = Time.realtimeSinceStartupAsDouble;
             var spots = new List<(MenuLandscape.MenuTree tree, Vector2 at, float scale)>();
             var placed = new List<Vector2>();
             if (look.landmark.prefab != null)
@@ -195,6 +246,15 @@ namespace PudgeWars.Gameplay
             int kind = rng.Next(Mathf.Max(1, look.trees.Length));
             for (int attempt = 0; attempt < TreeCount * 30 && placed.Count < TreeCount && look.trees.Length > 0; attempt++)
             {
+                if (attempt % 128 == 0)
+                {
+                    report?.Invoke(0.62f + 0.2f * placed.Count / TreeCount, "Посадка деревьев");
+                    if (Time.realtimeSinceStartupAsDouble - slice >= 0.004)
+                    {
+                        yield return null;
+                        slice = Time.realtimeSinceStartupAsDouble;
+                    }
+                }
                 // the distance is skewed toward TreeNear
                 float t = (float)rng.NextDouble();
                 float distance = Mathf.Lerp(TreeNear, TreeFar, t * t);
@@ -234,27 +294,45 @@ namespace PudgeWars.Gameplay
         }
 
         /// <summary>The side's grass clumps in patches, off the slopes and the path, thinning out toward the hills.</summary>
-        static void PlantGrass(TerrainData data, GameObject[] grass, Shape shape, System.Random rng, float density)
+        static IEnumerable PlantGrass(TerrainData data, GameObject[] grass, Shape shape, System.Random rng, float density,
+            Action<float, string> report)
         {
+            double slice = Time.realtimeSinceStartupAsDouble;
             data.detailPrototypes = grass.Select(TerrainPaint.Grass).ToArray();
             data.SetDetailScatterMode(DetailScatterMode.InstanceCountMode);
             data.SetDetailResolution(GrassResolution, 32);
-            if (grass.Length == 0) return;
+            if (grass.Length == 0) yield break;
             var layers = grass.Select(_ => new int[GrassResolution, GrassResolution]).ToArray();
             var origin = Origin;
             for (int z = 0; z < GrassResolution; z++)
-            for (int x = 0; x < GrassResolution; x++)
             {
-                float u = (x + 0.5f) / GrassResolution, v = (z + 0.5f) / GrassResolution;
-                var at = new Vector2(origin.x + u * Width, origin.z + v * Length);
-                float d = at.magnitude;
-                if (d < GrassNear || d > GrassFar || at.y > 3f || data.GetSteepness(u, v) > 28f || PathShare(at.x, at.y, shape) > 0.2f) continue;
-                float patch = Mathf.InverseLerp(0.35f, 0.75f, Mathf.PerlinNoise(shape.grass.x + at.x * 0.08f, shape.grass.y + at.y * 0.08f));
-                float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(GrassFar * 0.6f, GrassFar, d));
-                int count = Mathf.FloorToInt(patch * fade * GrassPerCell * density + (float)rng.NextDouble());
-                for (int i = 0; i < count; i++) layers[rng.Next(layers.Length)][z, x]++;
+                if (z % 8 == 0)
+                {
+                    report?.Invoke(0.82f + 0.15f * z / GrassResolution, "Посадка травы");
+                    if (Time.realtimeSinceStartupAsDouble - slice >= 0.004)
+                    {
+                        yield return null;
+                        slice = Time.realtimeSinceStartupAsDouble;
+                    }
+                }
+                for (int x = 0; x < GrassResolution; x++)
+                {
+                    float u = (x + 0.5f) / GrassResolution, v = (z + 0.5f) / GrassResolution;
+                    var at = new Vector2(origin.x + u * Width, origin.z + v * Length);
+                    float d = at.magnitude;
+                    if (d < GrassNear || d > GrassFar || at.y > 3f || data.GetSteepness(u, v) > 28f || PathShare(at.x, at.y, shape) > 0.2f) continue;
+                    float patch = Mathf.InverseLerp(0.35f, 0.75f, Mathf.PerlinNoise(shape.grass.x + at.x * 0.08f, shape.grass.y + at.y * 0.08f));
+                    float fade = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(GrassFar * 0.6f, GrassFar, d));
+                    int count = Mathf.FloorToInt(patch * fade * GrassPerCell * density + (float)rng.NextDouble());
+                    for (int i = 0; i < count; i++) layers[rng.Next(layers.Length)][z, x]++;
+                }
             }
-            for (int i = 0; i < layers.Length; i++) data.SetDetailLayer(0, 0, i, layers[i]);
+            for (int i = 0; i < layers.Length; i++)
+            {
+                report?.Invoke(0.97f + 0.03f * i / layers.Length, "Применение слоёв травы");
+                yield return null;
+                data.SetDetailLayer(0, 0, i, layers[i]);
+            }
         }
 
         static float Range(System.Random rng, float min, float max) => min + (float)rng.NextDouble() * (max - min);

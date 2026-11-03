@@ -1,6 +1,9 @@
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Random = UnityEngine.Random;
 
 namespace PudgeWars.Gameplay
 {
@@ -515,61 +518,95 @@ namespace PudgeWars.Gameplay
             return (stainAtlas, dropAtlas);
         }
 
+        internal static IEnumerable PrepareTexturesProgressively(Action<float> report)
+        {
+            if (stainAtlas == null)
+                foreach (var step in BuildStainAtlas(texture =>
+                {
+                    if (stainAtlas == null) stainAtlas = texture;
+                    else Destroy(texture); // Another scene may have requested its atlas while we yielded.
+                }, report)) yield return step;
+            if (dropAtlas == null) dropAtlas = DropTexture();
+            report?.Invoke(1f);
+        }
+
         /// <summary>
         /// Four stains in a 2 × 2 atlas: a blob with a ragged edge, spikes thrown out of it and drops around; white
         /// (tinted by the material), a little darker at the edge where blood dries first.
         /// </summary>
         static Texture2D StainAtlas()
         {
+            Texture2D result = null;
+            foreach (var step in BuildStainAtlas(texture => result = texture, null)) { }
+            return result;
+        }
+
+        static IEnumerable BuildStainAtlas(Action<Texture2D> complete, Action<float> report)
+        {
+            double slice = Time.realtimeSinceStartupAsDouble;
             const int cell = 128, size = cell * 2;
             var tex = new Texture2D(size, size, TextureFormat.RGBA32, true) { wrapMode = TextureWrapMode.Clamp, name = "BloodStains" };
-            var pixels = new Color32[size * size];
-            var rnd = new System.Random(20261025);
-            float Next(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
-            for (int variant = 0; variant < 4; variant++)
+            bool completed = false;
+            try
             {
-                int ox = variant % 2 * cell, oy = variant / 2 * cell;
-                float radius = Next(0.3f, 0.4f);
-                var waves = new Vector3[6]; // amplitude, frequency, phase
-                for (int k = 0; k < waves.Length; k++) waves[k] = new Vector3(Next(0.02f, 0.09f) / (1f + k * 0.25f), 3 + k * 2 + rnd.Next(2), Next(0f, Mathf.PI * 2f));
-                var dots = new Vector3[8 + rnd.Next(10)]; // x, y, radius
-                for (int k = 0; k < dots.Length; k++)
+                var pixels = new Color32[size * size];
+                var rnd = new System.Random(20261025);
+                float Next(float a, float b) => a + (float)rnd.NextDouble() * (b - a);
+                for (int variant = 0; variant < 4; variant++)
                 {
-                    float a = Next(0f, Mathf.PI * 2f), d = radius * Next(1.15f, 2.2f);
-                    dots[k] = new Vector3(Mathf.Cos(a) * d, Mathf.Sin(a) * d, Next(0.015f, 0.05f) * (1.4f - d));
-                }
-                var spikes = new Vector4[4 + rnd.Next(4)]; // direction x, y, length, width
-                for (int k = 0; k < spikes.Length; k++)
-                {
-                    float a = Next(0f, Mathf.PI * 2f);
-                    spikes[k] = new Vector4(Mathf.Cos(a), Mathf.Sin(a), radius * Next(1.3f, 2f), Next(0.025f, 0.05f));
-                }
-                for (int y = 0; y < cell; y++)
-                for (int x = 0; x < cell; x++)
-                {
-                    float u = (x + 0.5f) / cell * 2f - 1f, v = (y + 0.5f) / cell * 2f - 1f;
-                    float d = Mathf.Sqrt(u * u + v * v), angle = Mathf.Atan2(v, u);
-                    float edge = radius;
-                    foreach (var w in waves) edge += radius * w.x * Mathf.Sin(w.y * angle + w.z);
-                    float alpha = Mathf.Clamp01((edge - d) / 0.03f + 0.5f);
-                    foreach (var dot in dots)
-                        alpha = Mathf.Max(alpha, Mathf.Clamp01((dot.z - Vector2.Distance(new Vector2(u, v), dot)) / 0.02f + 0.5f));
-                    foreach (var s in spikes)
+                    int ox = variant % 2 * cell, oy = variant / 2 * cell;
+                    float radius = Next(0.3f, 0.4f);
+                    var waves = new Vector3[6]; // amplitude, frequency, phase
+                    for (int k = 0; k < waves.Length; k++) waves[k] = new Vector3(Next(0.02f, 0.09f) / (1f + k * 0.25f), 3 + k * 2 + rnd.Next(2), Next(0f, Mathf.PI * 2f));
+                    var dots = new Vector3[8 + rnd.Next(10)]; // x, y, radius
+                    for (int k = 0; k < dots.Length; k++)
                     {
-                        float along = u * s.x + v * s.y, across = Mathf.Abs(-u * s.y + v * s.x);
-                        if (along <= 0f || along > s.z) continue;
-                        float width = s.w * (1f - along / s.z * 0.8f);
-                        alpha = Mathf.Max(alpha, Mathf.Clamp01((width - across) / 0.015f + 0.5f));
+                        float a = Next(0f, Mathf.PI * 2f), d = radius * Next(1.15f, 2.2f);
+                        dots[k] = new Vector3(Mathf.Cos(a) * d, Mathf.Sin(a) * d, Next(0.015f, 0.05f) * (1.4f - d));
                     }
-                    alpha *= Mathf.Clamp01((0.97f - Mathf.Max(Mathf.Abs(u), Mathf.Abs(v))) / 0.05f); // clear border: no bleeding between cells
-                    float shade = Mathf.Lerp(1f, 0.7f, Mathf.Clamp01((d - edge * 0.75f) / (edge * 0.25f)));
-                    byte c = (byte)(255f * shade);
-                    pixels[(oy + y) * size + ox + x] = new Color32(c, c, c, (byte)(255f * alpha));
+                    var spikes = new Vector4[4 + rnd.Next(4)]; // direction x, y, length, width
+                    for (int k = 0; k < spikes.Length; k++)
+                    {
+                        float a = Next(0f, Mathf.PI * 2f);
+                        spikes[k] = new Vector4(Mathf.Cos(a), Mathf.Sin(a), radius * Next(1.3f, 2f), Next(0.025f, 0.05f));
+                    }
+                    for (int y = 0; y < cell; y++)
+                    {
+                        if (y % 4 == 0 && Time.realtimeSinceStartupAsDouble - slice >= 0.004)
+                        {
+                            report?.Invoke((variant + (float)y / cell) / 4f);
+                            yield return null;
+                            slice = Time.realtimeSinceStartupAsDouble;
+                        }
+                        for (int x = 0; x < cell; x++)
+                        {
+                            float u = (x + 0.5f) / cell * 2f - 1f, v = (y + 0.5f) / cell * 2f - 1f;
+                            float d = Mathf.Sqrt(u * u + v * v), angle = Mathf.Atan2(v, u);
+                            float edge = radius;
+                            foreach (var w in waves) edge += radius * w.x * Mathf.Sin(w.y * angle + w.z);
+                            float alpha = Mathf.Clamp01((edge - d) / 0.03f + 0.5f);
+                            foreach (var dot in dots)
+                                alpha = Mathf.Max(alpha, Mathf.Clamp01((dot.z - Vector2.Distance(new Vector2(u, v), dot)) / 0.02f + 0.5f));
+                            foreach (var s in spikes)
+                            {
+                                float along = u * s.x + v * s.y, across = Mathf.Abs(-u * s.y + v * s.x);
+                                if (along <= 0f || along > s.z) continue;
+                                float width = s.w * (1f - along / s.z * 0.8f);
+                                alpha = Mathf.Max(alpha, Mathf.Clamp01((width - across) / 0.015f + 0.5f));
+                            }
+                            alpha *= Mathf.Clamp01((0.97f - Mathf.Max(Mathf.Abs(u), Mathf.Abs(v))) / 0.05f); // clear border: no bleeding between cells
+                            float shade = Mathf.Lerp(1f, 0.7f, Mathf.Clamp01((d - edge * 0.75f) / (edge * 0.25f)));
+                            byte c = (byte)(255f * shade);
+                            pixels[(oy + y) * size + ox + x] = new Color32(c, c, c, (byte)(255f * alpha));
+                        }
+                    }
                 }
+                tex.SetPixels32(pixels);
+                tex.Apply(true, true);
+                complete(tex);
+                completed = true;
             }
-            tex.SetPixels32(pixels);
-            tex.Apply(true, true);
-            return tex;
+            finally { if (!completed) Destroy(tex); }
         }
 
         /// <summary>A round soft-edged drop.</summary>

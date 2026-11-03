@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 
 namespace PudgeWars.Gameplay
@@ -61,7 +62,28 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         static void ResetDraw() => drawn = null;
 
-        void Awake() => Show(Side, UnityEngine.Random.Range(1, int.MaxValue));
+        void Awake()
+        {
+            var side = Side;
+            int seed = UnityEngine.Random.Range(1, int.MaxValue);
+            if (!SceneLoading.DeferPreparation("Создание ландшафта меню",
+                    report => Prepare(side, seed, report), weight: 6f)) Show(side, seed);
+        }
+
+        IEnumerator Prepare(MenuSide side, int seed, Action<float, string> report)
+        {
+            var data = new TerrainData();
+            bool applied = false;
+            try
+            {
+                foreach (var step in MenuTerrain.FillProgressively(data, LookOf(side), cliff, seed, CameraPosition, report))
+                    yield return step;
+                if (this == null) yield break;
+                Apply(data, side, seed);
+                applied = true;
+            }
+            finally { if (!applied && data != null) Destroy(data); }
+        }
 
         void OnDestroy()
         {
@@ -75,6 +97,11 @@ namespace PudgeWars.Gameplay
         {
             var data = new TerrainData();
             MenuTerrain.Fill(data, LookOf(side), cliff, seed, CameraPosition);
+            Apply(data, side, seed);
+        }
+
+        void Apply(TerrainData data, MenuSide side, int seed)
+        {
             if (terrain != null) terrain.terrainData = data;
             if (made != null) Destroy(made);
             made = data;

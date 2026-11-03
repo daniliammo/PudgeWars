@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -18,15 +19,38 @@ namespace PudgeWars.Gameplay
             internal Text stage, percent;
             internal Slider bar;
             public float Progress { get; private set; }
+            public float DisplayedProgress { get; private set; }
             public bool IsDisposed { get; private set; }
 
             public void Report(float progress, string description = null)
             {
                 if (IsDisposed) return;
                 if (!float.IsNaN(progress)) Progress = Mathf.Max(Progress, Mathf.Clamp01(progress));
-                if (bar != null) bar.SetValueWithoutNotify(Progress);
-                if (percent != null) percent.text = $"{Mathf.FloorToInt(Progress * 100f)} %";
                 if (stage != null && description != null) stage.text = description;
+            }
+
+            internal void Animate(float delta)
+            {
+                DisplayedProgress = Mathf.MoveTowards(DisplayedProgress, Progress,
+                    Mathf.Max(0.4f, (Progress - DisplayedProgress) * 6f) * delta);
+                if (bar != null) bar.SetValueWithoutNotify(DisplayedProgress);
+                if (percent != null) percent.text = $"{Mathf.FloorToInt(DisplayedProgress * 100f)} %";
+            }
+
+            /// <summary>Allow a rendered frame before synchronous work, even when called from Start.</summary>
+            public IEnumerator Present(float progress, string description)
+            {
+                Report(progress, description);
+                yield return null;
+                yield return null;
+            }
+
+            public IEnumerator Complete()
+            {
+                Report(1f, "Готово");
+                while (!IsDisposed && owner != null && DisplayedProgress < 1f) yield return null;
+                // Keep a full bar visible before its owner disposes the operation.
+                if (!IsDisposed && owner != null) yield return new WaitForSecondsRealtime(0.12f);
             }
 
             public void Dispose()
@@ -115,7 +139,14 @@ namespace PudgeWars.Gameplay
             CaptureSelection();
         }
 
-        void Update() { if (operations.Count > 0) CaptureSelection(); }
+        void Update()
+        {
+            if (operations.Count == 0) return;
+            CaptureSelection();
+            // A stalled frame must not make the next frame jump straight to the target.
+            float delta = Mathf.Min(Time.unscaledDeltaTime, 0.033f);
+            foreach (var operation in operations) operation.Animate(delta);
+        }
 
         void CaptureSelection()
         {

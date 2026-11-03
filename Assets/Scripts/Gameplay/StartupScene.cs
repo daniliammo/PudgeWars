@@ -13,7 +13,7 @@ namespace PudgeWars.Gameplay
     {
         public const string SceneName = "Boot";
         public const string MenuScene = "Menu";
-        static readonly List<Action> deferred = new();
+        static readonly List<(Action action, string title)> deferred = new();
         public static bool IsActive => SceneManager.GetActiveScene().name == SceneName;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -30,10 +30,10 @@ namespace PudgeWars.Gameplay
         static void FirstSceneReady() => OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
 
         /// <summary>Defer heavy startup services without changing direct Menu/Arena Play Mode entry.</summary>
-        public static bool DeferUntilSceneReady(Action action)
+        public static bool DeferUntilSceneReady(Action action, string title = "Подготовка игровых сервисов")
         {
             if (!IsActive) return false;
-            if (!deferred.Contains(action)) deferred.Add(action);
+            if (!deferred.Exists(item => item.action == action)) deferred.Add((action, title));
             return true;
         }
 
@@ -51,7 +51,8 @@ namespace PudgeWars.Gameplay
             }
             var ready = deferred.ToArray();
             deferred.Clear();
-            foreach (var action in ready) action();
+            foreach (var item in ready)
+                if (!SceneLoading.DeferPreparation(item.title, item.action)) item.action();
         }
 
         IEnumerator Start()

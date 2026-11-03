@@ -59,8 +59,14 @@ namespace PudgeWars.Net
         bool connected;  // to it, at some point
         bool leaving;    // by this player's own choice
         KnowledgeBase knowledge;
+        bool initialized;
 
         void Start()
+        {
+            if (!SceneLoading.DeferPreparation("Подготовка интерфейса меню", Initialize)) Initialize();
+        }
+
+        void Initialize()
         {
             nickname = PlayerPrefs.GetString(NetMenu.NicknameKey, "Игрок");
             address = PlayerPrefs.GetString(NetMenu.AddressKey, "127.0.0.1");
@@ -78,6 +84,7 @@ namespace PudgeWars.Net
             Build();
             shown = Current();
             ShowState();
+            initialized = true;
         }
 
         void OnDestroy()
@@ -101,6 +108,7 @@ namespace PudgeWars.Net
 
         void Update()
         {
+            if (!initialized) return;
             if (NetworkClient.isConnected) connected = true;
             var state = Current();
             if (state != shown)

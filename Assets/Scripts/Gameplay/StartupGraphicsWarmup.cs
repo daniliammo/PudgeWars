@@ -91,31 +91,46 @@ namespace PudgeWars.Gameplay
 
         IEnumerator Prepare()
         {
+            yield return loading.Present(0f, "Загрузка шейдеров эффектов");
             var request = Resources.LoadAsync<Shader>("Effects/Blood");
             while (!request.isDone)
             {
                 loading.Report(request.progress * 0.04f, "Загрузка эффектов");
                 yield return null;
             }
+            yield return loading.Present(0.04f, "Загрузка шейдеров эффектов");
             shaders = Resources.LoadAll<Shader>("Effects");
-            loading.Report(0.06f, "Загрузка звуков эффектов");
             int audioFoldersLoaded = 0;
             foreach (var folder in AudioFolders)
             {
+                string description = folder switch
+                {
+                    "Audio/Items" => "Загрузка звуков предметов",
+                    "Audio/Hook" => "Загрузка звуков хука",
+                    "Audio/Trees" => "Загрузка звуков деревьев",
+                    _ => "Загрузка звуков магазина",
+                };
+                yield return loading.Present(0.06f + 0.14f * audioFoldersLoaded / AudioFolders.Length, description);
                 var clips = Resources.LoadAll<AudioClip>(folder);
                 sounds.AddRange(clips);
                 foreach (var clip in clips)
                     if (clip.loadState == AudioDataLoadState.Unloaded) clip.LoadAudioData();
-                loading.Report(0.06f + 0.14f * ++audioFoldersLoaded / AudioFolders.Length, "Загрузка звуков эффектов");
+                loading.Report(0.06f + 0.14f * ++audioFoldersLoaded / AudioFolders.Length, description);
                 yield return null;
             }
             // These used to be generated on the first item use or body collision (the atlas is CPU-heavy).
+            yield return loading.Present(0.20f, "Подготовка эффектов маны");
             ManaBurst.EnsureAssets();
+            yield return loading.Present(0.21f, "Подготовка аур");
             AuraRange.EnsureAssets();
+            yield return loading.Present(0.22f, "Подготовка эффекта Clarity");
             ClarityLink.PrepareMaterial();
+            yield return loading.Present(0.23f, "Подготовка шрифтов");
             UiFonts.PrepareCommonGlyphs();
-            loading.Report(0.22f, "Подготовка эффектов");
-            yield return null;
+            yield return loading.Present(0.24f, "Создание текстур крови");
+            foreach (var step in BloodSplatter.PrepareTexturesProgressively(
+                         value => loading.Report(0.24f + 0.01f * value, "Создание текстур крови")))
+                yield return step;
             var blood = BloodSplatter.PrepareTextures();
             loading.Report(0.25f, "Подготовка текстур");
             yield return null;
@@ -127,8 +142,9 @@ namespace PudgeWars.Gameplay
                 yield return null;
             }
 
+            yield return loading.Present(0.25f, "Чтение кэша графики");
             OpenCache();
-            loading.Report(0.28f, "Подготовка шейдеров");
+            yield return loading.Present(0.28f, "Подготовка шейдеров");
             if (states != null && states.totalGraphicsStateCount > 0)
             {
                 while (!states.isWarmedUp)
@@ -146,7 +162,7 @@ namespace PudgeWars.Gameplay
                 Debug.Log($"[GraphicsWarmup] Cached GPU states: {states.completedWarmupCount}/{states.totalGraphicsStateCount}");
             }
             StartTrace();
-            loading.Report(0.65f, "Подготовка отрисовки эффектов");
+            yield return loading.Present(0.65f, "Подготовка отрисовки эффектов");
 
             var pipeline = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
             if (pipeline != null)
@@ -175,12 +191,12 @@ namespace PudgeWars.Gameplay
                     }
                 }
             }
-            loading.Report(0.97f, "Подготовка звуков");
+            yield return loading.Present(0.97f, "Ожидание готовности звуков");
             foreach (var clip in sounds)
                 while (clip != null && clip.loadState == AudioDataLoadState.Loading) yield return null;
+            yield return loading.Present(0.99f, "Сохранение кэша графики");
             SaveCache();
-            loading.Report(1f, "Готово");
-            yield return null;
+            yield return loading.Complete();
         }
 
         void ReportDrawProgress() => loading.Report(0.65f + 0.3f * DrawCount / (samples.Count * 2),
