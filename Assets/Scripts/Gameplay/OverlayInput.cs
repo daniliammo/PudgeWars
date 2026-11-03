@@ -9,7 +9,7 @@ namespace PudgeWars.Gameplay
         static bool captured;
         public static bool Captured
         {
-            get => captured || StartupGraphicsWarmup.IsPreparing || LoadingProgress.IsVisible || SceneLoading.IsLoading;
+            get => captured || StartupLoadingScreen.IsVisible || StartupGraphicsWarmup.IsPreparing || LoadingProgress.IsVisible || SceneLoading.IsLoading;
             set => captured = value;
         }
     }

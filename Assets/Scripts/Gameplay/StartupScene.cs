@@ -14,10 +14,12 @@ namespace PudgeWars.Gameplay
         public const string SceneName = "Boot";
         public const string MenuScene = "Menu";
         static readonly List<(Action action, string title)> deferred = new();
+        static readonly List<(Action action, string title)> visibleDeferred = new();
+        StartupLoadingScreen screen;
         public static bool IsActive => SceneManager.GetActiveScene().name == SceneName;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetDeferredStartup() => deferred.Clear();
+        static void ResetDeferredStartup() { deferred.Clear(); visibleDeferred.Clear(); }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Register()
@@ -34,6 +36,14 @@ namespace PudgeWars.Gameplay
         {
             if (!IsActive) return false;
             if (!deferred.Exists(item => item.action == action)) deferred.Add((action, title));
+            return true;
+        }
+
+        /// <summary>Run initial setup only after the lightweight Boot UI has had a chance to render.</summary>
+        public static bool DeferUntilVisible(Action action, string title)
+        {
+            if (!IsActive) return false;
+            if (!visibleDeferred.Exists(item => item.action == action)) visibleDeferred.Add((action, title));
             return true;
         }
 
@@ -55,8 +65,9 @@ namespace PudgeWars.Gameplay
                 if (!SceneLoading.DeferPreparation(item.title, item.action)) item.action();
         }
 
-        IEnumerator Start()
+        void Awake()
         {
+            screen = StartupLoadingScreen.Create(transform);
             if (Camera.main == null)
             {
                 var cameraObject = new GameObject("StartupCamera");
@@ -69,6 +80,11 @@ namespace PudgeWars.Gameplay
                 camera.allowHDR = camera.allowMSAA = false;
                 cameraObject.AddComponent<AudioListener>();
             }
+        }
+
+        IEnumerator Start()
+        {
+            yield return screen.Present(0f, "Подготовка ввода");
             if (EventSystem.current == null)
             {
                 var events = new GameObject("StartupEvents", typeof(EventSystem), typeof(InputSystemUIInputModule));
@@ -76,7 +92,20 @@ namespace PudgeWars.Gameplay
             }
             // A test/editor transition into Boot can still be finishing its own progress operation.
             while (SceneLoading.IsLoading) yield return null;
+            var setup = visibleDeferred.ToArray();
+            visibleDeferred.Clear();
+            for (int i = 0; i < setup.Length; i++)
+            {
+                yield return screen.Present(0.1f + 0.6f * i / setup.Length, setup[i].title);
+                setup[i].action();
+            }
+            yield return screen.Present(0.7f, "Подготовка шрифтов интерфейса");
+            UiFonts.PrepareCommonGlyphs();
+            yield return screen.Present(0.9f, "Подготовка экрана загрузки");
+            yield return screen.Complete();
             SceneLoading.Load(Application.CanStreamedLevelBeLoaded(MenuScene) ? MenuScene : "Arena");
+            StartupGraphicsWarmup.BeginAutomatically();
+            screen.Close();
         }
     }
 }

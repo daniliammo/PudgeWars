@@ -108,10 +108,21 @@ namespace PudgeWars.Tests
                 Assert.Ignore("Build startup and menu: Pudge Wars → Build Startup Scene / Build Main Menu.");
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) Assert.Ignore("Loading UI needs a GPU.");
             bool deferred = false, invoked = false, sawBar = false;
+            bool earlyDeferred = false, earlyInvoked = false, sawEarlyStage = false;
             void Observe(Scene scene, LoadSceneMode mode)
             {
                 if (scene.name == StartupScene.SceneName)
+                {
                     deferred = StartupScene.DeferUntilSceneReady(() => invoked = true);
+                    earlyDeferred = StartupScene.DeferUntilVisible(() =>
+                    {
+                        Assert.IsTrue(sawEarlyStage, "Present Boot's lightweight screen before initial setup.");
+                        Assert.IsTrue(StartupLoadingScreen.IsVisible);
+                        Assert.IsTrue(OverlayInput.Captured);
+                        Assert.IsFalse(SceneLoading.IsLoading, "Initial setup must run before loading Menu.");
+                        earlyInvoked = true;
+                    }, "Проверка раннего запуска");
+                }
             }
             SceneManager.sceneLoaded += Observe;
             try
@@ -121,12 +132,16 @@ namespace PudgeWars.Tests
                 while ((!boot.isDone || StartupScene.IsActive || SceneLoading.IsLoading) && Time.realtimeSinceStartup < deadline)
                 {
                     sawBar |= Object.FindObjectsByType<Text>().Any(t => t.text == "Загрузка главного меню");
+                    sawEarlyStage |= Object.FindObjectsByType<UnityEngine.UI.Text>()
+                        .Any(t => t.name == "StartupStage" && t.text == "Проверка раннего запуска");
                     yield return null;
                 }
                 Assert.AreEqual("Menu", SceneManager.GetActiveScene().name);
                 Assert.IsFalse(SceneLoading.IsLoading);
                 Assert.IsTrue(sawBar, "The initial menu load needs its own progress bar.");
                 Assert.IsTrue(deferred && invoked, "Heavy startup callbacks must wait until the real scene is loaded.");
+                Assert.IsTrue(earlyDeferred && earlyInvoked);
+                Assert.IsFalse(StartupLoadingScreen.IsVisible, "The first UI must hand over to scene progress.");
                 Assert.IsNull(Object.FindAnyObjectByType<StartupScene>(), "The temporary startup scene must leave after loading the menu.");
             }
             finally { SceneManager.sceneLoaded -= Observe; }

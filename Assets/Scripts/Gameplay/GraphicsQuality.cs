@@ -103,6 +103,11 @@ namespace PudgeWars.Gameplay
             Application.quitting -= Restore;
             Application.quitting += Restore;
 #endif
+            if (!StartupScene.DeferUntilVisible(ApplyStartupSettings, "Настройка графики")) ApplyStartupSettings();
+        }
+
+        static void ApplyStartupSettings()
+        {
             Antialiasing = PlayerPrefs.GetInt(AntialiasingKey, 1) != 0;
             FullResolution = PlayerPrefs.GetInt(FullResolutionKey, 0) != 0;
             int saved = PlayerPrefs.GetInt(PresetKey, (int)Default);

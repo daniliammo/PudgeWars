@@ -39,8 +39,13 @@ namespace PudgeWars.Gameplay
         public int DrawCount { get; private set; }
         public float Progress => loading?.Progress ?? 0f;
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoStart()
+        {
+            if (!StartupScene.IsActive) BeginAutomatically();
+        }
+
+        public static void BeginAutomatically()
         {
 #if UNITY_ANDROID && !UNITY_EDITOR
             Begin();
@@ -61,7 +66,7 @@ namespace PudgeWars.Gameplay
 
         IEnumerator Start()
         {
-            // BeforeSceneLoad initializers have unspecified order. Wait for GraphicsQuality and the first scene.
+            // Let the loading UI render before preparing any effects.
             yield return null;
             var prepare = Prepare();
             try

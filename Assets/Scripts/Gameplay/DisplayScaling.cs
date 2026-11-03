@@ -22,6 +22,11 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Apply()
         {
+            if (!StartupScene.DeferUntilVisible(ApplyDisplaySettings, "Настройка экрана")) ApplyDisplaySettings();
+        }
+
+        static void ApplyDisplaySettings()
+        {
 #if UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
             QueryMutter(Screen.currentResolution.width, Screen.currentResolution.height);
 #endif
