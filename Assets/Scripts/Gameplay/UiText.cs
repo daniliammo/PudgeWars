@@ -107,7 +107,7 @@ namespace PudgeWars.Gameplay
         protected override void OnEnable()
         {
             base.OnEnable();
-            if (base.font == null) font = m_FontData.font;
+            font = m_FontData.font;
         }
 
         internal void RefreshOutline()

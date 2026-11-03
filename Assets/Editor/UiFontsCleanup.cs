@@ -10,6 +10,10 @@ namespace PudgeWars.EditorTools
         {
             AssemblyReloadEvents.beforeAssemblyReload += UiFonts.Clear;
             EditorApplication.quitting += UiFonts.Clear;
+            EditorApplication.playModeStateChanged += state =>
+            {
+                if (state == PlayModeStateChange.EnteredEditMode) UiFonts.ResetLoadedLabels();
+            };
         }
     }
 }
