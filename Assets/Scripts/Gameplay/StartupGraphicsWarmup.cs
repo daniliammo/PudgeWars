@@ -11,7 +11,7 @@ using UnityEngine.Rendering.Universal;
 namespace PudgeWars.Gameplay
 {
     /// <summary>
-    /// Android's loading-time preparation: preload effects, draw their real vertex layouts through URP, then
+    /// Player loading-time preparation: preload effects, draw their real vertex layouts through URP, then
     /// trace actual gameplay PSOs for the next launch on this GPU/driver/build. Does not simulate item use.
     /// </summary>
     public sealed class StartupGraphicsWarmup : MonoBehaviour
@@ -47,7 +47,7 @@ namespace PudgeWars.Gameplay
 
         public static void BeginAutomatically()
         {
-#if UNITY_ANDROID && !UNITY_EDITOR
+#if !UNITY_EDITOR
             Begin();
 #endif
         }
