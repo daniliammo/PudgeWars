@@ -50,20 +50,21 @@ jobs:
           key: Library-tests-${{ runner.os }}-${{ hashFiles('ProjectSettings/**', 'Packages/**', 'Assets/**') }}
           restore-keys: |
             Library-tests-${{ runner.os }}-
+      - name: Install pinned GameCI CLI
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ci_directory="$RUNNER_TEMP/game-ci-v0.1.72"
+          mkdir -p "$ci_directory"
+          gh release download v0.1.72 --repo game-ci/cli --pattern game-ci-linux-x64.tar.gz --dir "$ci_directory"
+          printf '1de550a620ee92e05e920b6db7d431621440b60b2577f04b4a997dc92a58cb0a  %s\n' "$ci_directory/game-ci-linux-x64.tar.gz" | sha256sum --check
+          tar -xzf "$ci_directory/game-ci-linux-x64.tar.gz" -C "$ci_directory"
       - name: Run all PlayMode tests
-        uses: game-ci/unity-test-runner@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-        with:
-          unityVersion: auto
-          testMode: playmode
-          coverageEnabled: false
-          artifactsPath: artifacts/tests
-          customParameters: -force-glcore
-          # Results are uploaded below; the workflow does not need checks:write permission.
-          githubToken: ''
+        run: bash Tools/CI/run_tests.sh "$RUNNER_TEMP/game-ci-v0.1.72/game-ci"
       - name: Require real test execution, including graphics tests
         if: always()
         run: python3 Tools/CI/check_test_results.py artifacts/tests
@@ -120,7 +121,7 @@ jobs:
           restore-keys: |
             Library-build-${{ runner.os }}-${{ matrix.platform }}-
       - name: Build saved scenes
-        uses: game-ci/unity-builder@v4
+        uses: game-ci/unity-builder@4423ee75828dff56037d1d1cfdac6b68e3a6ba00 # v4.8.2
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}

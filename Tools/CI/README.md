@@ -4,6 +4,25 @@ Workflow: `.github/workflows/unity-ci.yml`. Версия редактора бе
 `ProjectSettings/ProjectVersion.txt` (сейчас 6000.6.0f1). CI собирает сохранённые в Git
 Boot → Menu → Arena; сборщики сцен и внешние исходники Dota/Blender в CI не требуются.
 
+## Закреплённый запуск тестов
+
+Тесты вызываются через `Tools/CI/run_tests.sh` напрямую официальным GameCI CLI **v0.1.72**.
+Workflow скачивает release-архив и проверяет его фиксированный SHA-256. `unity-test-runner@v4`
+не используется: после обновления этой плавающей ссылки обёртка начала отправлять
+`--no-coverageEnabled`, а парсер CLI v0.1.72 воспринимает его как неизвестный
+`noCoverageEnabled` и завершает команду до Docker/Unity. Правильный флаг —
+`--coverageEnabled=false`. В скрипте также явно переданы каталог проекта до флагов,
+версия Unity из ProjectVersion.txt, PlayMode, OpenGL и shared memory 1025m.
+Учётные данные передаются только через окружение UNITY_*, не в аргументах команды.
+Включён verbose-лог для диагностики следующих этапов. Кэш неисправной обёртки не используется.
+
+Сборщик отдельно закреплён на commit `4423ee75828dff56037d1d1cfdac6b68e3a6ba00`
+(`unity-builder` v4.8.2), чтобы обновление плавающего v4 не меняло реализацию CI.
+Строгая проверка NUnit и запрет сборок до успешных тестов сохранены.
+
+При получении `Unknown argument: noCoverageEnabled` нужно отправить исправленный workflow
+и запустить новый прогон. Повтор старого run использует прежнюю конфигурацию и не применит фикс.
+
 ## Однократная настройка Unity Personal
 
 Открыть [секреты репозитория](https://github.com/daniliammo/PudgeWars/settings/secrets/actions)
@@ -93,6 +112,9 @@ GameCI-образы именно для версии из ProjectVersion.txt и 
 Локальная проверка кода сборщика без закрытия редактора:
 `python3 Tools/Check/compile.py /tmp/pudgewars-ci-check`.
 Сам workflow, активация и три сборки проверяются только реальным запуском GitHub Actions.
+На настоящем CLI v0.1.72 локально воспроизведён старый отказ и проверено, что новый флаг
+доходит до Docker. Для этой проверки Docker намеренно заменён заглушкой, учётные данные
+Unity исключены из окружения; Unity/контейнеры/тесты локально не запускались.
 
 Источники: [GameCI — тесты](https://game.ci/docs/github/test-runner/),
 [GameCI — сборки](https://game.ci/docs/github/builder/),
