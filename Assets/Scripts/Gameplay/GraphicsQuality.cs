@@ -30,6 +30,8 @@ namespace PudgeWars.Gameplay
         /// <summary>Keep the screen render scale at 100% independently of the chosen preset.</summary>
         public static bool FullResolution { get; private set; }
         public static float RenderScale => FullResolution ? 1f : For(Current).renderScale;
+        internal static LightShadows SunShadows => !For(Current).shadows ? LightShadows.None :
+            For(Current).softShadows ? LightShadows.Soft : LightShadows.Hard;
 
         /// <summary>Phones start on Medium, computers on High.</summary>
         public static GraphicsPreset Default => Application.isMobilePlatform ? GraphicsPreset.Medium : GraphicsPreset.High;
