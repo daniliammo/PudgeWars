@@ -50,7 +50,7 @@ namespace PudgeWars.Net
     /// against bots; bots fill the teams up to <see cref="teamSize"/>. The server simulates everything, clients send input and show the result
     /// (<see cref="Simulation.IsProxy"/>). Leaving the network game reloads the arena offline, or returns to the main
     /// menu if the game was started from it.
-    /// A build started with -batchmode or -server runs a dedicated server in the arena (port: -port N, default 7777).
+    /// A Dedicated Server build, or a player started with -batchmode/-server, runs a server directly in the arena.
     /// </summary>
     public class PudgeNetworkManager : NetworkManager
     {
@@ -118,7 +118,15 @@ namespace PudgeWars.Net
             if (StartupScene.DeferUntilSceneReady(CreateOnStartup, "Загрузка сетевых ресурсов")) return;
             if (singleton != null) return;
             var prefabs = NetPrefabs.Load();
-            if (prefabs == null) return;
+            if (prefabs == null)
+            {
+                if (ServerRuntime.IsDedicated)
+                {
+                    Debug.LogError("[Server] Resources/NetPrefabs is missing.");
+                    Application.Quit(1);
+                }
+                return;
+            }
 
             // assembled while inactive, so Awake sees the transport and the settings
             var go = new GameObject("Network");
@@ -133,7 +141,7 @@ namespace PudgeWars.Net
             manager.sendRate = 60;
             manager.maxConnections = 16;
             manager.headlessStartMode = HeadlessStartOptions.DoNothing; // see Start: tests run headless too
-            go.AddComponent<NetMenu>();
+            if (!ServerRuntime.IsDedicated) go.AddComponent<NetMenu>();
             FrameStatsOverlay.NetworkStats = NetworkStatsText;
             go.SetActive(true);
         }
@@ -173,17 +181,35 @@ namespace PudgeWars.Net
         {
             base.Start();
             var args = Environment.GetCommandLineArgs();
+            if (ServerRuntime.IsDedicated)
+            {
+                if (!ServerOptions.TryParse(args, out var settings, out var error))
+                {
+                    Debug.LogError($"[Server] {error}");
+                    Application.Quit(2);
+                    return;
+                }
+                Kcp.port = settings.Port;
+                teamSize = settings.TeamSize;
+                fillWithBots = settings.Bots;
+                botDifficulty = settings.BotDifficulty;
+                maxConnections = 2 * teamSize;
+                Debug.Log($"[Server] Starting KCP/UDP port={Kcp.port}, teamSize={teamSize}, " +
+                    $"bots={fillWithBots}, difficulty={botDifficulty}, sendRate={sendRate}");
+                try
+                {
+                    StartServer();
+                    if (InLobby) StartMatch();
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"[Server] Startup failed: {e}");
+                    Application.Quit(1);
+                }
+                return;
+            }
             int portArg = Array.IndexOf(args, "-port");
             if (portArg >= 0 && portArg + 1 < args.Length && ushort.TryParse(args[portArg + 1], out var port)) Kcp.port = port;
-            // a player build in batch mode (or with -server) is a dedicated server; the editor never starts one by itself.
-            // Nobody would start its match from the lobby: it goes to the arena at once
-            if (args.Contains("-server") || (Application.isBatchMode && !Application.isEditor))
-            {
-                Debug.Log($"[Startup] Dedicated server requested: serverArgument={args.Contains("-server")}, " +
-                    $"batch={Application.isBatchMode}");
-                StartServer();
-                if (InLobby) StartMatch();
-            }
         }
 
         // a dedicated server ticks at the send rate; the editor (tests run headless) keeps its frame rate
@@ -259,6 +285,7 @@ namespace PudgeWars.Net
         public override void OnServerChangeScene(string newSceneName)
         {
             base.OnServerChangeScene(newSceneName);
+            if (ServerRuntime.IsDedicated) return;
             SceneLoading.Observe(newSceneName, () => loadingSceneAsync,
                 () => NetworkServer.active && NetworkServer.isLoadingScene);
         }
@@ -284,6 +311,8 @@ namespace PudgeWars.Net
             NetworkServer.Spawn(match, MatchAssetId);
             FillWithBots();
             foreach (var player in players) SpawnHero(player);
+            if (ServerRuntime.IsDedicated)
+                Debug.Log($"[Server] Ready: scene={ArenaScene}, UDP port={Kcp.port}, heroes={NetHero.OnServer.Count}");
         }
 
         /// <summary>Asks the local network for games; answers come as <see cref="ServerFound"/>.</summary>

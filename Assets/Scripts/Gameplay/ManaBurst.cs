@@ -70,6 +70,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
         {
+            if (ServerRuntime.IsDedicated) return;
             if (instance != null) return;
             var go = new GameObject("ManaBurst");
             DontDestroyOnLoad(go);

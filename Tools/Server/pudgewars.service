@@ -1,0 +1,27 @@
+[Unit]
+Description=Pudge Wars dedicated server
+After=network.target
+
+[Service]
+Type=simple
+User=pudgewars
+Group=pudgewars
+WorkingDirectory=/opt/pudgewars
+Environment=HOME=/var/lib/pudgewars
+StateDirectory=pudgewars
+ExecStart=/opt/pudgewars/run-server.sh -port 7777 -teamSize 3 -bots 1 -botDifficulty 1
+Restart=on-failure
+RestartPreventExitStatus=2
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pudgewars
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

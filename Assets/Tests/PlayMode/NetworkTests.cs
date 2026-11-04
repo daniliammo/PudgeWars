@@ -29,6 +29,35 @@ namespace PudgeWars.Tests
         static bool IsNetworkHero(Pudge h) => h != null && h.GetComponent<NetHero>() != null;
 
         [UnityTest]
+        public IEnumerator DedicatedServerSimulatesBothTeamsWithoutALocalClient()
+        {
+            var manager = PudgeNetworkManager.Instance;
+            manager.fillWithBots = true;
+            manager.teamSize = 3;
+            manager.StartServer();
+            try
+            {
+                yield return null;
+                Assert.IsTrue(NetworkServer.active);
+                Assert.IsFalse(NetworkClient.active, "A dedicated server must not create a local client.");
+                Assert.IsNull(LocalPlayer.Hero, "The offline local hero must leave the server's arena.");
+                Assert.IsFalse(Simulation.IsProxy);
+                Assert.AreEqual(6, NetHero.OnServer.Count);
+                Assert.AreEqual(3, NetHero.OnServer.Count(h => h.Team == Team.Player));
+                Assert.AreEqual(3, NetHero.OnServer.Count(h => h.Team == Team.Bots));
+                Assert.IsNotNull(Object.FindAnyObjectByType<NetMatch>());
+                float before = arena.MatchTime;
+                yield return null;
+                Assert.Greater(arena.MatchTime, before, "The server must advance the match without a local player.");
+            }
+            finally { manager.StopServer(); }
+            float deadline = Time.realtimeSinceStartup + 10f;
+            while ((SceneLoading.IsLoading || LocalPlayer.Hero == null) && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.IsNotNull(LocalPlayer.Hero, "Stopping a test server must restore the offline arena.");
+            Assert.IsFalse(SceneLoading.IsLoading);
+        }
+
+        [UnityTest]
         public IEnumerator HostGameSwapsArenaHeroesForNetworkOnesAndBackOnLeaving()
         {
             var manager = PudgeNetworkManager.Instance;

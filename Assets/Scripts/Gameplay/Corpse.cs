@@ -46,6 +46,7 @@ namespace PudgeWars.Gameplay
         /// <summary>The hero's body starts flying with <paramref name="velocity"/>; null if the hero has no animated model.</summary>
         public static Corpse Spawn(Pudge hero, Vector3 velocity, float gravity)
         {
+            if (ServerRuntime.IsDedicated) return null;
             var animator = hero.GetComponentInChildren<Animator>();
             if (animator == null) return null;
             var model = animator.transform;

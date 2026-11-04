@@ -59,6 +59,7 @@ namespace PudgeWars.Gameplay
         /// <summary>Also callable explicitly in Play Mode; the editor never reads or writes the device cache.</summary>
         public static StartupGraphicsWarmup Begin(GraphicsWarmupLibrary resources = null)
         {
+            if (ServerRuntime.IsDedicated) return null;
             if (instance != null)
             {
                 if (instance.finished && (!instance.Succeeded || instance.configuration != Configuration())) instance.Restart();

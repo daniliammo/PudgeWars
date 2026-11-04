@@ -31,6 +31,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Initialize()
         {
+            if (ServerRuntime.IsDedicated) return;
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
             InstallLoaded();

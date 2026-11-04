@@ -24,6 +24,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
         {
+            if (ServerRuntime.IsDedicated) return;
             if (listener != null) return;
             var go = new GameObject("ClarityLinks");
             DontDestroyOnLoad(go);

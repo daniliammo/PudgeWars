@@ -43,6 +43,9 @@ namespace PudgeWars.EditorTools
     public sealed class StartupSplashBuildSettings : IPreprocessBuildWithReport
     {
         public int callbackOrder => -1000;
-        public void OnPreprocessBuild(BuildReport report) => StartupSceneBuilder.ConfigureSplash();
+        public void OnPreprocessBuild(BuildReport report)
+        {
+            if (!ServerSceneProcessor.IsServerBuild(report)) StartupSceneBuilder.ConfigureSplash();
+        }
     }
 }

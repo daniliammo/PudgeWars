@@ -94,6 +94,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Init()
         {
+            if (ServerRuntime.IsDedicated) return;
             originalPipeline = QualitySettings.renderPipeline;
             originalMipLimit = QualitySettings.globalTextureMipmapLimit;
             originalAnisotropic = QualitySettings.anisotropicFiltering;

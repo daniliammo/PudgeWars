@@ -8,14 +8,26 @@ using UnityEngine;
 
 namespace PudgeWars.EditorTools
 {
-    /// <summary>Build committed scenes as a normal game player, without editor dialogs or scene regeneration.</summary>
+    /// <summary>Build committed scenes as a game player or dedicated server, without scene regeneration.</summary>
     public static class CiBuild
     {
         public static void Build()
         {
+            BuildPlayer(false);
+        }
+
+        public static void BuildLinuxServer()
+        {
+            BuildPlayer(true);
+        }
+
+        static void BuildPlayer(bool server)
+        {
             string output = Argument("-ciOutputPath");
             if (string.IsNullOrWhiteSpace(output)) throw new BuildFailedException("Missing -ciOutputPath.");
             var target = EditorUserBuildSettings.activeBuildTarget;
+            if (server && target != BuildTarget.StandaloneLinux64)
+                throw new BuildFailedException("Linux server requires -buildTarget Linux64 -standaloneBuildSubtarget Server.");
             if (target != BuildTarget.Android && target != BuildTarget.StandaloneLinux64 && target != BuildTarget.StandaloneOSX)
                 throw new BuildFailedException($"Unsupported CI target: {target}");
             if (!BuildPipeline.IsBuildTargetSupported(BuildPipeline.GetBuildTargetGroup(target), target))
@@ -27,16 +39,17 @@ namespace PudgeWars.EditorTools
                 throw new BuildFailedException("CI requires enabled Boot → Menu → Arena scenes in Build Settings.");
             foreach (string scene in scenes)
                 if (!File.Exists(scene)) throw new BuildFailedException($"Scene not found: {scene}");
+            if (server) scenes = new[] { StartupSceneBuilder.ScenePath, "Assets/Scenes/Arena.unity" };
 
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
             // Preserve the project's Mono backend, architectures, quality and committed assets.
-            // In particular, do not inherit a Dedicated Server subtarget from a saved editor profile.
+            // Select the subtarget explicitly instead of inheriting a saved editor profile.
             var options = new BuildPlayerOptions
             {
                 scenes = scenes,
                 locationPathName = output,
                 target = target,
-                subtarget = (int)StandaloneBuildSubtarget.Player,
+                subtarget = (int)(server ? StandaloneBuildSubtarget.Server : StandaloneBuildSubtarget.Player),
                 options = BuildOptions.CompressWithLz4HC,
             };
             if (target == BuildTarget.Android)
@@ -46,7 +59,8 @@ namespace PudgeWars.EditorTools
                 EditorUserBuildSettings.exportAsGoogleAndroidProject = false;
             }
             var report = BuildPipeline.BuildPlayer(options);
-            Debug.Log($"[CiBuild] {target}: {report.summary.result}, {report.summary.totalSize} bytes, {report.summary.totalTime}");
+            Debug.Log($"[CiBuild] {target} {(server ? "Server" : "Player")}: {report.summary.result}, " +
+                $"{report.summary.totalSize} bytes, {report.summary.totalTime}");
             if (report.summary.result != BuildResult.Succeeded)
                 throw new BuildFailedException($"{target} build failed with {report.summary.totalErrors} errors.");
         }

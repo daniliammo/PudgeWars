@@ -16,6 +16,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Initialize()
         {
+            if (ServerRuntime.IsDedicated) return;
             Application.quitting -= Clear;
             Application.quitting += Clear;
             ResetLoadedLabels();

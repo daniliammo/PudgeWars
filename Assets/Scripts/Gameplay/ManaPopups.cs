@@ -47,6 +47,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Listen()
         {
+            if (ServerRuntime.IsDedicated) return;
             Unit.AnyManaRestoredShown -= OnManaRestored;
             Unit.AnyManaRestoredShown += OnManaRestored;
         }

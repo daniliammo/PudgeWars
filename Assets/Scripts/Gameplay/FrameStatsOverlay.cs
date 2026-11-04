@@ -39,6 +39,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
         {
+            if (ServerRuntime.IsDedicated) return;
             if (StartupScene.DeferUntilSceneReady(Spawn, "Подготовка статистики кадров")) return;
             if (FindAnyObjectByType<FrameStatsOverlay>() != null) return;
             var go = new GameObject("FrameStatsOverlay");

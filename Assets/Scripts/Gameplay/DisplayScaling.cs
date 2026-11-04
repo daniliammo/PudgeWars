@@ -22,6 +22,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Apply()
         {
+            if (ServerRuntime.IsDedicated) return;
             if (!StartupScene.DeferUntilVisible(ApplyDisplaySettings, "Настройка экрана")) ApplyDisplaySettings();
         }
 

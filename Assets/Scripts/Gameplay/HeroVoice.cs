@@ -78,6 +78,7 @@ namespace PudgeWars.Gameplay
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Spawn()
         {
+            if (ServerRuntime.IsDedicated) return;
             if (StartupScene.DeferUntilSceneReady(Spawn, "Загрузка голоса героя")) return;
             if (FindAnyObjectByType<HeroVoice>() != null) return;
             var go = new GameObject("HeroVoice");

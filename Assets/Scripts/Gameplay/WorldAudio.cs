@@ -16,6 +16,7 @@ namespace PudgeWars.Gameplay
         /// <summary>The clip at Resources/<paramref name="path"/> (null if there is none).</summary>
         public static AudioClip Clip(string path)
         {
+            if (ServerRuntime.IsDedicated) return null;
             if (!clips.TryGetValue(path, out var clip) || clip == null) clips[path] = clip = Resources.Load<AudioClip>(path);
             return clip;
         }
@@ -25,6 +26,7 @@ namespace PudgeWars.Gameplay
 
         public static bool PlayAt(AudioClip clip, Vector3 position, float volume = 1f)
         {
+            if (ServerRuntime.IsDedicated) return false;
             if (clip == null) return false;
             var go = new GameObject("Sound_" + clip.name);
             go.transform.position = position;

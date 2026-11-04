@@ -82,6 +82,7 @@ namespace PudgeWars.Gameplay
 
         void Awake()
         {
+            if (ServerRuntime.IsDedicated) return;
             Debug.Log($"[Startup] Boot UI creation at {Time.realtimeSinceStartup:F2}s");
             screen = StartupLoadingScreen.Create(transform);
             if (Camera.main == null)
@@ -100,6 +101,12 @@ namespace PudgeWars.Gameplay
 
         IEnumerator Start()
         {
+            if (ServerRuntime.IsDedicated)
+            {
+                Debug.Log("[Startup] Dedicated server: loading Arena directly.");
+                yield return SceneManager.LoadSceneAsync("Arena");
+                yield break;
+            }
             yield return screen.Present(0f, "Подготовка ввода");
             if (EventSystem.current == null)
             {

@@ -17,7 +17,10 @@ namespace PudgeWars.EditorTools
         static readonly string[] ScenePaths = { "Assets/Scenes/Menu.unity", "Assets/Scenes/Arena.unity" };
         public int callbackOrder => -100;
 
-        public void OnPreprocessBuild(BuildReport report) => Build();
+        public void OnPreprocessBuild(BuildReport report)
+        {
+            if (!ServerSceneProcessor.IsServerBuild(report)) Build();
+        }
 
         [MenuItem("Pudge Wars/Build Graphics Warmup Library")]
         public static void Build()

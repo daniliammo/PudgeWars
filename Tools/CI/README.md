@@ -61,7 +61,7 @@ Workflow уже использует минимальные `contents: read`; с
 
 ## Что запускается
 
-- Push в `main`: полный PlayMode-прогон, затем сборки трёх платформ.
+- Push в `main`: полный PlayMode-прогон, затем Android, Linux Player, Linux Server и macOS.
 - Pull request из ветки этого же репозитория: полный PlayMode-прогон.
 - Actions → **Unity tests and builds** → **Run workflow**: тесты и все сборки выбранной ветки.
 
@@ -88,14 +88,21 @@ Android SDK/NDK/JDK, необходимые Unity, находятся внутр
 | --- | --- | --- |
 | `android-apk` | Ubuntu 24.04 | `PudgeWars.apk` |
 | `linux-x86_64` | Ubuntu 24.04 | `PudgeWars-linux-x86_64.tar.gz` с игрой и исполняемыми правами |
+| `linux-server-x86_64` | Ubuntu 24.04 | `PudgeWars-linux-server-x86_64.tar.gz`, Dedicated Server, скрипт запуска и systemd unit |
 | `macos` | macOS 15 Intel | `PudgeWars-macos.zip` с `.app`, упакованным через ditto |
 
-Это обычные игровые клиенты, не Dedicated Server. `CiBuild.Build` явно выбирает Player,
+Android, Linux Player и macOS — обычные игровые клиенты. `CiBuild.Build` явно выбирает Player,
 проверяет сцены и результат BuildPipeline; Mono, архитектуры Android, качество и материалы
 сохраняются из проекта. macOS архитектура берётся из Player Settings. Текущая Android
 конфигурация проекта — Mono/ARMv7; переход на ARM64/IL2CPP здесь не производится.
 Сборка не публикует релиз, не загружает приложение в магазин и не делает git push.
 Artifacts хранятся 7 дней. Для долгого хранения скачать результат или отдельно настроить Releases.
+
+`CiBuild.BuildLinuxServer` отдельно выбирает Linux Server и только сцены Boot → Arena.
+Кэш Library разделён по artifact, поэтому Linux Player и Linux Server не смешиваются.
+Перед упаковкой сервер запускается без графики и проходит проверку готовности;
+при сбое `artifacts/server-smoke.log` сохраняется вместе с логами сборки.
+Сборка и развёртывание описаны в [Tools/Server/README.md](../Server/README.md).
 
 APK использует стандартную debug-подпись Unity, если в проекте не задан свой keystore.
 Это сборка для проверки, не для Google Play; ключ на новом runner может отличаться от
