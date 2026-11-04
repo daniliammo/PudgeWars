@@ -15,4 +15,7 @@ EditorBuildSettings:
     path: Assets/Scenes/Arena.unity
     guid: 35cb07e94e4f9eed7933aa1336cc46f5
   m_configObjects:
+    com.unity.adaptivePerformance.basic.provider_settings: {fileID: 11400000, guid: bef617d0858f44b3ab0871a6a30c3035, type: 2}
+    com.unity.adaptiveperformance.loader_settings: {fileID: 11400000, guid: d79716523640789c896449f062d3b04d, type: 2}
+    com.unity.adaptiveperformance.simulator.provider_settings: {fileID: 11400000, guid: 40942c17fff15f16794516e4cd723d83, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
