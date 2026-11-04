@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Pudge Wars — Собрать свою команду</title>
+  <desc id="description">Место для скриншота. Лобби · Игроки и настройки матча. Рекомендуемый формат: 1920 на 1080 пикселей.</desc>
+  <defs>
+    <radialGradient id="left" cx="0" cy="0.8" r="1">
+      <stop stop-color="#83abbe" stop-opacity=".15"/>
+      <stop offset="1" stop-color="#83abbe" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="right" cx="1" cy="0.1" r=".9">
+      <stop stop-color="#bb9474" stop-opacity=".13"/>
+      <stop offset="1" stop-color="#bb9474" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rule">
+      <stop stop-color="#83abbe" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#c9b17e" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#bb9474" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path fill="#101719" d="M0 0h1600v900H0z"/>
+  <path fill="url(#left)" d="M0 0h1600v900H0z"/>
+  <path fill="url(#right)" d="M0 0h1600v900H0z"/>
+  <rect x="36" y="36" width="1528" height="828" rx="4" fill="none" stroke="#c9b17e" stroke-opacity=".22"/>
+  <path d="M36 112V36h76M1488 36h76v76M1564 788v76h-76M112 864H36v-76" fill="none" stroke="#c9b17e" stroke-opacity=".65" stroke-width="2"/>
+  <g font-family="DejaVu Sans, Arial, sans-serif">
+    <text x="92" y="113" fill="#c9b17e" font-size="24" letter-spacing="5">PUDGE WARS / UNITY</text>
+    <text x="1508" y="113" text-anchor="end" fill="#8d9b9b" font-size="24" letter-spacing="4">03</text>
+    <path d="M480 330h640" stroke="url(#rule)" stroke-width="2"/>
+    <path d="m800 319 11 11-11 11-11-11z" fill="#c9b17e"/>
+    <text x="800" y="444" text-anchor="middle" fill="#eee7d8" font-size="62" font-weight="600">Собрать свою команду</text>
+    <text x="800" y="510" text-anchor="middle" fill="#a6b4b3" font-size="28">Лобби · Игроки и настройки матча</text>
+    <text x="800" y="720" text-anchor="middle" fill="#c9b17e" font-size="22" letter-spacing="4">МЕСТО ДЛЯ СКРИНШОТА</text>
+    <text x="800" y="766" text-anchor="middle" fill="#8d9b9b" font-size="22">16:9 · 1920 × 1080</text>
+  </g>
+</svg>
