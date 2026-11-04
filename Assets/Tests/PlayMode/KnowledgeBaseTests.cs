@@ -5,6 +5,7 @@ using NUnit.Framework;
 using PudgeWars.Gameplay;
 using PudgeWars.Net;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Text = PudgeWars.Gameplay.UiText;
@@ -192,6 +193,77 @@ namespace PudgeWars.Tests
             finally
             {
                 Object.DestroyImmediate(canvas);
+                OverlayInput.Captured = captured;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CraftingGraphShowsNestedPartsQuantitiesUpgradesAndClickableNodes()
+        {
+            var canvas = new GameObject("RecipeTestCanvas", typeof(RectTransform), typeof(Canvas));
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var panel = new GameObject("Panel", typeof(RectTransform)).GetComponent<RectTransform>();
+            panel.SetParent(canvas.transform, false);
+            panel.sizeDelta = new Vector2(700f, 1000f);
+            var items = Enumerable.Range(0, 6).Select(_ => ScriptableObject.CreateInstance<ItemDef>()).ToArray();
+            bool captured = OverlayInput.Captured;
+            try
+            {
+                for (int i = 0; i < items.Length; i++)
+                {
+                    items[i].displayName = $"Graph Item {i}";
+                    items[i].cost = (i + 1) * 100;
+                }
+                var leaf = items[0];
+                var middle = items[2];
+                var result = items[4];
+                var upgrade = items[5];
+                middle.components = new[] { leaf, items[1] };
+                items[3].recipe = true;
+                result.components = new[] { middle, middle, items[3] };
+                upgrade.components = new[] { result, items[1] };
+                var view = KnowledgeBase.Create(panel, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"), items, null);
+                view.Open();
+                view.Select(view.Entries.Single(e => e.item == result));
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                var graph = view.GetComponentInChildren<CraftingGraph>();
+                Assert.IsNotNull(graph);
+                var nodes = graph.GetComponentsInChildren<KnowledgeItemPointer>();
+                Assert.AreEqual(6, nodes.Length, "include the full nested tree, recipe and direct upgrade; group repeated parts");
+                var middleNode = nodes.Single(n => n.item == middle);
+                Assert.AreEqual("×2", middleNode.transform.Find("Quantity").GetComponent<Text>().text);
+                var resultNode = nodes.Single(n => n.item == result);
+                var leafNode = nodes.Single(n => n.item == leaf);
+                Assert.Greater(((RectTransform)resultNode.transform).anchoredPosition.y, ((RectTransform)middleNode.transform).anchoredPosition.y);
+                Assert.Greater(((RectTransform)middleNode.transform).anchoredPosition.y, ((RectTransform)leafNode.transform).anchoredPosition.y);
+                Assert.Greater(((RectTransform)nodes.Single(n => n.item == upgrade).transform).anchoredPosition.y, ((RectTransform)resultNode.transform).anchoredPosition.y);
+                Assert.IsNotNull(nodes.Single(n => n.item == items[3]), "the recipe scroll is a node too");
+                var scroll = graph.GetComponent<ScrollRect>();
+                Assert.IsTrue(scroll.horizontal);
+                Assert.IsFalse(scroll.vertical);
+                Assert.Greater(scroll.content.rect.width, scroll.viewport.rect.width, "a narrow article must allow the whole graph to be reached horizontally");
+                Assert.IsNotNull(scroll.viewport.GetComponent<RectMask2D>());
+                Assert.IsTrue(graph.GetComponentsInChildren<Image>().Where(i => i.name == "Edge").All(i => !i.raycastTarget));
+                Assert.IsFalse(view.GetComponentsInChildren<Text>().Any(t => t.text == "СОСТАВ ПРЕДМЕТА" || t.text == "ИСПОЛЬЗУЕТСЯ В СБОРКЕ"));
+                var articleScroll = graph.transform.parent.GetComponentInParent<ScrollRect>();
+                float articlePosition = articleScroll.verticalNormalizedPosition;
+                var wheel = new PointerEventData(null) { scrollDelta = new Vector2(0f, -3f) };
+                scroll.OnScroll(wheel);
+                yield return new WaitForSecondsRealtime(0.3f);
+                Assert.Less(articleScroll.verticalNormalizedPosition, articlePosition, "the wheel over a recipe must still scroll the article through its smooth scrolling handler");
+                panel.sizeDelta = new Vector2(1800f, 1000f);
+                yield return null;
+                yield return null;
+                Assert.GreaterOrEqual(scroll.content.rect.width, scroll.viewport.rect.width - 0.1f);
+                leafNode.GetComponent<Button>().onClick.Invoke();
+                Assert.AreEqual(leaf, view.Selected.item, "clicking a graph node must navigate to its article");
+                view.Close();
+            }
+            finally
+            {
+                Object.DestroyImmediate(canvas);
+                foreach (var item in items) Object.DestroyImmediate(item);
                 OverlayInput.Captured = captured;
             }
         }

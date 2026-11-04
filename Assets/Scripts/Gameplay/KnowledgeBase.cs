@@ -180,22 +180,15 @@ namespace PudgeWars.Gameplay
                 }
 
                 var parts = entry.item.components ?? Array.Empty<ItemDef>();
-                var components = entry.related.Where(e => e.kind == KnowledgeKind.Item && parts.Contains(e.item)).ToList();
-                if (components.Count > 0)
+                bool hasParts = parts.Any(p => p != null);
+                bool hasUpgrades = entry.related.Any(e => e.kind == KnowledgeKind.Item && e.item.components != null && e.item.components.Contains(entry.item));
+                if (hasParts || hasUpgrades)
                 {
-                    Section(article, "СОСТАВ ПРЕДМЕТА");
-                    Paragraph(article, "Характеристики и способности компонентов наследуются по всей цепочке сборки. В итоговых характеристиках выше они уже учтены.", 22, Muted);
-                    foreach (var component in components)
-                    {
-                        EntryButton(article, component, 76f, () => Select(component), parts.Count(p => p == component.item));
-                        if (!string.IsNullOrWhiteSpace(component.numbers)) Paragraph(article, component.numbers, 21, Muted);
-                    }
-                }
-                var upgrades = entry.related.Where(e => e.kind == KnowledgeKind.Item && !parts.Contains(e.item)).ToList();
-                if (upgrades.Count > 0)
-                {
-                    Section(article, "ИСПОЛЬЗУЕТСЯ В СБОРКЕ");
-                    foreach (var upgrade in upgrades) EntryButton(article, upgrade, 76f, () => Select(upgrade));
+                    Section(article, "СХЕМА СБОРКИ");
+                    Paragraph(article, "Компоненты снизу → готовый предмет → улучшения сверху. Нажми на предмет, чтобы открыть его. Широкую схему можно прокрутить вбок.", 22, Muted);
+                    CraftingGraph.Create(article, entry, entries, font, descriptions, Select);
+                    if (hasParts)
+                        Paragraph(article, "Характеристики и способности компонентов наследуются по всей цепочке сборки. В итоговых характеристиках выше они уже учтены.", 22, Muted);
                 }
                 if (entry.item.recipe)
                     Paragraph(article, "Рецепт докупается вместе с собираемым предметом. В магазине отдельно не продаётся.", 22, Muted);
