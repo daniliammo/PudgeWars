@@ -1909,6 +1909,37 @@ namespace PudgeWars.Tests
             }
         }
 
+        [Test]
+        public void GroupedTimedEffectUsesDurationOfTheApplicationThatEndsLast()
+        {
+            var go = new GameObject("GroupedEffect");
+            go.SetActive(false);
+            var item = ScriptableObject.CreateInstance<ItemDef>();
+            bool proxy = Simulation.IsProxy;
+            try
+            {
+                item.action = ItemAction.EatTree;
+                var hero = go.AddComponent<Pudge>();
+                Simulation.IsProxy = true;
+                float now = Time.time;
+                hero.ApplyRemoteEffects(new[] { (item, now + 8f, 32f), (item, now + 12f, 16f) });
+                var effects = new List<UnitEffect>();
+                hero.Effects(effects);
+                var effect = effects.Single(e => e.item == item);
+                Assert.AreEqual(now + 12f, effect.endsAt);
+                Assert.AreEqual(16f, effect.duration, "the latest-ending Tango may be shorter than an earlier one from a planted tree");
+                hero.ApplyRemoteEffects(new[] { (item, now + 12f, 16f), (item, now + 8f, 32f) });
+                hero.Effects(effects);
+                Assert.AreEqual(16f, effects.Single(e => e.item == item).duration, "grouping must not depend on replication order");
+            }
+            finally
+            {
+                Simulation.IsProxy = proxy;
+                Object.DestroyImmediate(go);
+                Object.DestroyImmediate(item);
+            }
+        }
+
         [UnityTest]
         public IEnumerator EffectsShowAsRoundIconsOverTheAbilityBarWithDescriptions()
         {
@@ -1924,6 +1955,7 @@ namespace PudgeWars.Tests
             ring.auraManaRegen = 1f;
             ring.auraRadius = 8f;
             ring.abilities = new[] { new ItemAbility { name = "Basilius Aura", active = false, description = "" } };
+            var clarity = TestItem(ItemAction.Replenish, 50, 1, stacks: true, range: 4f);
             try
             {
                 yield return new WaitForSeconds(0.2f);
@@ -1962,6 +1994,49 @@ namespace PudgeWars.Tests
                 StringAssert.Contains("+1 маны в секунду", bar.TipText);
                 aura.OnPointerExit(new PointerEventData(EventSystem.current));
 
+                // Timed effects share an always-visible ring and countdown, without hovering either icon.
+                player.AddManaRegen(6f, 4f, clarity);
+                yield return new WaitForSeconds(0.2f);
+                Assert.AreEqual(3, bar.IconCount);
+                var timedIcons = bar.GetComponentsInChildren<EffectIconPointer>()
+                    .Where(p => bar.Shown[p.index].IsTimed).ToArray();
+                Assert.AreEqual(2, timedIcons.Length);
+                var timers = timedIcons.Select(p => p.transform.Find("Timer").GetComponent<Image>()).ToArray();
+                Assert.AreSame(timers[0].sprite, timers[1].sprite, "Tango and Clarity must use the same timer ring");
+                Assert.AreEqual(timers[0].color, timers[1].color);
+                foreach (var pointer in timedIcons)
+                {
+                    var timer = pointer.transform.Find("Timer").GetComponent<Image>();
+                    Assert.IsTrue(timer.enabled);
+                    Assert.AreEqual(Image.FillMethod.Radial360, timer.fillMethod);
+                    Assert.Greater(timer.fillAmount, 0f);
+                    Assert.Less(timer.fillAmount, 1f);
+                    var countdown = pointer.transform.Find("Countdown");
+                    Assert.IsTrue(countdown.gameObject.activeSelf);
+                    Assert.IsNotEmpty(countdown.GetComponentInChildren<UiText>().text);
+                }
+                Assert.IsNull(bar.TipText, "reading the countdown must not require a tooltip");
+                var clarityTimer = timers.Single(t => bar.Shown[t.GetComponentInParent<EffectIconPointer>().index].item == clarity);
+                float remaining = clarityTimer.fillAmount;
+                yield return new WaitForSeconds(0.2f);
+                Assert.Less(clarityTimer.fillAmount, remaining, "the remaining arc must shrink as time passes");
+                remaining = clarityTimer.fillAmount;
+                player.AddManaRegen(6f, 4f, clarity);
+                yield return new WaitForSeconds(0.15f);
+                Assert.AreEqual(3, bar.IconCount, "refreshing Clarity must reuse its icon");
+                Assert.Greater(clarityTimer.fillAmount, remaining, "refreshing Clarity must reset its ring");
+                player.Damage(1f, Pudge.All.First(h => h.team != player.team));
+                yield return new WaitForSeconds(0.2f);
+                Assert.AreEqual(2, bar.IconCount, "interrupted Clarity must leave the bar");
+                var auraAfterClarity = bar.GetComponentsInChildren<EffectIconPointer>().Single(p => !bar.Shown[p.index].IsTimed);
+                Assert.IsFalse(auraAfterClarity.transform.Find("Timer").GetComponent<Image>().enabled);
+                Assert.IsFalse(auraAfterClarity.transform.Find("Countdown").gameObject.activeSelf, "a pooled aura icon must not retain Clarity's countdown");
+                player.AddManaRegen(6f, 0.4f, clarity);
+                yield return new WaitForSeconds(0.15f);
+                Assert.AreEqual(3, bar.IconCount);
+                yield return new WaitForSeconds(0.4f);
+                Assert.AreEqual(2, bar.IconCount, "expired Clarity must leave the bar without any pointer interaction");
+
                 // a creature picked to look at: the row shows its effects, not the player's
                 var bot = Pudge.All.First(h => h.team == Team.Bots);
                 bot.AddRegen(7f, 16f, tango);
@@ -1988,6 +2063,7 @@ namespace PudgeWars.Tests
             {
                 Object.Destroy(tango);
                 Object.Destroy(ring);
+                Object.Destroy(clarity);
             }
         }
 

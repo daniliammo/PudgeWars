@@ -9,8 +9,8 @@ namespace PudgeWars.Gameplay
     /// <summary>
     /// The effects (<see cref="Unit.Effects"/>) of the picked creature (<see cref="SelectionMarker"/>: a hero clicked to
     /// look at it, the own hero by default) as a row of round icons over the ability bar, in the
-    /// bottom centre: the item's picture in a circle with a light rim, a timed effect darkening clockwise as it runs
-    /// out. Hovering an icon shows the effect's name, what it does and the seconds left; an aura's also shows its reach on the
+    /// bottom centre: the item's picture in a circle with a light rim. Every timed effect has a shrinking clockwise
+    /// ring and seconds left, always visible. Hovering shows the effect's name and description; an aura also shows its reach on the
     /// ground around the allies giving it (<see cref="AuraRange"/>). Made by
     /// <see cref="AbilityBar"/> at start; follows its panel (it rises in first person).
     /// </summary>
@@ -21,13 +21,14 @@ namespace PudgeWars.Gameplay
         [Tooltip("Height over the ability bar's top edge, canvas units.")] public float lift = 12f;
         public Color rimColor = new(0.55f, 0.85f, 0.5f);
         [Tooltip("Rim of an aura from another hero or the hero's own item.")] public Color auraRimColor = new(0.45f, 0.7f, 1f);
-        public Color timerColor = new(0f, 0f, 0f, 0.6f);
         [Tooltip("Seconds between refreshes of the list (the timers run every frame).")] public float refreshInterval = 0.1f;
 
         class Icon
         {
             public RectTransform root;
             public Image rim, picture, timer;
+            public RectTransform countdown;
+            public Text seconds;
         }
 
         /// <summary>The ability bar's panel the row stands over.</summary>
@@ -41,7 +42,7 @@ namespace PudgeWars.Gameplay
         TooltipFade tipFade;
         int hovered = -1;
         float nextRefresh;
-        static Sprite circle;
+        static Sprite circle, ring;
 
         /// <summary>The effects shown now (for tests).</summary>
         public IReadOnlyList<UnitEffect> Shown => effects;
@@ -87,7 +88,15 @@ namespace PudgeWars.Gameplay
             {
                 var e = effects[i];
                 icons[i].timer.enabled = e.IsTimed;
-                if (e.IsTimed) icons[i].timer.fillAmount = 1f - Mathf.Clamp01(e.Left / e.duration); // the spent part darkens
+                icons[i].countdown.gameObject.SetActive(e.IsTimed);
+                if (e.IsTimed)
+                {
+                    float left = e.Left;
+                    icons[i].timer.fillAmount = Mathf.Clamp01(left / e.duration);
+                    icons[i].seconds.text = left < 10f
+                        ? left.ToString("0.0", CultureInfo.InvariantCulture)
+                        : Mathf.CeilToInt(left).ToString(CultureInfo.InvariantCulture);
+                }
             }
             if (tip == null) return;
             if (hovered >= 0 && hovered < effects.Count) FillTip(effects[hovered]);
@@ -120,7 +129,9 @@ namespace PudgeWars.Gameplay
                 var e = effects[i];
                 icons[i].root.anchoredPosition = new Vector2(i * (size + gap) + size / 2f, size / 2f);
                 icons[i].picture.sprite = e.item != null ? e.item.icon : null;
-                icons[i].rim.color = !e.IsTimed || e.item.Active?.action == ItemAction.Replenish ? auraRimColor : rimColor;
+                // Duration is presented identically for every item, including Clarity and Tango.
+                icons[i].rim.color = e.IsTimed ? new Color(rimColor.r * 0.25f, rimColor.g * 0.25f, rimColor.b * 0.25f) : auraRimColor;
+                icons[i].timer.color = rimColor;
             }
             if (hovered >= effects.Count) hovered = -1;
             ShowAuraReach(); // the givers may come and go while it is hovered
@@ -145,7 +156,7 @@ namespace PudgeWars.Gameplay
             root.anchorMin = root.anchorMax = new Vector2(0f, 0f);
             root.sizeDelta = Vector2.one * size;
             var rim = root.gameObject.AddComponent<Image>();
-            rim.sprite = Circle();
+            rim.sprite = Ring();
             rim.raycastTarget = true; // the hover
             var hover = root.gameObject.AddComponent<EffectIconPointer>();
             hover.bar = this;
@@ -153,29 +164,50 @@ namespace PudgeWars.Gameplay
 
             var mask = new GameObject("Mask", typeof(RectTransform)).GetComponent<RectTransform>();
             mask.SetParent(root, false);
-            mask.sizeDelta = Vector2.one * (size - 6f);
+            mask.sizeDelta = Vector2.one * (size - 10f);
             var maskImage = mask.gameObject.AddComponent<Image>();
             maskImage.sprite = Circle();
             maskImage.raycastTarget = false;
             mask.gameObject.AddComponent<Mask>().showMaskGraphic = false;
             var pictureRt = new GameObject("Picture", typeof(RectTransform)).GetComponent<RectTransform>();
             pictureRt.SetParent(mask, false);
-            pictureRt.sizeDelta = new Vector2((size - 6f) * 88f / 64f, size - 6f); // Dota's 88 × 64 icons fill the circle
+            pictureRt.sizeDelta = new Vector2((size - 10f) * 88f / 64f, size - 10f); // Dota's 88 × 64 icons fill the circle
             var picture = pictureRt.gameObject.AddComponent<Image>();
             picture.raycastTarget = false;
 
             var timerRt = new GameObject("Timer", typeof(RectTransform)).GetComponent<RectTransform>();
             timerRt.SetParent(root, false);
-            timerRt.sizeDelta = Vector2.one * (size - 6f);
+            timerRt.sizeDelta = Vector2.one * size;
             var timer = timerRt.gameObject.AddComponent<Image>();
-            timer.sprite = Circle();
-            timer.color = timerColor;
+            timer.sprite = Ring();
+            timer.color = rimColor;
             timer.type = Image.Type.Filled;
             timer.fillMethod = Image.FillMethod.Radial360;
             timer.fillOrigin = (int)Image.Origin360.Top;
-            timer.fillClockwise = true;
+            timer.fillClockwise = false; // the spent arc advances clockwise from twelve o'clock
             timer.raycastTarget = false;
-            return new Icon { root = root, rim = rim, picture = picture, timer = timer };
+            var countdown = new GameObject("Countdown", typeof(RectTransform)).GetComponent<RectTransform>();
+            countdown.SetParent(root, false);
+            countdown.anchorMin = countdown.anchorMax = new Vector2(0.5f, 0f);
+            countdown.pivot = new Vector2(0.5f, 0f);
+            countdown.anchoredPosition = new Vector2(0f, 5f);
+            countdown.sizeDelta = new Vector2(size - 18f, 21f);
+            var backing = countdown.gameObject.AddComponent<Image>();
+            backing.color = new Color(0.015f, 0.025f, 0.035f, 0.9f);
+            backing.raycastTarget = false;
+            var secondsRt = new GameObject("Seconds", typeof(RectTransform)).GetComponent<RectTransform>();
+            secondsRt.SetParent(countdown, false);
+            secondsRt.anchorMin = Vector2.zero;
+            secondsRt.anchorMax = Vector2.one;
+            secondsRt.offsetMin = secondsRt.offsetMax = Vector2.zero;
+            var seconds = secondsRt.gameObject.AddComponent<Text>();
+            seconds.font = font;
+            seconds.fontSize = 17;
+            seconds.fontStyle = FontStyle.Bold;
+            seconds.alignment = TextAnchor.MiddleCenter;
+            seconds.color = Color.white;
+            seconds.raycastTarget = false;
+            return new Icon { root = root, rim = rim, picture = picture, timer = timer, countdown = countdown, seconds = seconds };
         }
 
         internal void Hover(int index, bool on)
@@ -255,6 +287,24 @@ namespace PudgeWars.Gameplay
             tex.Apply();
             circle = Sprite.Create(tex, new Rect(0, 0, px, px), new Vector2(0.5f, 0.5f), 100f);
             return circle;
+        }
+
+        /// <summary>The same antialiased ring for the permanent rim and the remaining-duration arc.</summary>
+        static Sprite Ring()
+        {
+            if (ring != null) return ring;
+            const int px = 128;
+            var tex = new Texture2D(px, px, TextureFormat.RGBA32, false) { filterMode = FilterMode.Bilinear, wrapMode = TextureWrapMode.Clamp };
+            for (int y = 0; y < px; y++)
+            for (int x = 0; x < px; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x + 0.5f, y + 0.5f), Vector2.one * (px / 2f));
+                float alpha = Mathf.Clamp01(63.5f - distance) * Mathf.Clamp01(distance - 53f);
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+            }
+            tex.Apply();
+            ring = Sprite.Create(tex, new Rect(0, 0, px, px), new Vector2(0.5f, 0.5f), 100f);
+            return ring;
         }
     }
 }

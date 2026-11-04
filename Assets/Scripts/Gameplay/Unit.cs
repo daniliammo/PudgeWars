@@ -243,7 +243,8 @@ namespace PudgeWars.Gameplay
             foreach (var (item, until, duration) in TimedEffects())
             {
                 timed.TryGetValue(item, out var t);
-                timed[item] = (t.count + 1, Mathf.Max(t.until, until), Mathf.Max(t.duration, duration));
+                // The ring must use the duration of the application that actually ends last.
+                timed[item] = until >= t.until ? (t.count + 1, until, duration) : (t.count + 1, t.until, t.duration);
             }
             foreach (var (item, t) in timed)
             {
