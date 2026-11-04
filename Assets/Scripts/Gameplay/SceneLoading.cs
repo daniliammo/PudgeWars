@@ -30,11 +30,17 @@ namespace PudgeWars.Gameplay
         public static void Load(string scene)
         {
             if (!Application.CanStreamedLevelBeLoaded(scene)) throw new ArgumentException($"Scene is not in the build: {scene}");
+            Debug.Log($"[SceneLoading] Local request at {Time.realtimeSinceStartup:F2}s: " +
+                $"'{SceneManager.GetActiveScene().path}' -> '{scene}'");
             Instance.StartCoroutine(Instance.Run(Instance.LoadLocal(scene)));
         }
 
-        public static void Observe(string scene, Func<AsyncOperation> operation, Func<bool> busy) =>
+        public static void Observe(string scene, Func<AsyncOperation> operation, Func<bool> busy)
+        {
+            Debug.Log($"[SceneLoading] Network request at {Time.realtimeSinceStartup:F2}s: " +
+                $"'{SceneManager.GetActiveScene().path}' -> '{scene}'");
             Instance.StartCoroutine(Instance.Run(Instance.TrackExternal(scene, operation, busy)));
+        }
 
         // Dispose the entire iterator chain if a preparation throws or the loader is stopped.
         // This keeps input and progress ownership from being stranded by a nested coroutine failure.
@@ -85,6 +91,7 @@ namespace PudgeWars.Gameplay
             while (preparations.Count > 0)
             {
                 var item = preparations.Dequeue();
+                Debug.Log($"[SceneLoading] Preparing at {Time.realtimeSinceStartup:F2}s: {item.title}");
                 float from = completed;
                 void Report(float value, string description) => progress.Report(
                     Mathf.Lerp(0.45f, 0.97f, (from + Mathf.Clamp01(value) * item.weight) / total), description);
@@ -99,6 +106,7 @@ namespace PudgeWars.Gameplay
             }
             yield return progress.Present(0.98f, "Подготовка первого кадра");
             yield return progress.Complete();
+            Debug.Log($"[SceneLoading] Ready at {Time.realtimeSinceStartup:F2}s: '{SceneManager.GetActiveScene().path}'");
         }
 
         static string Title(string scene) => Path.GetFileNameWithoutExtension(scene) switch

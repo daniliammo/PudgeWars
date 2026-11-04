@@ -26,7 +26,20 @@ namespace PudgeWars.Gameplay
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            Application.quitting -= OnQuitting;
+            Application.quitting += OnQuitting;
+            Debug.Log($"[Startup] build={Application.buildGUID}, version={Application.version}, " +
+                $"platform={Application.platform}, editor={Application.isEditor}, batch={Application.isBatchMode}, " +
+                $"dataPath='{Application.dataPath}'");
+            var scenes = new List<string>();
+            for (int i = 0; i < SceneManager.sceneCountInBuildSettings; i++)
+                scenes.Add($"{i}: {SceneUtility.GetScenePathByBuildIndex(i)}");
+            Debug.Log("[Startup] Build scenes: " + string.Join("; ", scenes));
         }
+
+        static void OnQuitting() => Debug.Log($"[Startup] Quitting at {Time.realtimeSinceStartup:F2}s, " +
+            $"scene='{SceneManager.GetActiveScene().path}', loading={SceneLoading.IsLoading}, " +
+            $"graphicsPreparing={StartupGraphicsWarmup.IsPreparing}");
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void FirstSceneReady() => OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
@@ -49,6 +62,8 @@ namespace PudgeWars.Gameplay
 
         static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
+            Debug.Log($"[Startup] Scene loaded at {Time.realtimeSinceStartup:F2}s: '{scene.path}', " +
+                $"index={scene.buildIndex}, mode={mode}");
             if (scene.name == SceneName)
             {
                 if (FindAnyObjectByType<StartupScene>() == null)
@@ -67,6 +82,7 @@ namespace PudgeWars.Gameplay
 
         void Awake()
         {
+            Debug.Log($"[Startup] Boot UI creation at {Time.realtimeSinceStartup:F2}s");
             screen = StartupLoadingScreen.Create(transform);
             if (Camera.main == null)
             {
@@ -103,6 +119,8 @@ namespace PudgeWars.Gameplay
             UiFonts.PrepareCommonGlyphs();
             yield return screen.Present(0.9f, "Подготовка экрана загрузки");
             yield return screen.Complete();
+            if (!Application.CanStreamedLevelBeLoaded(MenuScene))
+                Debug.LogWarning("[Startup] Menu is missing from the build; falling back to Arena.");
             SceneLoading.Load(Application.CanStreamedLevelBeLoaded(MenuScene) ? MenuScene : "Arena");
             StartupGraphicsWarmup.BeginAutomatically();
             screen.Close();

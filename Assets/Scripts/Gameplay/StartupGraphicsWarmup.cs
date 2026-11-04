@@ -57,6 +57,10 @@ namespace PudgeWars.Gameplay
         {
             if (instance != null) return instance;
             if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) return null;
+            Debug.Log($"[GraphicsWarmup] Begin at {Time.realtimeSinceStartup:F2}s: " +
+                $"{SystemInfo.graphicsDeviceName}, {SystemInfo.graphicsDeviceType}, " +
+                $"screen={Screen.width}x{Screen.height}, quality={QualitySettings.names[QualitySettings.GetQualityLevel()]}, " +
+                $"preset={GraphicsQuality.Current}, renderScale={GraphicsQuality.RenderScale:F2}");
             var go = new GameObject("StartupGraphicsWarmup");
             DontDestroyOnLoad(go);
             instance = go.AddComponent<StartupGraphicsWarmup>();

@@ -179,6 +179,8 @@ namespace PudgeWars.Net
             // Nobody would start its match from the lobby: it goes to the arena at once
             if (args.Contains("-server") || (Application.isBatchMode && !Application.isEditor))
             {
+                Debug.Log($"[Startup] Dedicated server requested: serverArgument={args.Contains("-server")}, " +
+                    $"batch={Application.isBatchMode}");
                 StartServer();
                 if (InLobby) StartMatch();
             }
