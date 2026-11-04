@@ -1886,6 +1886,7 @@ namespace PudgeWars.Tests
                 StringAssert.Contains("Перезарядка 55 с", text, "the use's cooldown must be in its frame");
                 StringAssert.Contains("+1.5 к восстановлению маны", text, "the inherited bonus is not shown");
                 StringAssert.DoesNotContain("Собирается", text, "the description must not tell what the item is made of");
+                Assert.IsNotNull(shop.TooltipCraftingGraph, "the in-game shop must show crafting as a graph");
                 StringAssert.DoesNotContain("Кольцо, служившее", text, "the part's lore must not come with it");
                 shop.ShowTooltip(ring, -1, row);
                 StringAssert.Contains("Кольцо, служившее наградой величайшим магам.", shop.TooltipText);

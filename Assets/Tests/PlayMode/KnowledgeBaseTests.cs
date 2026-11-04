@@ -269,6 +269,73 @@ namespace PudgeWars.Tests
         }
 
         [UnityTest]
+        public IEnumerator ItemHoverShowsCompleteCraftingGraphInShopSlotsAndMenuLinks()
+        {
+            var canvas = new GameObject("RecipeHoverCanvas", typeof(RectTransform), typeof(Canvas));
+            canvas.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            var area = new GameObject("SmallTooltipArea", typeof(RectTransform)).GetComponent<RectTransform>();
+            area.SetParent(canvas.transform, false);
+            area.sizeDelta = new Vector2(800f, 600f);
+            var over = new GameObject("HoveredItem", typeof(RectTransform)).GetComponent<RectTransform>();
+            over.SetParent(area, false);
+            var items = NetPrefabs.Load().catalog;
+            var boots = items.Single(i => i.displayName == "Arcane Boots");
+            var lens = items.Single(i => i.displayName == "Aether Lens");
+            var presenter = ShopUI.CreateDescriptions(area, Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"));
+            try
+            {
+                foreach (int slot in new[] { -1, 0 })
+                {
+                    presenter.ShowTooltip(boots, slot, over);
+                    yield return null;
+                    var graph = presenter.TooltipCraftingGraph;
+                    Assert.IsNotNull(graph, "both shop/menu links and inventory slots must include the graph");
+                    var names = graph.GetComponentsInChildren<Text>().Where(t => t.name == "Name").Select(t => t.text).ToArray();
+                    CollectionAssert.Contains(names, "Arcane Boots");
+                    CollectionAssert.Contains(names, "Boots of Speed");
+                    CollectionAssert.Contains(names, "Ring of Basilius");
+                    CollectionAssert.Contains(names, "Рецепт: Boots of Speed");
+                    CollectionAssert.Contains(names, "Рецепт: Ring of Basilius");
+                    Assert.IsFalse(graph.GetComponentsInChildren<Graphic>().Any(g => g.raycastTarget), "hover graphs must let buying, using and selling clicks through");
+                    Assert.IsEmpty(graph.GetComponentsInChildren<ScrollRect>(), "all recipe nodes must fit without scrolling inside a hover tooltip");
+                    var tooltip = graph.GetComponentInParent<TooltipFade>();
+                    var tooltipRect = (RectTransform)tooltip.transform;
+                    var tipCorners = new Vector3[4];
+                    var areaCorners = new Vector3[4];
+                    tooltipRect.GetWorldCorners(tipCorners);
+                    area.GetWorldCorners(areaCorners);
+                    Assert.GreaterOrEqual(tipCorners[0].x, areaCorners[0].x - 1f);
+                    Assert.GreaterOrEqual(tipCorners[0].y, areaCorners[0].y - 1f);
+                    Assert.LessOrEqual(tipCorners[2].x, areaCorners[2].x + 1f);
+                    Assert.LessOrEqual(tipCorners[2].y, areaCorners[2].y + 1f);
+                    foreach (var node in graph.GetComponentsInChildren<Image>().Where(i => i.name == "Node"))
+                    {
+                        var nodeCorners = new Vector3[4];
+                        node.rectTransform.GetWorldCorners(nodeCorners);
+                        Assert.GreaterOrEqual(nodeCorners[0].x, tipCorners[0].x - 1f);
+                        Assert.GreaterOrEqual(nodeCorners[0].y, tipCorners[0].y - 1f);
+                        Assert.LessOrEqual(nodeCorners[2].x, tipCorners[2].x + 1f);
+                        Assert.LessOrEqual(nodeCorners[2].y, tipCorners[2].y + 1f);
+                    }
+                    presenter.ShowTooltip(boots, slot, over);
+                    Assert.AreSame(graph, presenter.TooltipCraftingGraph, "gold and cooldown refreshes must reuse the graph");
+                }
+                presenter.ShowTooltip(lens, -1, over);
+                var lensGraph = presenter.TooltipCraftingGraph;
+                Assert.IsNotNull(lensGraph);
+                Assert.IsTrue(lensGraph.GetComponentsInChildren<Text>().Any(t => t.text == "Рецепт: Aether Lens"));
+                var recipe = lens.components.Single(i => i.recipe);
+                presenter.ShowTooltip(recipe, -1, over);
+                Assert.IsNotNull(presenter.TooltipCraftingGraph, "hovering the recipe itself must show what it builds into");
+                presenter.ShowTooltip(items.Single(i => i.displayName == "Clarity"), -1, over);
+                Assert.IsNull(presenter.TooltipCraftingGraph, "an item with no crafting links needs no empty graph");
+                presenter.HideTooltip();
+                Assert.IsNull(presenter.TooltipCraftingGraph);
+            }
+            finally { Object.DestroyImmediate(canvas); }
+        }
+
+        [UnityTest]
         public IEnumerator ItemTooltipFadesWhilePausedDoesNotRestartOnRefreshAndResetsForAnotherItem()
         {
             var canvas = new GameObject("TooltipTestCanvas", typeof(RectTransform), typeof(Canvas));

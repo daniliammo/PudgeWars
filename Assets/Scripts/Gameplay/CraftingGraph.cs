@@ -7,10 +7,15 @@ using Text = PudgeWars.Gameplay.UiText;
 
 namespace PudgeWars.Gameplay
 {
-    /// <summary>A clickable recipe tree with direct upgrades above it. Wide trees scroll without shrinking their labels.</summary>
+    /// <summary>A shared recipe tree: clickable and scrollable in the codex, compact and passive in hover descriptions.</summary>
     public sealed class CraftingGraph : MonoBehaviour
     {
-        const float NodeWidth = 148f, NodeHeight = 132f, Column = 172f, Row = 190f, Padding = 16f;
+        const float Padding = 16f;
+        bool preview;
+        float NodeWidth => preview ? 116f : 148f;
+        float NodeHeight => preview ? 106f : 132f;
+        float Column => preview ? 136f : 172f;
+        float Row => preview ? 152f : 190f;
         static readonly Color Gold = new(0.89f, 0.73f, 0.43f);
         static readonly Color Muted = new(0.61f, 0.67f, 0.72f);
 
@@ -41,7 +46,32 @@ namespace PudgeWars.Gameplay
             graph.Build(root, entry, entries);
         }
 
-        void Build(RectTransform root, KnowledgeEntry entry, IReadOnlyList<KnowledgeEntry> entries)
+        /// <summary>The same complete recipe, fitted into a hover description without taking its pointer input.</summary>
+        public static CraftingGraph CreatePreview(RectTransform parent, ItemDef item, Font font, float width)
+        {
+            var upgrades = item.BuildsInto().ToArray();
+            if (!item.IsAssembled && upgrades.Length == 0) return null;
+            var entries = new Dictionary<ItemDef, KnowledgeEntry>();
+            void Visit(ItemDef definition)
+            {
+                if (definition == null || entries.ContainsKey(definition)) return;
+                entries.Add(definition, new KnowledgeEntry
+                {
+                    item = definition, kind = KnowledgeKind.Item, title = definition.displayName, icon = definition.icon
+                });
+                foreach (var part in definition.components ?? Array.Empty<ItemDef>()) Visit(part);
+            }
+            Visit(item);
+            foreach (var upgrade in upgrades) Visit(upgrade);
+            var root = Rect(parent, "CraftingGraph");
+            var graph = root.gameObject.AddComponent<CraftingGraph>();
+            graph.preview = true;
+            graph.font = font;
+            graph.Build(root, entries[item], entries.Values.ToList(), width);
+            return graph;
+        }
+
+        void Build(RectTransform root, KnowledgeEntry entry, IReadOnlyList<KnowledgeEntry> entries, float previewWidth = 0f)
         {
             var items = entries.Where(e => e.kind == KnowledgeKind.Item && e.item != null).ToDictionary(e => e.item);
             var tree = Tree(entry, 1, items, new HashSet<ItemDef>());
@@ -49,26 +79,37 @@ namespace PudgeWars.Gameplay
             graphWidth = Mathf.Max(tree.width, upgrades.Count * Column) + Padding * 2f;
             graphHeight = (tree.Depth + (upgrades.Count > 0 ? 1 : 0)) * Row + NodeHeight + Padding * 2f;
             var layout = root.gameObject.AddComponent<LayoutElement>();
-            layout.minHeight = layout.preferredHeight = graphHeight + 20f;
-            root.gameObject.AddComponent<Image>().color = new Color(0.045f, 0.06f, 0.08f);
-            scroll = root.gameObject.AddComponent<CraftingGraphScroll>();
+            float scale = preview ? Mathf.Min(1f, Mathf.Max(1f, previewWidth) / graphWidth) : 1f;
+            layout.minHeight = layout.preferredHeight = preview ? graphHeight * scale : graphHeight + 20f;
+            var background = root.gameObject.AddComponent<Image>();
+            background.color = new Color(0.045f, 0.06f, 0.08f);
+            background.raycastTarget = !preview;
+            if (!preview) scroll = root.gameObject.AddComponent<CraftingGraphScroll>();
             viewport = Rect(root, "Viewport");
             Stretch(viewport);
-            viewport.offsetMin = new Vector2(0f, 20f);
-            viewport.gameObject.AddComponent<RectMask2D>();
+            if (!preview)
+            {
+                viewport.offsetMin = new Vector2(0f, 20f);
+                viewport.gameObject.AddComponent<RectMask2D>();
+            }
             content = Rect(viewport, "Content");
-            content.anchorMin = content.anchorMax = content.pivot = new Vector2(0f, 1f);
-            content.sizeDelta = new Vector2(graphWidth, graphHeight);
-            scroll.viewport = viewport;
-            scroll.content = content;
-            scroll.horizontal = true;
-            scroll.vertical = false;
-            scroll.movementType = ScrollRect.MovementType.Clamped;
-            scroll.scrollSensitivity = 35f;
+            if (preview) Stretch(content);
+            else
+            {
+                content.anchorMin = content.anchorMax = content.pivot = new Vector2(0f, 1f);
+                content.sizeDelta = new Vector2(graphWidth, graphHeight);
+                scroll.viewport = viewport;
+                scroll.content = content;
+                scroll.horizontal = true;
+                scroll.vertical = false;
+                scroll.movementType = ScrollRect.MovementType.Clamped;
+                scroll.scrollSensitivity = 35f;
+            }
 
             var diagram = Rect(content, "Diagram");
             diagram.anchorMin = diagram.anchorMax = diagram.pivot = new Vector2(0.5f, 1f);
             diagram.sizeDelta = new Vector2(graphWidth, graphHeight);
+            diagram.localScale = Vector3.one * scale;
             var edges = Rect(diagram, "Connections");
             Stretch(edges);
             var nodes = Rect(diagram, "Nodes");
@@ -84,6 +125,7 @@ namespace PudgeWars.Gameplay
                     position + new Vector2(0f, NodeHeight / 2f));
             }
 
+            if (preview) return;
             var track = Rect(root, "Scrollbar");
             track.anchorMin = Vector2.zero;
             track.anchorMax = new Vector2(1f, 0f);
@@ -104,7 +146,7 @@ namespace PudgeWars.Gameplay
         }
 
         // A repeated part is one branch marked with its required quantity. The path guard also accepts bad cyclic data safely.
-        static Branch Tree(KnowledgeEntry entry, int count, Dictionary<ItemDef, KnowledgeEntry> items, HashSet<ItemDef> path)
+        Branch Tree(KnowledgeEntry entry, int count, Dictionary<ItemDef, KnowledgeEntry> items, HashSet<ItemDef> path)
         {
             var branch = new Branch { entry = entry, count = count, width = Column };
             if (!path.Add(entry.item)) return branch;
@@ -138,22 +180,26 @@ namespace PudgeWars.Gameplay
             var outline = root.gameObject.AddComponent<Outline>();
             outline.effectColor = selected ? Gold : new Color(0.24f, 0.3f, 0.36f);
             outline.effectDistance = new Vector2(1f, -1f);
-            var button = root.gameObject.AddComponent<Button>();
-            button.targetGraphic = image;
-            button.onClick.AddListener(() => select(entry));
-            var pointer = root.gameObject.AddComponent<KnowledgeItemPointer>();
-            pointer.item = entry.item;
-            pointer.descriptions = descriptions;
+            image.raycastTarget = !preview;
+            if (!preview)
+            {
+                var button = root.gameObject.AddComponent<Button>();
+                button.targetGraphic = image;
+                button.onClick.AddListener(() => select(entry));
+                var pointer = root.gameObject.AddComponent<KnowledgeItemPointer>();
+                pointer.item = entry.item;
+                pointer.descriptions = descriptions;
+            }
 
             var icon = Rect(root, "Icon");
-            Place(icon, new Vector2(NodeWidth / 2f, 34f), new Vector2(66f, 48f));
+            Place(icon, new Vector2(NodeWidth / 2f, preview ? 27f : 34f), preview ? new Vector2(50f, 36f) : new Vector2(66f, 48f));
             var picture = icon.gameObject.AddComponent<Image>();
             picture.sprite = entry.icon;
             picture.preserveAspect = true;
             picture.raycastTarget = false;
             picture.color = entry.icon != null ? Color.white : new Color(0.18f, 0.24f, 0.3f);
-            Label(root, "Name", entry.title, new Vector2(NodeWidth / 2f, 83f), new Vector2(NodeWidth - 10f, 44f), 18, Color.white);
-            Label(root, "Cost", $"{entry.item.cost} з.", new Vector2(NodeWidth / 2f, 117f), new Vector2(NodeWidth - 8f, 24f), 17, Gold);
+            Label(root, "Name", entry.title, new Vector2(NodeWidth / 2f, preview ? 63f : 83f), new Vector2(NodeWidth - 10f, preview ? 34f : 44f), preview ? 17 : 18, Color.white);
+            Label(root, "Cost", $"{entry.item.cost} з.", new Vector2(NodeWidth / 2f, NodeHeight - (preview ? 12f : 14f)), new Vector2(NodeWidth - 8f, preview ? 20f : 24f), preview ? 15 : 17, Gold);
             if (count > 1)
                 Label(root, "Quantity", $"×{count}", new Vector2(NodeWidth - 21f, 17f), new Vector2(40f, 28f), 21, Gold);
         }
@@ -201,6 +247,7 @@ namespace PudgeWars.Gameplay
 
         void LateUpdate()
         {
+            if (preview) return;
             float width = viewport.rect.width;
             if (width <= 0f || Mathf.Approximately(width, previousWidth)) return;
             previousWidth = width;

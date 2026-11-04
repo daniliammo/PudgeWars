@@ -87,7 +87,9 @@ namespace PudgeWars.Gameplay
         [NonSerialized] Text[] chargeLabels, cooldownLabels, keyLabels;
         [NonSerialized] Image[] cooldownShades, slotFrames;
         Color slotFrameColor;
-        RectTransform tooltip, tooltipAbilities;
+        RectTransform tooltip, tooltipAbilities, tooltipCrafting;
+        CraftingGraph tooltipGraph;
+        ItemDef tooltipGraphItem;
         TooltipFade tooltipFade;
         Text tooltipName, tooltipPrice, tooltipBonuses, tooltipDetails, tooltipLore, tooltipFooter;
         Font tooltipFont;
@@ -371,10 +373,12 @@ namespace PudgeWars.Gameplay
         public IEnumerable<(string title, bool active)> TooltipAbilities =>
             abilityBoxes.Where(b => b.root.gameObject.activeSelf).Select(b => (b.title.text, b.active));
 
+        public CraftingGraph TooltipCraftingGraph => tooltip != null && tooltip.gameObject.activeSelf ? tooltipGraph : null;
+
         /// <summary>
         /// The item's description beside <paramref name="over"/>: above an inventory slot (<paramref name="slot"/>,
         /// with its charges, key and sale price), left of a shop row (slot -1). From the top: the name with the price
-        /// beside it, the bonuses, more about it, its abilities each in a frame (blue: used on a key, grey: works by
+        /// beside it, the bonuses, more about it, its crafting graph, abilities each in a frame (blue: used on a key, grey: works by
         /// itself), the lore in italics, and for an own slot the key and the sale price.
         /// </summary>
         public void ShowTooltip(ItemDef item, int slot, RectTransform over)
@@ -388,7 +392,15 @@ namespace PudgeWars.Gameplay
             bool wasVisible = tooltip.gameObject.activeSelf;
             tooltip.gameObject.SetActive(true);
             if (changed && wasVisible) tooltipFade.Restart();
+            tooltip.localScale = Vector3.one;
             LayoutRebuilder.ForceRebuildLayoutImmediate(tooltip);
+            // Fit the complete description, including every recipe node, on small canvases too.
+            if (tooltip.parent is RectTransform area)
+            {
+                float scale = Mathf.Min(1f, Mathf.Max(1f, area.rect.width - 16f) / tooltip.rect.width,
+                    Mathf.Max(1f, area.rect.height - 16f) / tooltip.rect.height);
+                tooltip.localScale = Vector3.one * scale;
+            }
             var corners = new Vector3[4];
             over.GetWorldCorners(corners); // bottom-left, top-left, top-right, bottom-right
             float gap = 8f * tooltip.lossyScale.x;
@@ -436,6 +448,7 @@ namespace PudgeWars.Gameplay
             var abilities = sources.Select(a => a.ability).ToList();
             SetText(tooltipBonuses, ItemDescription.Bonuses(item, abilities.Count > 0));
             SetText(tooltipDetails, item.details);
+            FillCrafting(item);
             // the use's numbers go under the first active frame; an item using without one gets a frame of its own
             string numbers = ItemDescription.UseNumbers(item, owner, slot);
             if (item.IsUsable && !abilities.Any(a => a.active))
@@ -486,6 +499,22 @@ namespace PudgeWars.Gameplay
             SetText(tooltipFooter, footer.ToString());
         }
 
+        void FillCrafting(ItemDef item)
+        {
+            // Inventory refreshes call Fill repeatedly: keep the graph and its fade intact for the same item.
+            if (tooltipGraphItem == item) return;
+            tooltipGraphItem = item;
+            if (tooltipGraph != null)
+            {
+                tooltipGraph.gameObject.SetActive(false);
+                Destroy(tooltipGraph.gameObject);
+                tooltipGraph = null;
+            }
+            tooltipCrafting.gameObject.SetActive(true);
+            tooltipGraph = CraftingGraph.CreatePreview(tooltipCrafting, item, tooltipFont, tooltipWidth - 36f);
+            tooltipCrafting.gameObject.SetActive(tooltipGraph != null);
+        }
+
         static void SetText(Text text, string value)
         {
             bool shown = !string.IsNullOrEmpty(value);
@@ -524,6 +553,8 @@ namespace PudgeWars.Gameplay
             if (old != null) Destroy(old.gameObject); // left from an earlier start
             tooltipFont = font != null ? font : goldLabel != null ? goldLabel.font : null;
             abilityBoxes.Clear();
+            tooltipGraph = null;
+            tooltipGraphItem = null;
 
             // the rim: the plate's own image, the content on a darker one inside it
             tooltip = new GameObject("ItemTooltip", typeof(RectTransform)).GetComponent<RectTransform>();
@@ -560,6 +591,9 @@ namespace PudgeWars.Gameplay
 
             tooltipBonuses = Label(body, "Bonuses", 22, Color.white, TextAnchor.UpperLeft, FontStyle.Bold);
             tooltipDetails = Label(body, "Details", 19, new Color(0.82f, 0.84f, 0.88f), TextAnchor.UpperLeft, FontStyle.Normal);
+            tooltipCrafting = Box(body, "Crafting", Color.clear, 0, 6);
+            Label(tooltipCrafting, "Title", 18, new Color(0.89f, 0.73f, 0.43f), TextAnchor.UpperLeft, FontStyle.Bold).text = "СХЕМА СБОРКИ";
+            tooltipCrafting.gameObject.SetActive(false);
             tooltipAbilities = new GameObject("Abilities", typeof(RectTransform)).GetComponent<RectTransform>();
             tooltipAbilities.SetParent(body, false);
             var list = tooltipAbilities.gameObject.AddComponent<VerticalLayoutGroup>();
