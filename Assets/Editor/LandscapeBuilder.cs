@@ -376,7 +376,7 @@ namespace PudgeWars.EditorTools
             if (texture == null) Debug.LogError("[LandscapeBuilder] no 2D texture in " + texturePath);
             var layer = AssetDatabase.LoadAssetAtPath<TerrainLayer>($"{TerrainDir}/{name}.terrainlayer");
             layer.diffuseTexture = texture;
-            layer.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{TerrainDir}/{name}_normal.png"); // most have none: blank in the export
+            layer.normalMapTexture = AssetDatabase.LoadAssetAtPath<Texture2D>($"{TerrainDir}/{name}_normal.png"); // Dota ground layers have normals; procedural cliff/abyss do not
             layer.tileSize = new Vector2(tile, tile);
             layer.metallic = 0f;
             // matte: by default the smoothness comes from the texture's alpha, which is 1 in these images (wet look)

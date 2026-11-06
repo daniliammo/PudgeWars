@@ -21,9 +21,17 @@ LAYERS = {
     'Dire_Path_Stone': ('dire_path/stone_path007_tintable_psd_6b1a56e8.png', (112, 104, 96), 1.0),
     'Dire_Path_Sand': ('dire_path/sand_path009_color_psd_324cc500.png', (118, 104, 86), 0.8),
 }
-# the few normal maps that are not blank in the export, copied as <layer>_normal.png
+# Normal maps keep their original tangent-space values: no colour tint or contrast adjustment.
+# The exported grass and sand materials share normals whose names differ from their colour textures.
 NORMALS = {
+    'Radiant_Grass': 'radiant_ground/grass_long_01b_normal_psd_584fd7c2.png',
+    'Radiant_Flowers': 'radiant_ground/grass_long_00_normal_psd_241b7552.png',
+    'Radiant_Stones': 'radiant_tiles/stone_path001_angled_normal_psd_591cdc8d.png',
+    'Dire_Ground': 'dire_ground/sand_cracked001_normal_psd_c4239674.png',
+    'Dire_Patches': 'dire_ground/dirt_cracked_patchy_00_normal_psd_2367b365.png',
+    'Path_Sand': 'path/sand_path001_normal_psd_5df4e78b.png',
     'Dire_Path_Stone': 'dire_path/stone_path007_normal_psd_48fab4c3.png',
+    'Dire_Path_Sand': 'dire_path/sand_path001_normal_psd_5df4e78b.png',
 }
 
 
